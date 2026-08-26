@@ -21,6 +21,7 @@
   },
   "homepage": "https://github.com/liamsbaldwin/tasks#readme",
   "dependencies": {
+    "katex": "^0.16.11",
     "pdfjs-dist": "^4.10.38"
   },
   "type": "module"

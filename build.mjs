@@ -19,15 +19,26 @@ const samples = readFileSync("src/pdf-samples.json", "utf8");
  * package is not installed, or the host's CSP refuses blob: scripts, the page says so
  * and falls back to asking for the fields.
  */
+const inert = (f) => readFileSync(f, "utf8").replace(/<\/script/gi, "<\\/script");
 const PDFJS_DIR = "node_modules/pdfjs-dist/build/";
 let pdfjsBlocks = "";
 try {
-  const inert = (f) => readFileSync(PDFJS_DIR + f, "utf8").replace(/<\/script/gi, "<\\/script");
   pdfjsBlocks =
-    `<script id="pdfjs-lib" type="text/plain">${inert("pdf.min.mjs")}</script>\n` +
-    `<script id="pdfjs-worker" type="text/plain">${inert("pdf.worker.min.mjs")}</script>\n`;
+    `<script id="pdfjs-lib" type="text/plain">${inert(PDFJS_DIR + "pdf.min.mjs")}</script>\n` +
+    `<script id="pdfjs-worker" type="text/plain">${inert(PDFJS_DIR + "pdf.worker.min.mjs")}</script>\n`;
 } catch {
   console.warn("pdfjs-dist not installed — the mockup will ship without PDF parsing");
+}
+
+/*
+ * KaTeX, for the maths. Rendered to MathML rather than KaTeX's own HTML, which means no
+ * stylesheet and none of its 60-odd font files — the browser draws it with the system
+ * math font. ~270KB instead of ~900KB, and nothing to load from a CDN.
+ */
+try {
+  pdfjsBlocks += `<script id="katex-lib" type="text/plain">${inert("node_modules/katex/dist/katex.min.js")}</script>\n`;
+} catch {
+  console.warn("katex not installed — the mockup will ship without maths rendering");
 }
 
 const block = `${START}\nconst PDF_SAMPLES = ${samples};\n\n${resolver}\n${END}`;

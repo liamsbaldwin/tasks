@@ -46,6 +46,19 @@ save buttons, no edit mode.
 | **Filing** | A source can sit under several ideas. Each tag has an × to unfile it, and a picker adds it to another. |
 | **Writing** | The deck, the prose and the word target are all editable, and the word count updates as you type. |
 
+### Formatting
+
+Four buttons, shown only while you are writing in a field: **bold**, *italic*, bullets,
+and maths. ⌘B / ⌘I work as usual; ⌘⇧8 toggles a list.
+
+Maths is LaTeX between dollars — `$B \propto M^{3/4}$` inline, `$$…$$` on its own line —
+rendered as you type the closing delimiter. Click a rendered formula to get its source
+back. A lone `$` before a space or a digit is left alone, so prices survive.
+
+Rendering is KaTeX, output as **MathML** rather than KaTeX's own HTML: the browser draws
+it with the system maths font, so the page needs neither KaTeX's stylesheet nor its
+sixty-odd font files — ~270KB instead of ~900KB, and nothing fetched from a CDN.
+
 The view is deliberately not re-rendered on every keystroke — replacing the node you are
 typing into steals the caret. Only the rail and the top bar, which never hold the focus,
 refresh live.
