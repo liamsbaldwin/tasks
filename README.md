@@ -34,7 +34,61 @@ glance which projects are heating up and which have gone cold.
 Full reasoning, plus three organisational alternatives that were considered and
 rejected, are in the **Why it works this way** tab of the mockup.
 
+## Adding a source
+
+`src/resolve.js` turns whatever you paste or drag into real bibliographic fields. It has
+no dependencies; `fetch` and pdf.js are injected, so it runs in node and from a `file://`
+page alike. It works down a ladder and stops at the first step that gives a real answer:
+
+| # | Step | Why it is in this position |
+|---|---|---|
+| 1 | An identifier in the input — DOI, arXiv id, ISBN, or a URL containing one | Authoritative, instant, and needs no download at all |
+| 2 | An identifier printed inside the PDF | Papers print their DOI in the page-1 footer; preprints stamp the arXiv id up the margin |
+| 3 | The PDF's embedded metadata, after a junk check | Half of them claim to be called `Microsoft Word - final_v3.doc` |
+| 4 | The layout of page 1 | Largest type block near the top is the title; the first block below it that reads like names is the byline |
+| 5 | A Crossref title search to confirm step 4 | Upgrades a guess to a fact, and discards a hit that is a different paper |
+
+Registries used: Crossref (DOIs), arXiv, Open Library (ISBNs), plus Google Scholar's
+`citation_*` meta tags on publisher landing pages. All allow direct browser requests and
+need no API key.
+
+### It never invents a field
+
+No author, no year, no venue is ever fabricated. If a step could not establish something,
+the source is flagged **Check** and opens into a form with whatever *was* found already
+filled in — usually one field to type, not four. The sidebar lists which step produced
+which field. A scan with no text layer says so and asks for a title. A title read off
+page 1 but never confirmed by a registry is usable but still gets flagged; anything a
+registry confirmed goes straight in.
+
+### The one real limitation
+
+A browser cannot download a PDF from a site that refuses cross-origin requests, and most
+publishers do. The tool says so and asks you to drag the file in instead. This is why
+identifiers are tried first: for arXiv, doi.org, PubMed Central and biorxiv the download
+never has to happen.
+
+## Layout
+
+```
+src/resolve.js          the resolver — no dependencies, fully tested
+src/extract-fixtures.mjs build step: pulls page-1 text runs out of sample PDFs
+build.mjs               inlines the resolver + samples into the mockup
+test/                   25 tests, including six real PDFs through pdf.js
+mockup/marginalia.html  the single-file prototype (generated block inside)
+```
+
+`npm test` runs the suite. `node build.mjs` re-inlines the resolver after editing
+`src/resolve.js` — never edit the generated block in the HTML directly.
+
+Note that the published preview of the mockup is sandboxed with no outbound network and
+cannot load pdf.js, so it replays recorded registry responses and uses page-1 text runs
+extracted from real PDFs at build time. The DOI scan, the layout heuristic and the whole
+ladder run for real in it; only the byte-level PDF parsing and the live HTTP calls are
+stood in for. Opened from disk, it uses the real thing.
+
 ## Intended shape of the real thing
+
 
 A single local HTML file, opened from disk, with no server and no account. On first
 run it asks for a folder and then reads/writes:

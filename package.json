@@ -1,0 +1,24 @@
+{
+  "name": "tasks",
+  "version": "1.0.0",
+  "description": "A private cockpit for running personal research projects that end in an essay and then a video: **idea \u2192 reading \u2192 notes \u2192 draft \u2192 cut**.",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/liamsbaldwin/tasks.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/liamsbaldwin/tasks/issues"
+  },
+  "homepage": "https://github.com/liamsbaldwin/tasks#readme",
+  "dependencies": {
+    "pdfjs-dist": "^4.10.38"
+  },
+  "type": "module"
+}
