@@ -22,6 +22,15 @@ const ARXIV_OLD = /arxiv[:\s/]*([a-z-]+(?:\.[a-z]{2})?\/\d{7})(v\d+)?/i;
 const ISBN_RE = /\b(?:isbn[:\s-]*)?((?:97[89][-\s]?)?(?:\d[-\s]?){9}[\dxX])\b/i;
 const PMCID_RE = /\bPMC(\d{6,8})\b/i;
 
+/** id-in-the-URL → DOI, for archives whose DOI suffix *is* that id. */
+const DERIVABLE = [
+  [/jstor\.org\/stable\/(?:pdf\/)?(\d{4,10})/i,                    "10.2307/", "jstor"],
+  [/nber\.org\/(?:papers|system\/files\/working_papers)\/(w\d{3,6})/i, "10.3386/", "nber"],
+  [/nature\.com\/articles\/([a-z0-9-]+)/i,                          "10.1038/", null],
+  [/ssrn\.com\/.*?abstract_id=(\d{4,10})/i,                          "10.2139/ssrn.", "ssrn"],
+  [/ssrn\.com\/abstract=(\d{4,10})/i,                                "10.2139/ssrn.", "ssrn"],
+];
+
 /** A DOI printed in a PDF usually collides with the punctuation after it. */
 export function tidyDoi(raw) {
   let d = raw.trim().replace(/[.,;:]+$/, "");
@@ -49,8 +58,22 @@ export function parseIdentifiers(text) {
     if (a) out.arxiv = a[1];
   }
 
+  // Several archives mint DOIs mechanically from an id that is sitting in the URL (and,
+  // for JSTOR, in the "Stable URL:" line it prints on its cover page). Deriving the DOI
+  // means one Crossref call and no download — no CORS problem, nothing to parse.
+  for (const [re, prefix, key] of DERIVABLE) {
+    const m = s.match(re);
+    if (!m) continue;
+    if (key) out[key] = m[1];
+    if (!out.doi) out.doi = prefix + m[1].toLowerCase();
+    break;
+  }
+
   const pmc = s.match(PMCID_RE) || s.match(/ncbi\.nlm\.nih\.gov\/pmc\/articles\/PMC(\d+)/i);
   if (pmc) out.pmcid = "PMC" + pmc[1];
+
+  const pmid = s.match(/pubmed\.ncbi\.nlm\.nih\.gov\/(\d{6,9})/i) || s.match(/\bPMID:?\s*(\d{6,9})\b/i);
+  if (pmid) out.pmid = pmid[1];
 
   // Only trust a bare ISBN if the string says so, or it is an isbn-shaped URL segment;
   // otherwise long digit runs in page text produce nonsense.
@@ -92,6 +115,10 @@ export function cleanTitle(t) {
 
 // Words that show up in titles and subtitles but essentially never in an author list.
 const PROSE_WORDS = /\b(the|of|a|an|to|in|for|on|with|how|why|what|that|from|have|has|been|its|toward|towards|against|between|through|about)\b/gi;
+// Library and repository stamps carry today's date and the reader's IP address. Harvesting
+// a "year" out of one is how a 1987 paper ends up filed under 2026.
+const JUNK_LINE = /^(downloaded from|this content downloaded|all use subject to|©|copyright|all rights reserved|page \d+|\d+$)|about\.jstor\.org\/terms|is a not-for-profit service/i;
+
 const PUBLISHER_RE = /\b(press|publish\w*|books|verlag|editions|éditions|imprint|&\s*co\b)/i;
 const AFFIL_WORDS = /\b(universit|institut|department|laborator|college|school|academ|centre|center|inc\.|llc|gmbh|hospital|foundation|press|dept)\w*/i;
 
@@ -231,7 +258,7 @@ export function toLines(page) {
       };
     })
     .filter(l => l.text.length > 2)
-    .filter(l => !/^(downloaded from|©|copyright|all rights reserved|page \d+|\d+$)/i.test(l.text))
+    .filter(l => !JUNK_LINE.test(l.text))
     .sort((a, b) => b.y - a.y);               // PDF origin is bottom-left: top of page first
 }
 
@@ -293,6 +320,61 @@ export function guessFromLayout(page) {
 
   const ok = title && title.length >= 8 && authors.length > 0;
   return { title: title || null, authors, venue, year, kind, confidence: ok ? "guess" : "failed" };
+}
+
+/**
+ * JSTOR (and several other archives) prepend a cover page carrying a labelled citation:
+ *   Signaling Games and Stable Equilibria
+ *   Author(s): In-Koo Cho and David M. Kreps
+ *   Source: The Quarterly Journal of Economics, Vol. 102, No. 2 (May, 1987), pp. 179-222
+ *   Published by: Oxford University Press
+ *   Stable URL: https://www.jstor.org/stable/1885060
+ * That is better structured than anything the layout heuristic could infer, and it works
+ * with no network at all.
+ */
+export function parseCoverCitation(text) {
+  const t = String(text || "").replace(/\s+/g, " ");
+  if (!/\bAuthor\(s\):/i.test(t)) return null;
+
+  const between = (start, ends) => {
+    const re = new RegExp(start + "\\s*([\\s\\S]*?)\\s*(?:" + ends + "|$)", "i");
+    return ((t.match(re) || [])[1] || "").trim().replace(/^[,;:\s]+|[,;:\s]+$/g, "");
+  };
+
+  const title = cleanTitle(t.split(/\bAuthor\(s\):/i)[0]);
+  const authors = parseAuthorLine(
+    between("\\bAuthor\\(s\\):", "\\bReviewed work|\\bSource:|\\bPublished by:|\\bStable URL:")
+  );
+  const source = between("\\bSource:", "\\bPublished by:|\\bStable URL:");
+  const publisher = between("\\bPublished by:", "\\bStable URL:|\\bJSTOR|\\bYour use of");
+
+  // "The Quarterly Journal of Economics, Vol. 102, No. 2 (May, 1987), pp. 179-222" — and
+  // JSTOR often repeats the date first, so cut at a volume, a month, or a bare year.
+  const MONTH = "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec";
+  const venue = source
+    .split(new RegExp(`,?\\s*(?:Vol\\.|No\\.|New Series|pp\\.|\\(|(?:${MONTH})[a-z]*\\.?,?\\s*\\d{4}|\\d{4}\\b)`, "i"))[0]
+    .replace(/\s+([,.])/g, "$1")
+    .replace(/[,;:\s]+$/, "")
+    .trim();
+  const year = Number((source.match(/\b(1[6-9]\d\d|20[0-2]\d)\b/) || [])[1]) || null;
+
+  const ids = parseIdentifiers(t);
+  if (!title || !authors.length) return null;
+  return {
+    title, authors, year,
+    venue: venue || publisher || "",
+    kind: "paper",
+    doi: ids.doi || null,
+    url: ids.jstor ? `https://www.jstor.org/stable/${ids.jstor}` : null,
+  };
+}
+
+/** Is this an archive's cover sheet rather than the paper's own first page? */
+export function isCoverPage(page) {
+  const t = page.items.map(i => i.str).join(" ");
+  return /\bAuthor\(s\):/i.test(t) ||
+         /JSTOR is a not-for-profit/i.test(t) ||
+         /This content downloaded from/i.test(t);
 }
 
 /* ------------------------------------------------------------------ registries */
@@ -400,6 +482,27 @@ export async function fromOpenLibrary(isbn, fetchImpl) {
     kind: "book",
     url: b.url || null,
     cover: b.cover?.medium || null,
+  };
+}
+
+/** PubMed, for the many links that carry a PMID and nothing else. */
+export async function fromPubmed(pmid, fetchImpl, db = "pubmed") {
+  const j = await getJson(
+    `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=${db}&id=${encodeURIComponent(pmid)}&retmode=json`,
+    fetchImpl);
+  const rec = j.result?.[j.result?.uids?.[0]];
+  if (!rec || rec.error) return null;
+  return {
+    title: cleanTitle(rec.title),
+    // NCBI writes bylines surname-first with bare initials: "Bettencourt LM"
+    authors: (rec.authors || []).filter(a => a.authtype === "Author" || !a.authtype).map(a => {
+      const m = String(a.name).match(/^(.+?)\s+([A-Z]{1,3})$/);
+      return m ? m[2].split("").map(i => i + ".").join(" ") + " " + m[1] : a.name;
+    }),
+    year: Number(String(rec.pubdate || "").match(/\d{4}/)?.[0]) || null,
+    venue: rec.fulljournalname || rec.source || "",
+    kind: "paper",
+    doi: (rec.articleids || []).find(i => i.idtype === "doi")?.value || null,
   };
 }
 
@@ -534,7 +637,18 @@ export async function resolveSource(input, deps = {}) {
     const viaDoc = await lookupIds(inDoc, fetchImpl, note, "found in the document");
     if (viaDoc) return settle(viaDoc, "confirmed");
 
-    // 3b. embedded metadata, but only if it is not a build artefact
+    // 3b. a labelled citation on an archive cover sheet beats every heuristic below
+    const cover = parseCoverCitation(pdf.text);
+    if (cover) {
+      note("Read the citation off the archive's cover page");
+      if (cover.doi && fetchImpl) {
+        const better = await fromCrossref(cover.doi, fetchImpl).catch(() => null);
+        if (better) { note(`Confirmed via Crossref (${cover.doi})`); return settle(better, "confirmed"); }
+      }
+      return settle(cover, "likely");
+    }
+
+    // 3c. embedded metadata, but only if it is not a build artefact
     const embTitle = pdf.xmp.title || pdf.info.Title;
     const embAuthor = pdf.xmp.creator || pdf.info.Author;
     let best = null, fromLayout = false;
@@ -544,11 +658,13 @@ export async function resolveSource(input, deps = {}) {
       best = { title: cleanTitle(embTitle), authors, kind: "paper" };
     }
 
-    // 3c. read the page like a person does
+    // 3d. read the page like a person does — skipping any cover sheet in front of it
     if (!best || !best.authors.length) {
-      const guess = guessFromLayout(pdf.pages[0]);
+      const pageNo = pdf.pages.findIndex(pg => !isCoverPage(pg));
+      const page = pdf.pages[pageNo === -1 ? 0 : pageNo];
+      const guess = guessFromLayout(page);
       if (guess.title) {
-        note("Read the title and byline off page 1");
+        note(`Read the title and byline off page ${(pageNo === -1 ? 0 : pageNo) + 1}`);
         fromLayout = true;
         best = {
           title: best?.title || guess.title,
@@ -561,7 +677,7 @@ export async function resolveSource(input, deps = {}) {
     }
 
     if (best?.title) {
-      // 3d. ask Crossref whether that paper exists, to upgrade a guess into a fact
+        // 3e. ask Crossref whether that paper exists, to upgrade a guess into a fact
       if (fetchImpl) {
         const confirmed = await confirmByTitle(best.title, best.authors, fetchImpl).catch(() => null);
         if (confirmed) {
@@ -623,6 +739,19 @@ async function lookupIds(ids, fetchImpl, note, where = "") {
   if (ids.isbn) {
     const m = await fromOpenLibrary(ids.isbn, fetchImpl).catch(e => { note(e.message); return null; });
     if (m) { note(`ISBN ${ids.isbn}${suffix} → Open Library`); return m; }
+  }
+  for (const [key, db, label] of [["pmid", "pubmed", "PMID"], ["pmcid", "pmc", "PMC id"]]) {
+    if (!ids[key]) continue;
+    const id = key === "pmcid" ? ids[key].replace(/^PMC/i, "") : ids[key];
+    const m = await fromPubmed(id, fetchImpl, db).catch(e => { note(e.message); return null; });
+    if (!m) continue;
+    // NCBI usually knows the DOI, and Crossref's author list is better formed
+    if (m.doi) {
+      const better = await fromCrossref(m.doi, fetchImpl).catch(() => null);
+      if (better) { note(`${label} ${ids[key]}${suffix} → PubMed → Crossref`); return better; }
+    }
+    note(`${label} ${ids[key]}${suffix} → PubMed`);
+    return m;
   }
   return null;
 }

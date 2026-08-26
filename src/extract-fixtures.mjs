@@ -4,16 +4,18 @@
  * Body text past the point where a title/byline could live is dropped to keep it small.
  */
 import { readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { readPdf } from "./resolve.js";
 
-const DIR = process.argv[2];
+const DIR = process.argv[2] || fileURLToPath(new URL('../test/fixtures/', import.meta.url));
 const FILES = {
   "bettencourt-cities.pdf": { label: "a journal PDF with the DOI in the footer" },
   "chollet-intelligence.pdf": { label: "a preprint with an arXiv stamp up the margin", src: "arxiv-stamp.pdf" },
   "freeman-structurelessness.pdf": { label: "junk metadata, no DOI — read off the page", src: "junk-meta-no-doi.pdf" },
   "west-scaling.pdf": { label: "a title wrapped over two lines", src: "two-line-title.pdf" },
   "scott-seeing-like-a-state.pdf": { label: "a book title page with a subtitle", src: "book-titlepage.pdf" },
+  "cho-signaling-games.pdf": { label: "a JSTOR download, cover sheet and all", src: "jstor-cover.pdf" },
   "scan-1972.pdf": { label: "a scan with no text layer at all", src: "scanned-no-text.pdf" },
 };
 const SRC = { "bettencourt-cities.pdf": "doi-footer.pdf" };

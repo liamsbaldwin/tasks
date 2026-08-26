@@ -43,10 +43,26 @@ page alike. It works down a ladder and stops at the first step that gives a real
 | # | Step | Why it is in this position |
 |---|---|---|
 | 1 | An identifier in the input — DOI, arXiv id, ISBN, or a URL containing one | Authoritative, instant, and needs no download at all |
-| 2 | An identifier printed inside the PDF | Papers print their DOI in the page-1 footer; preprints stamp the arXiv id up the margin |
-| 3 | The PDF's embedded metadata, after a junk check | Half of them claim to be called `Microsoft Word - final_v3.doc` |
-| 4 | The layout of page 1 | Largest type block near the top is the title; the first block below it that reads like names is the byline |
-| 5 | A Crossref title search to confirm step 4 | Upgrades a guess to a fact, and discards a hit that is a different paper |
+| 2 | An identifier printed inside the PDF | Papers print their DOI in the page-1 footer; preprints stamp the arXiv id up the margin; JSTOR prints `Stable URL:` on its cover |
+| 3 | The archive's cover sheet citation | `Author(s):` / `Source:` / `Published by:` is structured data, and works offline |
+| 4 | The PDF's embedded metadata, after a junk check | Half of them claim to be called `Microsoft Word - final_v3.doc` |
+| 5 | The layout of the first page that is not a cover sheet | Largest type block near the top is the title; the first block below it that reads like names is the byline |
+| 6 | A Crossref title search to confirm step 5 | Upgrades a guess to a fact, and discards a hit that is a different paper |
+
+Several archives mint their DOIs mechanically from an id in the URL, so step 1 derives
+rather than guesses:
+
+| Link | DOI |
+|---|---|
+| `jstor.org/stable/1885060` | `10.2307/1885060` |
+| `nber.org/papers/w1885` | `10.3386/w1885` |
+| `papers.ssrn.com/…?abstract_id=123` | `10.2139/ssrn.123` |
+| `nature.com/articles/<slug>` | `10.1038/<slug>` |
+| `pubmed.ncbi.nlm.nih.gov/<pmid>` | via NCBI, which returns the DOI |
+
+Springer, Wiley, Taylor & Francis, bioRxiv and most other publishers already put the DOI
+in the URL and need no special case. A ScienceDirect PII cannot be derived — there the
+answer is to drag the PDF in, which is read locally.
 
 Registries used: Crossref (DOIs), arXiv, Open Library (ISBNs), plus Google Scholar's
 `citation_*` meta tags on publisher landing pages. All allow direct browser requests and
@@ -81,11 +97,12 @@ mockup/marginalia.html  the single-file prototype (generated block inside)
 `npm test` runs the suite. `node build.mjs` re-inlines the resolver after editing
 `src/resolve.js` — never edit the generated block in the HTML directly.
 
-Note that the published preview of the mockup is sandboxed with no outbound network and
-cannot load pdf.js, so it replays recorded registry responses and uses page-1 text runs
-extracted from real PDFs at build time. The DOI scan, the layout heuristic and the whole
-ladder run for real in it; only the byte-level PDF parsing and the live HTTP calls are
-stood in for. Opened from disk, it uses the real thing.
+`build.mjs` also inlines pdf.js (~1.7MB) into the page as inert text, turned into a blob
+module on first use — so a PDF dropped into the published preview is genuinely parsed in
+the browser, offline. If a host's CSP refuses `blob:` scripts the load fails and the page
+falls back to asking for the fields. The preview has no outbound network, so registry
+lookups replay recorded answers there; opened from disk it calls the real APIs, and falls
+back to the recordings if it cannot reach them.
 
 ## Intended shape of the real thing
 

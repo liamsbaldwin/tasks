@@ -13,10 +13,37 @@ const resolver = readFileSync("src/resolve.js", "utf8")
   .trim();
 const samples = readFileSync("src/pdf-samples.json", "utf8");
 
+/*
+ * pdf.js goes in as inert text and is turned into a blob module on first use, so a
+ * dropped PDF is parsed for real in the browser with no network. It is optional: if the
+ * package is not installed, or the host's CSP refuses blob: scripts, the page says so
+ * and falls back to asking for the fields.
+ */
+const PDFJS_DIR = "node_modules/pdfjs-dist/build/";
+let pdfjsBlocks = "";
+try {
+  const inert = (f) => readFileSync(PDFJS_DIR + f, "utf8").replace(/<\/script/gi, "<\\/script");
+  pdfjsBlocks =
+    `<script id="pdfjs-lib" type="text/plain">${inert("pdf.min.mjs")}</script>\n` +
+    `<script id="pdfjs-worker" type="text/plain">${inert("pdf.worker.min.mjs")}</script>\n`;
+} catch {
+  console.warn("pdfjs-dist not installed — the mockup will ship without PDF parsing");
+}
+
 const block = `${START}\nconst PDF_SAMPLES = ${samples};\n\n${resolver}\n${END}`;
+
+const PDFJS_START = "<!-- <<< pdf.js, inlined by build.mjs >>> -->";
+const PDFJS_END = "<!-- <<< end pdf.js >>> -->";
 
 const html = readFileSync(HTML, "utf8");
 const a = html.indexOf(START), b = html.indexOf(END);
 if (a === -1 || b === -1) throw new Error(`${HTML} is missing the generated-block markers`);
-writeFileSync(HTML, html.slice(0, a) + block + html.slice(b + END.length));
-console.log(`injected ${(block.length / 1024).toFixed(0)}KB into ${HTML}`);
+let out = html.slice(0, a) + block + html.slice(b + END.length);
+
+const c = out.indexOf(PDFJS_START), d = out.indexOf(PDFJS_END);
+if (c === -1 || d === -1) throw new Error(`${HTML} is missing the pdf.js markers`);
+out = out.slice(0, c + PDFJS_START.length) + "\n" + pdfjsBlocks + out.slice(d);
+
+writeFileSync(HTML, out);
+console.log(`injected ${(block.length / 1024).toFixed(0)}KB resolver + ` +
+            `${(pdfjsBlocks.length / 1024).toFixed(0)}KB pdf.js → ${(out.length / 1024).toFixed(0)}KB page`);

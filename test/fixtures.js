@@ -85,3 +85,39 @@ export function mockFetch(routes) {
     throw new TypeError("Failed to fetch");
   };
 }
+
+export const CROSSREF_JSTOR = { status: "ok", message: {
+  DOI: "10.2307/1885060", type: "journal-article",
+  title: ["Signaling Games and Stable Equilibria"],
+  "container-title": ["The Quarterly Journal of Economics"],
+  author: [{ given: "In-Koo", family: "Cho" }, { given: "David M.", family: "Kreps" }],
+  "published-print": { "date-parts": [[1987, 5]] },
+  publisher: "Oxford University Press (OUP)",
+}};
+
+/** The cover text exactly as pdf.js extracts it from a real JSTOR download. */
+export const JSTOR_COVER_TEXT =
+  "Signaling Games and Stable Equilibria Author(s): In-Koo Cho and David M. Kreps " +
+  "Source: The Quarterly Journal of Economics , May, 1987, Vol. 102, No. 2 (May, 1987), pp. 179-222 " +
+  "Published by: Oxford University Press Stable URL: https://www.jstor.org/stable/1885060 " +
+  "JSTOR is a not-for-profit service that helps scholars, researchers, and students discover, use, and " +
+  "build upon a wide range of content in a trusted digital archive. " +
+  "This content downloaded from 129.246.254.203 on Wed, 26 Aug 2026 13:22:30 UTC " +
+  "All use subject to https://about.jstor.org/terms";
+
+export const CROSSREF_NBER = { message: {
+  DOI: "10.3386/w1885", type: "report", title: ["Signaling Games and Stable Equilibria"],
+  author: [{ given: "In-Koo", family: "Cho" }], publisher: "National Bureau of Economic Research",
+  "published-print": { "date-parts": [[1986]] },
+}};
+
+export const PUBMED_BETTENCOURT = { result: {
+  uids: ["17360779"],
+  "17360779": {
+    uid: "17360779", pubdate: "2007 Apr 24", source: "Proc Natl Acad Sci U S A",
+    fulljournalname: "Proceedings of the National Academy of Sciences of the United States of America",
+    title: "Growth, innovation, scaling, and the pace of life in cities.",
+    authors: [{ name: "Bettencourt LM", authtype: "Author" }, { name: "Lobo J", authtype: "Author" }],
+    articleids: [{ idtype: "pubmed", value: "17360779" }, { idtype: "doi", value: "10.1073/pnas.0610172104" }],
+  },
+}};
