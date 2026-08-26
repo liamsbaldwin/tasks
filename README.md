@@ -34,6 +34,29 @@ glance which projects are heating up and which have gone cold.
 Full reasoning, plus three organisational alternatives that were considered and
 rejected, are in the **Why it works this way** tab of the mockup.
 
+## Editing
+
+Everything you are meant to fill in edits in place and saves as you type — no forms, no
+save buttons, no edit mode.
+
+| | |
+|---|---|
+| **Ideas** | `+` in the rail creates one. Title, blurb and open questions are editable in place; the stage picker moves it between Reading / Drafting / Editing / Published; the brief page deletes it, with undo. |
+| **Sources** | Added by pasting a link or dropping a PDF. Title, authors and venue are editable in place on the source's page; kind and year sit in the sidebar; status is three buttons. Hover a tile for a × to delete, with undo. |
+| **Filing** | A source can sit under several ideas. Each tag has an × to unfile it, and a picker adds it to another. |
+| **Writing** | The deck, the prose and the word target are all editable, and the word count updates as you type. |
+
+The view is deliberately not re-rendered on every keystroke — replacing the node you are
+typing into steals the caret. Only the rail and the top bar, which never hold the focus,
+refresh live.
+
+### Where it is kept
+
+The prototype saves to `localStorage`, so what you type survives a reload in that browser.
+**Reset** in the bottom corner discards it and restores the sample data. This is a
+prototype convenience, not the storage model: the intended build writes `data.json` and
+`essays/*.md` into a folder you choose, so drafts stay plain files you own.
+
 ## Adding a source
 
 `src/resolve.js` turns whatever you paste or drag into real bibliographic fields. It has

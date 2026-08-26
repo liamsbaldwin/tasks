@@ -402,7 +402,6 @@ a{color:var(--accent)}
   min-height:64px; outline:none;
 }
 .pad:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
-.pad[data-empty="true"]::before{content:attr(data-ph); color:var(--faint); font-style:italic}
 .pad p{margin:0 0 .7em}
 .pad p:last-child{margin-bottom:0}
 
@@ -413,6 +412,35 @@ a{color:var(--accent)}
 .kv:last-child{border-bottom:0}
 .kv dt{color:var(--muted)}
 .kv dd{margin:0; font-family:var(--mono); font-size:12px; text-align:right}
+/* Anything you are meant to fill in says so on hover, and never shouts otherwise. */
+[data-edit]{border-radius:5px; transition:background .12s ease}
+[contenteditable][data-edit]:not(.pad):not(.prose):hover{background:color-mix(in srgb, var(--ink) 5%, transparent)}
+.pad[data-edit]:hover, .prose[data-edit]:hover{border-color:color-mix(in srgb, var(--accent) 35%, var(--line))}
+[contenteditable][data-edit]:focus{
+  background:transparent; outline:2px solid var(--accent); outline-offset:3px;
+}
+[contenteditable][data-edit]:empty::before,
+[contenteditable][data-edit][data-empty="true"]::before{
+  content:attr(data-ph); color:var(--faint); font-style:italic; pointer-events:none;
+}
+.inp{
+  border:1px solid transparent; border-radius:6px; background:none; padding:3px 6px;
+  font:inherit; color:inherit; width:100%; outline:none;
+}
+.inp:hover{background:color-mix(in srgb, var(--ink) 5%, transparent)}
+.inp:focus{border-color:var(--accent); background:var(--surface); box-shadow:0 0 0 3px var(--accent-soft)}
+.inp--num{width:6ch; font-family:var(--mono); font-variant-numeric:tabular-nums}
+select.inp{cursor:pointer}
+
+.pillsel{
+  font-family:var(--mono); font-size:9.5px; letter-spacing:.05em; padding:3px 7px;
+  border-radius:20px; border:1px dashed var(--line); color:var(--muted); background:none; cursor:pointer;
+}
+.pillsel:hover{border-color:var(--accent); color:var(--accent)}
+.pill{display:inline-flex; align-items:center; gap:5px}
+.pill__x{opacity:.5; cursor:pointer; font-size:11px; line-height:1}
+.pill__x:hover{opacity:1}
+
 .statusrow{display:flex; gap:5px}
 .statusrow .filter{flex:1; text-align:center; font-size:12px}
 .linkrow{display:flex; flex-direction:column; gap:6px}
@@ -525,7 +553,7 @@ table.lib{border-collapse:collapse; width:100%; min-width:720px; font-size:13.5p
     </nav>
     <div class="rail__head">
       <span class="lbl">Ideas</span>
-      <button class="rail__add" title="New idea">+</button>
+      <button class="rail__add" id="newidea" title="New idea" aria-label="New idea">+</button>
     </div>
     <div class="ideanav" id="ideanav"></div>
     <div class="rail__foot">
@@ -533,6 +561,7 @@ table.lib{border-collapse:collapse; width:100%; min-width:720px; font-size:13.5p
         <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="4"/><path d="M10 1v2M10 17v2M1 10h2M17 10h2M3.9 3.9l1.4 1.4M14.7 14.7l1.4 1.4M16.1 3.9l-1.4 1.4M5.3 14.7l-1.4 1.4"/></svg>
         <span id="thememode">Auto</span>
       </button>
+      <button class="themebtn" id="reset" title="Discard your edits and restore the sample data">Reset</button>
     </div>
   </aside>
 
@@ -1613,19 +1642,23 @@ function viewBrief(){
   return `<div class="note" style="--stage:${st.c}">
     <div>
       <span class="lbl">The idea, in three sentences</span>
-      <h1 class="note__title" style="margin-top:8px">${esc(i.title)}</h1>
+      <h1 class="note__title" style="margin-top:8px" contenteditable="true"
+          data-edit="idea.title" data-ph="Name it">${esc(i.title)}</h1>
       <div class="field">
-        <div class="pad" contenteditable="true" data-ph="What is this about?">${esc(i.blurb)}</div>
+        <div class="pad" contenteditable="true" data-edit="idea.blurb"
+             data-ph="What is this about?">${esc(i.blurb)}</div>
       </div>
       <div class="field">
         <div class="field__head"><h3>Open questions</h3><span class="field__hint">the thing you are actually trying to find out</span></div>
-        <div class="pad" contenteditable="true"><p>Can you tell in advance which unwritten practices are load-bearing?</p><p>Is Freeman's argument a counterexample or a special case?</p><p>What is the smallest honest version of this — 12 minutes or 30?</p></div>
+        <div class="pad" contenteditable="true" data-edit="idea.questions" data-rich="1"
+             data-ph="What would change your mind?">${i.questions||""}</div>
       </div>
     </div>
     <aside class="side">
       <div class="side__box">
         <h4>Stage</h4>
-        <div class="statusrow">${STAGES.map(s=>`<button class="filter" aria-pressed="${s.id===i.stage}">${s.label}</button>`).join("")}</div>
+        <div class="statusrow">${STAGES.map(sg=>`<button class="filter" data-stage="${sg.id}"
+          aria-pressed="${sg.id===i.stage}">${sg.label}</button>`).join("")}</div>
       </div>
       <div class="side__box">
         <h4>State of play</h4>
@@ -1635,6 +1668,11 @@ function viewBrief(){
           <div class="kv"><dt>With notes</dt><dd>${rs.filter(r=>r.summary).length}</dd></div>
           <div class="kv"><dt>Draft</dt><dd>${words(drafts[i.id]||"").toLocaleString()} w</dd></div>
         </dl>
+      </div>
+      <div class="side__box">
+        <h4>Remove</h4>
+        <button class="btn btn--danger" data-delidea="${i.id}" style="width:100%; justify-content:center">
+          Delete this idea</button>
       </div>
     </aside>
   </div>`;
@@ -1708,32 +1746,32 @@ function viewNote(){
     <div>
       ${r.needsReview?`<div class="review">
         <div class="review__h"><h3>Worth a second look</h3></div>
-        <p class="review__why">${esc(why||"Some fields could not be filled in automatically.")} Fix it here and it is done.</p>
-        <div class="review__grid">
-          <label class="wide"><span>Title</span><input id="rv-title" value="${esc(r.title||"")}" placeholder="What is it called?"></label>
-          <label class="wide"><span>Authors</span><input id="rv-authors" value="${esc(r.authors.join(", "))}" placeholder="Separated by commas"></label>
-          <label><span>Year</span><input id="rv-year" value="${esc(r.year||"")}"></label>
-          <label><span>Published in</span><input id="rv-venue" value="${esc(r.venue||"")}"></label>
-          ${r.doi?`<label class="wide"><span>DOI — found, but not checked</span><input id="rv-doi" value="${esc(r.doi)}" readonly></label>`:""}
-        </div>
+        <p class="review__why">${esc(why||"Some fields could not be filled in automatically.")}
+          ${r.doi?`The identifier it did find is <code>${esc(r.doi)}</code>.`:""}
+          Correct the title and byline below — they are editable in place — then clear this.</p>
         <div class="review__act">
-          <button class="btn btn--primary" data-accept="${r.id}">Save and clear the flag</button>
+          <button class="btn btn--primary" data-accept="${r.id}">Looks right</button>
           <span class="lbl">or paste a DOI into the bar above to fill it in for you</span>
         </div>
       </div>`:""}
       <span class="lbl">${KIND[r.kind]} · ${r.year||"no date"}</span>
-      <h1 class="note__title" style="margin-top:7px">${esc(shownTitle(r))}</h1>
-      <p class="note__authors">${esc(r.authors.join(", "))}</p>
-      <p class="note__venue">${esc(r.venue)}</p>
+      <h1 class="note__title" style="margin-top:7px" contenteditable="true"
+          data-edit="reading.title" data-ph="What is it called?">${esc(r.title||"")}</h1>
+      <p class="note__authors" contenteditable="true" data-edit="reading.authors"
+         data-ph="Authors, separated by commas">${esc(r.authors.join(", "))}</p>
+      <p class="note__venue" contenteditable="true" data-edit="reading.venue"
+         data-ph="Published in">${esc(r.venue)}</p>
 
       <div class="field">
         <div class="field__head"><h3>Summary</h3><span class="field__hint">what would you tell a friend at dinner?</span></div>
-        <div class="pad" contenteditable="true" data-ph="Say it in your own words — that is the whole point." data-empty="${!r.summary}">${esc(r.summary)}</div>
+        <div class="pad" contenteditable="true" data-edit="reading.summary"
+             data-ph="Say it in your own words — that is the whole point.">${esc(r.summary)}</div>
       </div>
 
       <div class="field">
         <div class="field__head"><h3>Loose notes</h3><span class="field__hint">nobody else reads this</span></div>
-        <div class="pad" contenteditable="true" data-ph="Argue with it. Write badly.">${r.id==="r1"?"<p>The forestry chapter is the one that will carry the video — it is visual, it has a before/after, and the failure took a hundred years, which is the perfect pacing problem to solve on screen.</p><p>Careful not to let this become an anti-state rant. Freeman is the corrective.</p>":""}</div>
+        <div class="pad" contenteditable="true" data-edit="reading.notes" data-rich="1"
+             data-ph="Argue with it. Write badly.">${r.notes||""}</div>
       </div>
     </div>
 
@@ -1741,8 +1779,20 @@ function viewNote(){
       <div class="side__box">
         <h4>Status</h4>
         <div class="statusrow">
-          ${["queued","reading","read"].map(s=>`<button class="filter" aria-pressed="${r.status===s}">${s[0].toUpperCase()+s.slice(1)}</button>`).join("")}
+          ${["queued","reading","read"].map(v=>`<button class="filter" data-status="${v}"
+             aria-pressed="${r.status===v}">${v[0].toUpperCase()+v.slice(1)}</button>`).join("")}
         </div>
+      </div>
+      <div class="side__box">
+        <h4>Details</h4>
+        <dl style="margin:0">
+          <div class="kv"><dt>Kind</dt><dd><select class="inp" data-edit="reading.kind" style="text-align:right">
+            ${Object.entries(KIND).map(([k,label])=>`<option value="${k}" ${k===r.kind?"selected":""}>${label}</option>`).join("")}
+          </select></dd></div>
+          <div class="kv"><dt>Year</dt><dd><input class="inp inp--num" data-edit="reading.year"
+            value="${esc(r.year||"")}" placeholder="—" style="text-align:right"></dd></div>
+          ${r.doi?`<div class="kv"><dt>DOI</dt><dd style="font-size:11px">${esc(r.doi)}</dd></div>`:""}
+        </dl>
       </div>
       <div class="side__box">
         <h4>Source</h4>
@@ -1758,18 +1808,17 @@ function viewNote(){
       </div>`:""}
       <div class="side__box">
         <h4>Remove</h4>
-        <div class="linkrow">
-          ${r.ideas.length>1?`<button class="btn" data-unfile="${r.id}" style="justify-content:center">
-            Take out of ${esc(i.title)}</button>`:""}
-          <button class="btn btn--danger" data-del="${r.id}" style="justify-content:center">
-            Delete this source</button>
-        </div>
+        <button class="btn btn--danger" data-del="${r.id}" style="width:100%; justify-content:center">
+          Delete this source</button>
       </div>
       <div class="side__box">
         <h4>Also filed under</h4>
         <div class="pills">
-          ${r.ideas.map(id=>{const ii=ideas.find(x=>x.id===id); return `<span class="pill" style="--stage:${stageOf(ii.stage).c}">${esc(ii.title)}</span>`;}).join("")}
-          <span class="pill" style="--stage:var(--muted)">+ file elsewhere</span>
+          ${r.ideas.map(id=>{const ii=ideas.find(x=>x.id===id); return `<span class="pill" style="--stage:${stageOf(ii.stage).c}">${esc(ii.title)}<button class="pill__x" data-unfile="${r.id}" data-ideaid="${id}" aria-label="Take out of ${esc(ii.title)}">×</button></span>`;}).join("")}
+          ${ideas.some(x=>!r.ideas.includes(x.id))?`<select class="pillsel" data-file="${r.id}">
+            <option value="">+ file under…</option>
+            ${ideas.filter(x=>!r.ideas.includes(x.id)).map(x=>`<option value="${x.id}">${esc(x.title)}</option>`).join("")}
+          </select>`:""}
         </div>
       </div>
     </aside>
@@ -1783,13 +1832,16 @@ function viewDraft(){
   return `<div class="draft" style="--stage:${st.c}">
     <div class="paper">
       <div class="paper__eyebrow">Script · draft 3 · autosaved 2 min ago</div>
-      <h1>${esc(i.title)}</h1>
-      ${i.essay&&i.essay.deck?`<p class="paper__deck">${esc(i.essay.deck)}</p>`:""}
-      <div class="prose" id="prose" contenteditable="true">${drafts[i.id]||"<p>Start anywhere. The first paragraph is always wrong.</p>"}</div>
+      <h1 contenteditable="true" data-edit="idea.title" data-ph="Name it">${esc(i.title)}</h1>
+      <p class="paper__deck" contenteditable="true" data-edit="idea.essay.deck"
+         data-ph="A line to say what it is about">${esc((i.essay&&i.essay.deck)||"")}</p>
+      <div class="prose" id="prose" contenteditable="true" data-edit="draft" data-rich="1"
+           data-ph="Start anywhere. The first paragraph is always wrong.">${drafts[i.id]||""}</div>
     </div>
     <div class="wordbar">
-      <span class="mono" style="font-size:11.5px; color:var(--muted)">${w.toLocaleString()} / ${target.toLocaleString()} words</span>
-      <span class="wordbar__track"><span class="wordbar__fill" style="width:${Math.min(100,w/target*100)}%"></span></span>
+      <span class="mono" style="font-size:11.5px; color:var(--muted)"><span id="wordnow">${w.toLocaleString()}</span> /
+        <input class="inp inp--num" data-edit="idea.essay.target" value="${target}" aria-label="Word target"> words</span>
+      <span class="wordbar__track"><span class="wordbar__fill" id="wordfill" style="width:${Math.min(100,w/target*100)}%"></span></span>
       <span class="mono" style="font-size:11.5px; color:var(--faint)">${Math.round(w/150)} min read</span>
     </div>
   </div>`;
@@ -1905,7 +1957,7 @@ function viewNotes(){
 
     <h2>What I would build first</h2>
     <p>The cockpit, the capture bar, the tile grid, and the note page — that is the useful core and about a day's work. Everything else is decoration.</p>
-    <p style="color:var(--faint); font-size:13px; margin-top:26px">Every screen in this prototype is live — add a source, delete one, type in the essay. Nothing persists on reload, which is the honest signal that this is a mockup.</p>
+    <p style="color:var(--faint); font-size:13px; margin-top:26px">Every screen in this prototype is live: add and delete ideas and sources, rename anything, move an idea between stages, write. What you type is kept in this browser and survives a reload — <em>Reset</em> in the bottom corner restores the sample data. The real build writes to a folder instead, so your drafts are plain markdown files you can keep.</p>
   </div>`;
 }
 
@@ -1922,10 +1974,8 @@ function render(){
   else if(state.tab==="draft")    v.innerHTML = viewDraft();
   else                            v.innerHTML = viewReading();
   renderNoticeIfNeeded();
-  $$(".pad").forEach(p=>{
-    const sync=()=>p.dataset.empty = String(p.textContent.trim()==="");
-    sync(); p.addEventListener("input", sync);
-  });
+  syncPlaceholders();
+  save();
 }
 
 /* ==================== capture ==================== */
@@ -2161,7 +2211,7 @@ document.addEventListener("click", e=>{
   if(del){ e.stopPropagation(); deleteReading(del.dataset.del); return; }
 
   const unfile = e.target.closest("[data-unfile]");
-  if(unfile){ unfileReading(unfile.dataset.unfile, state.idea); return; }
+  if(unfile){ e.stopPropagation(); unfileReading(unfile.dataset.unfile, unfile.dataset.ideaid || state.idea); return; }
 
   const sp = e.target.closest("[data-sample]");
   if(sp){ const x = SAMPLES[+sp.dataset.sample]; addSource(x.input, x.file); return; }
@@ -2169,19 +2219,23 @@ document.addEventListener("click", e=>{
   const acc = e.target.closest("[data-accept]");
   if(acc){
     const r = readings.find(x=>x.id===acc.dataset.accept);
-    r.title   = $("#rv-title").value.trim() || r.title;
-    r.authors = $("#rv-authors").value.split(",").map(a=>a.trim()).filter(Boolean);
-    r.year    = Number($("#rv-year").value) || r.year;
-    r.venue   = $("#rv-venue").value.trim();
     r.needsReview = false;
     r.confidence = "checked";
-    r.provenance = [...(r.provenance||[]), "Corrected by hand"];
+    r.provenance = [...(r.provenance||[]), "Checked by hand"];
     return render();
   }
 
-  const st = e.target.closest(".statusrow .filter");
-  if(st){ $$(".statusrow .filter", st.parentElement).forEach(b=>b.setAttribute("aria-pressed","false"));
-          st.setAttribute("aria-pressed","true"); return; }
+  if(e.target.closest("#newidea")) return newIdea();
+
+  const di = e.target.closest("[data-delidea]");
+  if(di) return deleteIdea(di.dataset.delidea);
+
+  const sg = e.target.closest("[data-stage]");
+  if(sg){ modelFor("idea").stage = sg.dataset.stage; return render(); }
+
+  const stt = e.target.closest("[data-status]");
+  if(stt){ modelFor("reading").status = stt.dataset.status; return render(); }
+
 });
 
 document.addEventListener("keydown", e=>{
@@ -2189,6 +2243,147 @@ document.addEventListener("keydown", e=>{
     addSource(e.target.value.trim()); e.target.value=""; e.preventDefault();
   }
 });
+/* ==================== keeping what you type ==================== */
+/*
+ * Saved in this browser, per artifact, so what you add survives a reload. It is not
+ * the real storage model — the local build is meant to write data.json and essays/*.md
+ * into a folder you choose — but losing an afternoon's typing to a refresh is not a
+ * limitation worth demonstrating.
+ */
+const STORE = "marginalia.v1";
+let saveTimer = null;
+
+function save(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try{ localStorage.setItem(STORE, JSON.stringify({ ideas, readings, drafts })); }
+    catch{ /* private window, or storage full — carry on in memory */ }
+  }, 300);
+}
+
+function load(){
+  let raw = null;
+  try{ raw = localStorage.getItem(STORE); }catch{ return false; }
+  if(!raw) return false;
+  try{
+    const d = JSON.parse(raw);
+    if(!d || !Array.isArray(d.ideas) || !Array.isArray(d.readings)) return false;
+    ideas.length = 0;    ideas.push(...d.ideas);
+    readings.length = 0; readings.push(...d.readings);
+    Object.keys(drafts).forEach(k => delete drafts[k]);
+    Object.assign(drafts, d.drafts || {});
+    return true;
+  }catch{ return false; }
+}
+
+function resetToSamples(){
+  try{ localStorage.removeItem(STORE); }catch{}
+  location.reload();
+}
+
+/* ==================== editing ==================== */
+/*
+ * Everything you are meant to fill in edits in place and saves as you type — no save
+ * buttons, no modes. Elements carry data-edit="<model>.<field>"; this writes straight
+ * into the model. The view is deliberately NOT re-rendered on every keystroke, because
+ * replacing the node you are typing into steals the caret. Only the rail and topbar,
+ * which never hold the focus, refresh live.
+ */
+function modelFor(kind){
+  if(kind === "idea")    return ideas.find(x => x.id === state.idea);
+  if(kind === "reading") return readings.find(x => x.id === state.reading);
+  return null;
+}
+
+function applyEdit(el){
+  const path = el.dataset.edit;
+  const raw = el.isContentEditable
+    ? (el.dataset.rich ? el.innerHTML : el.textContent.replace(/\s+/g, " ").trim())
+    : el.value;
+
+  if(path === "draft"){
+    drafts[state.idea] = raw;
+    const target = (modelFor("idea").essay || {}).target || 4000;
+    const w = words(raw);
+    const now = $("#wordnow"), fill = $("#wordfill");
+    if(now) now.textContent = w.toLocaleString();
+    if(fill) fill.style.width = Math.min(100, w / target * 100) + "%";
+    return;
+  }
+
+  const parts = path.split(".");
+  let obj = modelFor(parts.shift());
+  if(!obj) return;
+  while(parts.length > 1){ const k = parts.shift(); obj = (obj[k] = obj[k] || {}); }
+  const field = parts[0];
+
+  if(field === "authors")      obj.authors = raw.split(",").map(a => a.trim()).filter(Boolean);
+  else if(field === "year")    obj.year = Number(raw) || null;
+  else if(field === "target")  obj.target = Number(raw) || 4000;
+  else                         obj[field] = raw;
+
+  // an edited source is one you have looked at
+  if(el.dataset.edit.startsWith("reading.") && ["title","authors"].includes(field)){
+    const r = modelFor("reading");
+    if(r && r.title && r.authors.length) r.needsReview = false;
+  }
+  renderRail(); renderTopbar();
+}
+
+document.addEventListener("input", e => {
+  const el = e.target.closest("[data-edit]");
+  if(el){ applyEdit(el); save(); }
+});
+document.addEventListener("change", e => {
+  const el = e.target.closest("select[data-edit]");
+  if(el) return applyEdit(el);
+
+  const file = e.target.closest("[data-file]");
+  if(file && file.value){
+    const r = readings.find(x => x.id === file.dataset.file);
+    r.ideas.push(file.value);
+    render();
+  }
+});
+
+/* placeholders on contenteditable need a class toggle, :empty is not enough once typed in */
+function syncPlaceholders(){
+  $$("[contenteditable][data-edit]").forEach(el => {
+    const set = () => el.dataset.empty = String(el.textContent.trim() === "");
+    set();
+    if(!el.dataset.phWired){ el.dataset.phWired = "1"; el.addEventListener("input", set); }
+  });
+}
+
+/* ==================== ideas ==================== */
+function newIdea(){
+  const id = "i" + Date.now();
+  ideas.push({ id, title:"Untitled idea", blurb:"", stage:"reading", essay:{ deck:"", target:3000 } });
+  drafts[id] = "";
+  state.view = "idea"; state.idea = id; state.tab = "brief"; state.reading = null;
+  render();
+  const h = $('[data-edit="idea.title"]');
+  if(h){ h.focus(); getSelection().selectAllChildren(h); }
+}
+
+function deleteIdea(id){
+  const at = ideas.findIndex(i => i.id === id);
+  if(at === -1) return;
+  const [gone] = ideas.splice(at, 1);
+  const draft = drafts[id];
+  // a source filed only here stays in the library; it just loses this tag
+  const touched = readings.filter(r => r.ideas.includes(id));
+  touched.forEach(r => r.ideas.splice(r.ideas.indexOf(id), 1));
+  state.view = "cockpit"; state.reading = null;
+  render();
+  toast(`Deleted <b>${esc(gone.title)}</b>.`, () => {
+    ideas.splice(at, 0, gone);
+    drafts[id] = draft;
+    touched.forEach(r => r.ideas.push(id));
+    render();
+  });
+}
+
 /* ==================== deleting sources ==================== */
 /*
  * Delete straight away and offer an undo, rather than asking "are you sure?" first.
@@ -2248,5 +2443,11 @@ $("#themebtn").addEventListener("click", ()=>{
   else document.documentElement.setAttribute("data-theme", MODES[mode].toLowerCase());
 });
 
+document.addEventListener("click", e => {
+  if(!e.target.closest("#reset")) return;
+  if(confirm("Discard everything you have added or edited and restore the sample data?")) resetToSamples();
+});
+
+load();
 render();
 </script>
