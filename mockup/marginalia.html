@@ -199,12 +199,6 @@ a{color:var(--accent)}
 .stat{display:flex; flex-direction:column; gap:1px}
 .stat__n{font-family:var(--mono); font-size:13px; color:var(--ink-2)}
 .stat__l{font-family:var(--mono); font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--faint)}
-.idea__next{
-  display:flex; align-items:center; gap:8px; padding:9px 18px;
-  background:var(--surface-2); border-top:1px solid var(--line-soft);
-  font-size:12.5px; color:var(--ink-2);
-}
-.idea__next b{font-weight:500; color:var(--stage)}
 
 /* ============ reading grid ============ */
 .capture{
@@ -1398,7 +1392,6 @@ const ideas = [
   {
     id:"legibility", title:"The Cost of Legibility", stage:"drafting",
     blurb:"Every system that wants to be governed first has to be made readable — and the act of making it readable quietly destroys the thing worth governing. Where does the trade actually bite?",
-    next:"Draft section 3 — the metric system as a control experiment",
     essay:{
       deck:"On what standardisation buys, and what it silently spends.",
       target:4000
@@ -1406,24 +1399,20 @@ const ideas = [
   },
   {
     id:"forget", title:"Why Interfaces Forget", stage:"reading",
-    blurb:"Software used to remember where you were. Somewhere between the desktop and the feed, interfaces stopped keeping state on your behalf — and we started doing that work by hand.",
-    next:"3 papers queued, 0 read — start with Weiser"
+    blurb:"Software used to remember where you were. Somewhere between the desktop and the feed, interfaces stopped keeping state on your behalf — and we started doing that work by hand."
   },
   {
     id:"scale", title:"Scaling Laws Outside the Lab", stage:"reading",
-    blurb:"Metabolic scaling is beautiful in biology and suspiciously popular everywhere else. When does a power law describe a mechanism, and when is it a coincidence with good PR?",
-    next:"Write the 3-sentence brief, then find 5 sources"
+    blurb:"Metabolic scaling is beautiful in biology and suspiciously popular everywhere else. When does a power law describe a mechanism, and when is it a coincidence with good PR?"
   },
   {
     id:"tendays", title:"Ten Days a Week", stage:"editing",
     blurb:"For twelve years France ran on a ten-day week, and it failed for reasons that had nothing to do with astronomy. A short piece on the one unit of measure a state cannot simply legislate.",
-    next:"Cut 600 words from section 2, then record",
     essay:{ deck:"The calendar the Revolution could not make stick.", target:2500 }
   },
   {
     id:"maps", title:"The Map Became the Territory", stage:"published",
-    blurb:"Navigation apps did not just describe traffic; they redistributed it. A short piece on measurement instruments that alter what they measure.",
-    next:"Shipped 14 Jun — 41k views"
+    blurb:"Navigation apps did not just describe traffic; they redistributed it. A short piece on measurement instruments that alter what they measure."
   }
 ];
 
@@ -1612,7 +1601,6 @@ function viewCockpit(){
             <span class="stat"><span class="stat__n">${w?w.toLocaleString():"—"}</span><span class="stat__l">Words</span></span>
           </span>
         </span>
-        <span class="idea__next"><b>Next</b> ${esc(i.next)}</span>
       </button>`;
     }).join("")}
   </div>`;
