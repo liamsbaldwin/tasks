@@ -259,6 +259,29 @@ test("with Crossref down, PubMed's own record is used and its bylines reordered"
   assert.equal(m.year, 2007);
 });
 
+test("a doi.org link resolves from the identifier, with no download attempted", async () => {
+  const asked = [];
+  const fetch = async (url) => {
+    asked.push(url);
+    if (!url.includes("api.crossref.org")) throw new TypeError("Failed to fetch");
+    return { ok: true, status: 200, headers: { get: () => "application/json" },
+             json: async () => F.CROSSREF_JSTOR };
+  };
+  const m = await R.resolveSource("https://doi.org/10.2307/1885060", { fetch, getDocument });
+  assert.equal(m.confidence, "confirmed");
+  // exactly one request, to Crossref — doi.org itself is never fetched
+  assert.deepEqual(asked, ["https://api.crossref.org/works/10.2307%2F1885060"]);
+});
+
+test("an unresolvable DOI keeps the DOI and asks, without PDF advice that cannot help", async () => {
+  const fetch = F.mockFetch([]);          // nothing reachable
+  const m = await R.resolveSource("https://doi.org/10.2307/1912767", { fetch, getDocument });
+  assert.equal(m.doi, "10.2307/1912767");
+  assert.equal(m.title, null);
+  assert.equal(m.needsReview, true);
+  assert.doesNotMatch(provenance(m), /drag the pdf in/i);
+});
+
 test("a ScienceDirect PII cannot be derived, and says so rather than guessing", async () => {
   const fetch = F.mockFetch([[/sciencedirect/, "CORS"]]);
   const m = await R.resolveSource("https://www.sciencedirect.com/science/article/pii/S0022053187900253",

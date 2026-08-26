@@ -558,8 +558,6 @@ export function parseCitationMeta(html) {
 
 /* ------------------------------------------------------------------ the ladder */
 
-const PDF_HOST_HINTS = /arxiv\.org|biorxiv\.org|ncbi\.nlm\.nih\.gov|semanticscholar\.org|doi\.org/i;
-
 /**
  * Resolve anything the user gave us into bibliographic fields.
  *
@@ -605,7 +603,7 @@ export async function resolveSource(input, deps = {}) {
   if (isFile) {
     bytes = new Uint8Array(await input.file.arrayBuffer());
     note(`Read ${input.file.name}`);
-  } else if (/^https?:/i.test(text) && (/\.pdf($|[?#])/i.test(text) || PDF_HOST_HINTS.test(text))) {
+  } else if (/^https?:/i.test(text) && /\.pdf($|[?#])/i.test(text)) {
     try {
       const res = await fetchImpl(text);
       if (!res.ok) throw new LookupError(`${res.status}`, "http");

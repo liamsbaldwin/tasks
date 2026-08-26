@@ -92,11 +92,42 @@ publishers do. The tool says so and asks you to drag the file in instead. This i
 identifiers are tried first: for arXiv, doi.org, PubMed Central and biorxiv the download
 never has to happen.
 
+## Running it
+
+```
+npm install
+npm start            # → http://localhost:4321
+```
+
+From localhost (or from disk) the page calls the real Crossref, arXiv, Open Library and
+NCBI. **This is the only way lookups work.** Or resolve a single item without the UI:
+
+```
+npm run resolve -- "https://doi.org/10.2307/1912767"
+npm run resolve -- ~/Downloads/paper.pdf
+npm run resolve -- --json "https://www.nber.org/papers/w31710"
+```
+
+It prints the trail and the resolved fields, and exits non-zero if the result needs
+checking.
+
+### The published preview cannot look anything up
+
+A published Artifact runs in a sandbox with no outbound network, and no capability grants
+one. So the hosted copy of this mockup resolves only its half-dozen sample links, from
+recorded answers, and everything else lands in "needs checking" no matter how good the
+identifier is. The page says so on screen the first time a lookup fails. Dropped PDFs
+*are* parsed there for real, since pdf.js is inlined and needs no network.
+
+Treat the hosted page as a design mockup. Run it locally to use it.
+
 ## Layout
+
 
 ```
 src/resolve.js          the resolver — no dependencies, fully tested
 bin/resolve.mjs         resolve a link or PDF from the command line
+bin/serve.mjs           npm start — serves the app so it can reach the registries
 src/extract-fixtures.mjs build step: pulls page-1 text runs out of sample PDFs
 build.mjs               inlines the resolver + samples into the mockup
 test/                   25 tests, including six real PDFs through pdf.js

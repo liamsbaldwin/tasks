@@ -1,10 +1,13 @@
 {
-  "name": "tasks",
+  "name": "marginalia",
   "version": "1.0.0",
-  "description": "A private cockpit for running personal research projects that end in an essay and then a video: **idea \u2192 reading \u2192 notes \u2192 draft \u2192 cut**.",
+  "description": "A private cockpit for idea -> reading -> essay -> video projects",
   "main": "index.js",
   "scripts": {
-    "test": "node --test test/"
+    "start": "node bin/serve.mjs",
+    "test": "node --test \"test/*.test.js\"",
+    "build": "node build.mjs",
+    "resolve": "node bin/resolve.mjs"
   },
   "repository": {
     "type": "git",

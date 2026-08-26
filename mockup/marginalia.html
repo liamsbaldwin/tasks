@@ -226,6 +226,14 @@ a{color:var(--accent)}
 }
 .sample:hover{border-color:var(--accent); color:var(--accent); background:var(--accent-soft)}
 .capture--over{border-color:var(--accent); border-style:solid; background:var(--accent-soft)}
+.nonet{
+  border:1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+  background:color-mix(in srgb, var(--warn) 8%, transparent);
+  border-radius:var(--r); padding:11px 14px; margin-bottom:14px;
+  font-size:13.5px; line-height:1.55; color:var(--ink-2); max-width:78ch;
+}
+.nonet b{color:var(--warn)}
+.nonet code{font-family:var(--mono); font-size:12.5px; background:var(--surface-2); padding:1px 6px; border-radius:4px}
 
 .tile__steps{display:flex; flex-direction:column; gap:2px; min-height:34px}
 .step{
@@ -1164,8 +1172,6 @@ function parseCitationMeta(html) {
 
 /* ------------------------------------------------------------------ the ladder */
 
-const PDF_HOST_HINTS = /arxiv\.org|biorxiv\.org|ncbi\.nlm\.nih\.gov|semanticscholar\.org|doi\.org/i;
-
 /**
  * Resolve anything the user gave us into bibliographic fields.
  *
@@ -1211,7 +1217,7 @@ async function resolveSource(input, deps = {}) {
   if (isFile) {
     bytes = new Uint8Array(await input.file.arrayBuffer());
     note(`Read ${input.file.name}`);
-  } else if (/^https?:/i.test(text) && (/\.pdf($|[?#])/i.test(text) || PDF_HOST_HINTS.test(text))) {
+  } else if (/^https?:/i.test(text) && /\.pdf($|[?#])/i.test(text)) {
     try {
       const res = await fetchImpl(text);
       if (!res.ok) throw new LookupError(`${res.status}`, "http");
@@ -1681,7 +1687,7 @@ function viewReading(){
     <div class="capture__samples">
       <span class="lbl">Try:</span>
       ${SAMPLES.map((x,n)=>`<button class="sample" data-sample="${n}">${esc(x.label)}</button>`).join("")}
-      <span class="lbl" style="margin-left:auto">Dropped PDFs are parsed here for real${LIVE?"":"; registry lookups replay recorded answers"}</span>
+      <span class="lbl" style="margin-left:auto">Dropped PDFs are read here for real</span>
     </div>
 
     <div class="filters">
@@ -1928,6 +1934,10 @@ function viewNotes(){
     <p>So nothing is ever invented. No author, no year, no venue. If a step could not establish a field, the source lands with a <strong>Check</strong> flag and opens straight into a small form with everything that <em>was</em> found already filled in — usually you are typing one field, not four. The sidebar shows exactly which step produced which field, so when something is wrong you can see why. A scanned page with no text layer says so plainly and asks for a title.</p>
     <p>Unconfirmed is not the same as wrong: a title read off page 1 is perfectly usable, it just has not been checked against a registry, so it gets flagged. Anything a registry confirmed goes straight in.</p>
 
+    <h3>This hosted preview cannot look anything up</h3>
+    <p>Worth stating plainly, because it makes the preview misleading to test with: a published page runs in a sandbox with no outbound network, and no capability grants one. So the copy you are reading resolves only its handful of sample links, from recorded answers. Paste a real DOI and it will land in “needs checking” however good the identifier is — you are seeing the sandbox, not the resolver. Dropped PDFs are the exception: those are read here for real, because pdf.js is built into the page and needs no network.</p>
+    <p>Run it locally — <code>npm start</code> — and every lookup goes to the real Crossref, arXiv, Open Library and NCBI. There is also <code>npm run resolve -- &lt;url&gt;</code> to check a single link from a terminal.</p>
+
     <h3>The one real limitation</h3>
     <p>A browser cannot download a PDF from a site that refuses cross-origin requests, and most publishers do. The tool does not pretend otherwise: when a link cannot be fetched it says the site will not allow it and asks you to drag the file in instead, which always works. This is also why the identifier-first ordering matters — for JSTOR, NBER, SSRN, arXiv, doi.org, PubMed and every publisher that puts the DOI in the URL, the download never needs to happen at all.</p>
     <p>The case with no way around it is a link whose id cannot be turned into a DOI — a ScienceDirect PII, for instance. There the answer is to drag the file in, and the resolver reads it locally.</p>
@@ -1968,6 +1978,7 @@ function render(){
   else if(state.tab==="brief")    v.innerHTML = viewBrief();
   else if(state.tab==="draft")    v.innerHTML = viewDraft();
   else                            v.innerHTML = viewReading();
+  renderNoticeIfNeeded();
   $$(".pad").forEach(p=>{
     const sync=()=>p.dataset.empty = String(p.textContent.trim()==="");
     sync(); p.addEventListener("input", sync);
@@ -1976,18 +1987,19 @@ function render(){
 
 /* ==================== capture ==================== */
 /*
- * Lookups need Crossref / arXiv / Open Library. Opened from disk (file://) the browser
- * can call them directly — all three send permissive CORS headers and need no API key.
- * This hosted preview is sandboxed with no outbound network, so it replays recorded
- * responses instead. Same code path either way.
+ * Lookups need Crossref / arXiv / Open Library. All three send permissive CORS headers
+ * and need no API key, so a page opened from disk or served on localhost can call them
+ * directly. A published Artifact cannot: its sandbox has no outbound network, and there
+ * is no capability that grants one.
+ *
+ * So: always try the real network first, and fall back to the recordings below only when
+ * that actually fails. Guessing from location.protocol was wrong — serving the file on
+ * localhost, the ordinary way to run it, looked like "not live" and silently used canned
+ * data even though the network was fine.
  */
-const LIVE = location.protocol === "file:";
+let liveFailed = false;
+const lookupsUnavailable = () => liveFailed;
 
-/*
- * Keyed on the EXACT request URL. An earlier version matched by substring, so any DOI
- * sharing a prefix with a recording — every 10.2307/… JSTOR id, say — was answered with
- * the wrong paper. A missing recording must fail, not return a neighbour's record.
- */
 const CR = "https://api.crossref.org/works/";
 const RECORDED = new Map([
   [CR + encodeURIComponent("10.1073/pnas.0610172104"), {message:{DOI:"10.1073/pnas.0610172104",type:"journal-article",
@@ -2039,17 +2051,34 @@ function replay(url){
            arrayBuffer:async()=>new TextEncoder().encode(isText?hit:JSON.stringify(hit)).buffer };
 }
 
-let liveFailed = false;
 async function appFetch(url, onStep){
-  if(LIVE && !liveFailed){
+  if(!liveFailed){
     try{ return await fetch(url); }
-    catch{ liveFailed = true; }                        // opened locally but offline
+    catch{
+      liveFailed = true;
+      onStep?.("  no network here — falling back to recorded answers");
+      renderNoticeIfNeeded();
+    }
   }
-  await new Promise(r=>setTimeout(r, 260));            // registries are not instant
+  await new Promise(r=>setTimeout(r, 200));
   const canned = replay(url);
   if(canned) return canned;
-  onStep?.("  this preview has no network, and no recorded answer for that one");
+  onStep?.("  and there is no recorded answer for that one");
   throw new TypeError("Failed to fetch");
+}
+
+/** Say it once, plainly, where it will be read — not as a grey footnote. */
+function renderNoticeIfNeeded(){
+  if(!lookupsUnavailable() || $("#nonet")) return;
+  const bar = document.createElement("div");
+  bar.id = "nonet";
+  bar.className = "nonet";
+  bar.innerHTML = `<b>This preview cannot look anything up.</b> A published page has no
+    outbound network, so only the sample links below resolve — everything else lands in
+    “needs checking” no matter how good the identifier is. Dropped PDFs are still read
+    here for real. To resolve live links, run it locally:
+    <code>npm start</code>.`;
+  $(".capture")?.parentNode?.insertBefore(bar, $(".capture"));
 }
 
 /*
