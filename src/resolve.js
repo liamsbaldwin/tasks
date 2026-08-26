@@ -24,7 +24,8 @@ const PMCID_RE = /\bPMC(\d{6,8})\b/i;
 
 /** id-in-the-URL → DOI, for archives whose DOI suffix *is* that id. */
 const DERIVABLE = [
-  [/jstor\.org\/stable\/(?:pdf\/)?(\d{4,10})/i,                    "10.2307/", "jstor"],
+  // numeric article ids, and the j.ctt… ids JSTOR uses for book chapters
+  [/jstor\.org\/stable\/(?:pdf\/)?(j\.[a-z0-9]+(?:\.[a-z0-9]+)*?|\d{4,10})(?:\.pdf)?(?=[?#\s"'<>)\]]|$)/i, "10.2307/", "jstor"],
   [/nber\.org\/(?:papers|system\/files\/working_papers)\/(w\d{3,6})/i, "10.3386/", "nber"],
   [/nature\.com\/articles\/([a-z0-9-]+)/i,                          "10.1038/", null],
   [/ssrn\.com\/.*?abstract_id=(\d{4,10})/i,                          "10.2139/ssrn.", "ssrn"],
@@ -421,8 +422,18 @@ export function fromCrossrefWork(w) {
 
 export async function fromCrossref(doi, fetchImpl) {
   const j = await getJson(`https://api.crossref.org/works/${encodeURIComponent(doi)}`, fetchImpl);
-  return fromCrossrefWork(j.message);
+  const work = fromCrossrefWork(j.message);
+  // Never accept a record for a different DOI than the one asked for. A caching proxy,
+  // a stubbed fetch or a mis-keyed fixture can all hand back a neighbour's paper, and a
+  // confident wrong citation is far worse than no citation.
+  if (work && !sameDoi(work.doi, doi)) {
+    throw new LookupError(`Crossref answered for ${work.doi}, not ${doi}`, "mismatch");
+  }
+  return work;
 }
+
+const sameDoi = (a, b) =>
+  String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
 
 /** No DOI, but we have a title guess — ask Crossref whether that paper exists. */
 export async function confirmByTitle(title, authors, fetchImpl) {
@@ -454,6 +465,11 @@ export async function fromArxiv(id, fetchImpl) {
   const xml = await res.text();
   const entry = xml.split("<entry>")[1];
   if (!entry) return null;
+  // arXiv answers a bad id with an entry whose title is literally "Error"
+  const entryId = (entry.match(/<id>([\s\S]*?)<\/id>/) || [])[1] || "";
+  if (!entryId.toLowerCase().includes(String(id).toLowerCase().replace(/v\d+$/, ""))) {
+    throw new LookupError(`arXiv answered for ${entryId || "nothing"}, not ${id}`, "mismatch");
+  }
   const tag = (t) => (entry.match(new RegExp(`<${t}>([\\s\\S]*?)</${t}>`)) || [])[1];
   const unesc = s => String(s || "").replace(/\s+/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
   const authors = [...entry.matchAll(/<name>([\s\S]*?)<\/name>/g)].map(m => unesc(m[1]));
@@ -492,6 +508,9 @@ export async function fromPubmed(pmid, fetchImpl, db = "pubmed") {
     fetchImpl);
   const rec = j.result?.[j.result?.uids?.[0]];
   if (!rec || rec.error) return null;
+  if (String(rec.uid) !== String(pmid)) {
+    throw new LookupError(`NCBI answered for ${rec.uid}, not ${pmid}`, "mismatch");
+  }
   return {
     title: cleanTitle(rec.title),
     // NCBI writes bylines surname-first with bare initials: "Bettencourt LM"
@@ -559,7 +578,8 @@ export async function resolveSource(input, deps = {}) {
 
   const fail = (extra = {}) => ({
     title: null, authors: [], year: null, venue: "", kind: "paper",
-    doi: null, url: /^https?:/i.test(text) ? text : null,
+    doi: parseIdentifiers(text).doi || null,
+    url: /^https?:/i.test(text) ? text : null,
     confidence: "failed", needsReview: true, provenance, ...extra,
   });
 
@@ -610,7 +630,7 @@ export async function resolveSource(input, deps = {}) {
     } catch (e) {
       fetchProblem = e.code === "http"
         ? `That link returned an error (${e.message}).`
-        : "That site will not let a browser read the file directly (CORS). Drag the PDF in instead.";
+        : "The browser could not fetch that file (the site blocks it, or there is no network). Drag the PDF in instead.";
       note(fetchProblem);
     }
   }
@@ -712,7 +732,7 @@ export async function resolveSource(input, deps = {}) {
         return settle(meta, meta.authors.length ? "likely" : "guess");
       }
     } catch {
-      note("That page could not be read from the browser (CORS).");
+      note("The browser could not read that page (the site blocks it, or there is no network).");
     }
   }
 
@@ -728,29 +748,35 @@ export async function resolveSource(input, deps = {}) {
 async function lookupIds(ids, fetchImpl, note, where = "") {
   if (!fetchImpl) return null;
   const suffix = where ? ` ${where}` : "";
+  // Note the identifier before the lookup, so a failed lookup still shows that the right
+  // one was found — "we know the DOI, we just could not check it" is useful, actionable news.
+  const tried = (label, id, fn) => {
+    note(`${label} ${id}${suffix}`);
+    return fn().catch(e => { note(`  ${e.message}`); return null; });
+  };
   if (ids.arxiv) {
-    const m = await fromArxiv(ids.arxiv, fetchImpl).catch(e => { note(e.message); return null; });
-    if (m) { note(`arXiv:${ids.arxiv}${suffix} → arXiv API`); return m; }
+    const m = await tried("arXiv:", ids.arxiv, () => fromArxiv(ids.arxiv, fetchImpl));
+    if (m) { note("  → arXiv API"); return m; }
   }
   if (ids.doi) {
-    const m = await fromCrossref(ids.doi, fetchImpl).catch(e => { note(e.message); return null; });
-    if (m) { note(`DOI ${ids.doi}${suffix} → Crossref`); return m; }
+    const m = await tried("DOI", ids.doi, () => fromCrossref(ids.doi, fetchImpl));
+    if (m) { note("  → Crossref"); return m; }
   }
   if (ids.isbn) {
-    const m = await fromOpenLibrary(ids.isbn, fetchImpl).catch(e => { note(e.message); return null; });
-    if (m) { note(`ISBN ${ids.isbn}${suffix} → Open Library`); return m; }
+    const m = await tried("ISBN", ids.isbn, () => fromOpenLibrary(ids.isbn, fetchImpl));
+    if (m) { note("  → Open Library"); return m; }
   }
   for (const [key, db, label] of [["pmid", "pubmed", "PMID"], ["pmcid", "pmc", "PMC id"]]) {
     if (!ids[key]) continue;
     const id = key === "pmcid" ? ids[key].replace(/^PMC/i, "") : ids[key];
-    const m = await fromPubmed(id, fetchImpl, db).catch(e => { note(e.message); return null; });
+    const m = await tried(label, ids[key], () => fromPubmed(id, fetchImpl, db));
     if (!m) continue;
     // NCBI usually knows the DOI, and Crossref's author list is better formed
     if (m.doi) {
       const better = await fromCrossref(m.doi, fetchImpl).catch(() => null);
-      if (better) { note(`${label} ${ids[key]}${suffix} → PubMed → Crossref`); return better; }
+      if (better) { note("  → PubMed → Crossref"); return better; }
     }
-    note(`${label} ${ids[key]}${suffix} → PubMed`);
+    note("  → PubMed");
     return m;
   }
   return null;

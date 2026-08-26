@@ -146,6 +146,19 @@ test("a scan with no text layer asks for help instead of inventing an author", a
 
 /* ---------------------------------------------------------------- archive covers */
 
+test("every JSTOR and NBER URL shape in the wild derives the right DOI", () => {
+  const doi = (u) => R.parseIdentifiers(u).doi;
+  assert.equal(doi("https://www.jstor.org/stable/1913604?searchText=&seq=1&initiator=recommender"), "10.2307/1913604");
+  assert.equal(doi("https://www.jstor.org/stable/1885060?seq=3#metadata_info_tab_contents"), "10.2307/1885060");
+  assert.equal(doi("https://www.jstor.org/stable/pdf/1885060.pdf?refreqid=x&acceptTC=1"), "10.2307/1885060");
+  assert.equal(doi("https://www.jstor.org/stable/10.2307/1885060"), "10.2307/1885060");  // already a DOI
+  assert.equal(doi("https://www.jstor.org/stable/j.ctt7zvxr2.9"), "10.2307/j.ctt7zvxr2.9"); // book chapter
+  assert.equal(doi("https://www.jstor.org/stable/pdf/j.ctt7zvxr2.9.pdf"), "10.2307/j.ctt7zvxr2.9");
+  assert.equal(doi("https://www.nber.org/papers/w31710.pdf"), "10.3386/w31710");
+  assert.equal(doi("http://papers.nber.org/papers/w0223"), "10.3386/w0223");
+  assert.equal(doi("https://www.nber.org/system/files/working_papers/w31710/w31710.pdf"), "10.3386/w31710");
+});
+
 test("a JSTOR stable id is a DOI in disguise", () => {
   const url = "https://www.jstor.org/stable/pdf/1885060.pdf?refreqid=fastly-default%3A6415" +
               "&ab_segments=&initiator=&acceptTC=1";
@@ -252,6 +265,46 @@ test("a ScienceDirect PII cannot be derived, and says so rather than guessing", 
                                   { fetch, getDocument });
   assert.equal(m.needsReview, true);
   assert.equal(m.authors.length, 0);
+});
+
+/* ------------------------------------------------- never accept the wrong record */
+
+test("a Crossref record for a different DOI is refused, not returned", async () => {
+  // the shape a prefix-matching cache or a mis-keyed stub produces
+  const fetch = F.mockFetch([["api.crossref.org/works/10.2307", F.CROSSREF_JSTOR]]);
+  const m = await R.resolveSource("https://www.jstor.org/stable/1913604?seq=1", { fetch, getDocument });
+  assert.notEqual(m.title, "Signaling Games and Stable Equilibria");
+  assert.equal(m.authors.length, 0);
+  assert.equal(m.needsReview, true);
+  // but the derived identifier survives, so the reader can see it got that far
+  assert.equal(m.doi, "10.2307/1913604");
+  assert.match(provenance(m), /10\.2307\/1913604/);
+  assert.match(provenance(m), /not 10\.2307\/1913604/);
+});
+
+test("the right DOI still resolves normally", async () => {
+  const fetch = F.mockFetch([["api.crossref.org/works/10.2307", F.CROSSREF_JSTOR]]);
+  const m = await R.resolveSource("https://www.jstor.org/stable/1885060", { fetch, getDocument });
+  assert.equal(m.confidence, "confirmed");
+  assert.equal(m.title, "Signaling Games and Stable Equilibria");
+});
+
+test("arXiv's error entry for an unknown id is not read as a paper", async () => {
+  const ERROR_FEED = `<?xml version="1.0"?><feed><entry>
+    <id>http://arxiv.org/api/errors#incorrect_id_format</id>
+    <title>Error</title><summary>incorrect id format</summary>
+    <author><name>arXiv api core</name></author></entry></feed>`;
+  const fetch = F.mockFetch([["export.arxiv.org", ERROR_FEED]]);
+  const m = await R.resolveSource("https://arxiv.org/abs/9999.99999", { fetch, getDocument });
+  assert.notEqual(m.title, "Error");
+  assert.equal(m.needsReview, true);
+});
+
+test("NCBI answering for a different PMID is refused", async () => {
+  const fetch = F.mockFetch([["eutils.ncbi.nlm.nih.gov", F.PUBMED_BETTENCOURT]]);
+  const m = await R.resolveSource("https://pubmed.ncbi.nlm.nih.gov/99999999/", { fetch, getDocument });
+  assert.equal(m.authors.length, 0);
+  assert.equal(m.needsReview, true);
 });
 
 /* ---------------------------------------------------------------- links */

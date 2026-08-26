@@ -68,6 +68,14 @@ Registries used: Crossref (DOIs), arXiv, Open Library (ISBNs), plus Google Schol
 `citation_*` meta tags on publisher landing pages. All allow direct browser requests and
 need no API key.
 
+### It never accepts the wrong record
+
+Every registry answer is checked against the identifier that was requested: a Crossref
+record whose DOI differs from the one asked for, an arXiv entry that is really an error
+page, an NCBI record for a different PMID — all are refused rather than returned. A
+confident wrong citation is worse than no citation, and this class of bug is invisible
+until you are proofreading a bibliography.
+
 ### It never invents a field
 
 No author, no year, no venue is ever fabricated. If a step could not establish something,
@@ -88,11 +96,16 @@ never has to happen.
 
 ```
 src/resolve.js          the resolver — no dependencies, fully tested
+bin/resolve.mjs         resolve a link or PDF from the command line
 src/extract-fixtures.mjs build step: pulls page-1 text runs out of sample PDFs
 build.mjs               inlines the resolver + samples into the mockup
 test/                   25 tests, including six real PDFs through pdf.js
 mockup/marginalia.html  the single-file prototype (generated block inside)
 ```
+
+`node bin/resolve.mjs <url|file.pdf>` resolves anything from the command line against the
+live registries and prints what the app would file, with the trail of how it got there;
+`--json` for the raw record. It exits non-zero when the result needs checking.
 
 `npm test` runs the suite. `node build.mjs` re-inlines the resolver after editing
 `src/resolve.js` — never edit the generated block in the HTML directly.

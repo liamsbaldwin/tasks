@@ -630,7 +630,8 @@ const PMCID_RE = /\bPMC(\d{6,8})\b/i;
 
 /** id-in-the-URL → DOI, for archives whose DOI suffix *is* that id. */
 const DERIVABLE = [
-  [/jstor\.org\/stable\/(?:pdf\/)?(\d{4,10})/i,                    "10.2307/", "jstor"],
+  // numeric article ids, and the j.ctt… ids JSTOR uses for book chapters
+  [/jstor\.org\/stable\/(?:pdf\/)?(j\.[a-z0-9]+(?:\.[a-z0-9]+)*?|\d{4,10})(?:\.pdf)?(?=[?#\s"'<>)\]]|$)/i, "10.2307/", "jstor"],
   [/nber\.org\/(?:papers|system\/files\/working_papers)\/(w\d{3,6})/i, "10.3386/", "nber"],
   [/nature\.com\/articles\/([a-z0-9-]+)/i,                          "10.1038/", null],
   [/ssrn\.com\/.*?abstract_id=(\d{4,10})/i,                          "10.2139/ssrn.", "ssrn"],
@@ -1027,8 +1028,18 @@ function fromCrossrefWork(w) {
 
 async function fromCrossref(doi, fetchImpl) {
   const j = await getJson(`https://api.crossref.org/works/${encodeURIComponent(doi)}`, fetchImpl);
-  return fromCrossrefWork(j.message);
+  const work = fromCrossrefWork(j.message);
+  // Never accept a record for a different DOI than the one asked for. A caching proxy,
+  // a stubbed fetch or a mis-keyed fixture can all hand back a neighbour's paper, and a
+  // confident wrong citation is far worse than no citation.
+  if (work && !sameDoi(work.doi, doi)) {
+    throw new LookupError(`Crossref answered for ${work.doi}, not ${doi}`, "mismatch");
+  }
+  return work;
 }
+
+const sameDoi = (a, b) =>
+  String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
 
 /** No DOI, but we have a title guess — ask Crossref whether that paper exists. */
 async function confirmByTitle(title, authors, fetchImpl) {
@@ -1060,6 +1071,11 @@ async function fromArxiv(id, fetchImpl) {
   const xml = await res.text();
   const entry = xml.split("<entry>")[1];
   if (!entry) return null;
+  // arXiv answers a bad id with an entry whose title is literally "Error"
+  const entryId = (entry.match(/<id>([\s\S]*?)<\/id>/) || [])[1] || "";
+  if (!entryId.toLowerCase().includes(String(id).toLowerCase().replace(/v\d+$/, ""))) {
+    throw new LookupError(`arXiv answered for ${entryId || "nothing"}, not ${id}`, "mismatch");
+  }
   const tag = (t) => (entry.match(new RegExp(`<${t}>([\\s\\S]*?)</${t}>`)) || [])[1];
   const unesc = s => String(s || "").replace(/\s+/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
   const authors = [...entry.matchAll(/<name>([\s\S]*?)<\/name>/g)].map(m => unesc(m[1]));
@@ -1098,6 +1114,9 @@ async function fromPubmed(pmid, fetchImpl, db = "pubmed") {
     fetchImpl);
   const rec = j.result?.[j.result?.uids?.[0]];
   if (!rec || rec.error) return null;
+  if (String(rec.uid) !== String(pmid)) {
+    throw new LookupError(`NCBI answered for ${rec.uid}, not ${pmid}`, "mismatch");
+  }
   return {
     title: cleanTitle(rec.title),
     // NCBI writes bylines surname-first with bare initials: "Bettencourt LM"
@@ -1165,7 +1184,8 @@ async function resolveSource(input, deps = {}) {
 
   const fail = (extra = {}) => ({
     title: null, authors: [], year: null, venue: "", kind: "paper",
-    doi: null, url: /^https?:/i.test(text) ? text : null,
+    doi: parseIdentifiers(text).doi || null,
+    url: /^https?:/i.test(text) ? text : null,
     confidence: "failed", needsReview: true, provenance, ...extra,
   });
 
@@ -1216,7 +1236,7 @@ async function resolveSource(input, deps = {}) {
     } catch (e) {
       fetchProblem = e.code === "http"
         ? `That link returned an error (${e.message}).`
-        : "That site will not let a browser read the file directly (CORS). Drag the PDF in instead.";
+        : "The browser could not fetch that file (the site blocks it, or there is no network). Drag the PDF in instead.";
       note(fetchProblem);
     }
   }
@@ -1318,7 +1338,7 @@ async function resolveSource(input, deps = {}) {
         return settle(meta, meta.authors.length ? "likely" : "guess");
       }
     } catch {
-      note("That page could not be read from the browser (CORS).");
+      note("The browser could not read that page (the site blocks it, or there is no network).");
     }
   }
 
@@ -1334,29 +1354,35 @@ async function resolveSource(input, deps = {}) {
 async function lookupIds(ids, fetchImpl, note, where = "") {
   if (!fetchImpl) return null;
   const suffix = where ? ` ${where}` : "";
+  // Note the identifier before the lookup, so a failed lookup still shows that the right
+  // one was found — "we know the DOI, we just could not check it" is useful, actionable news.
+  const tried = (label, id, fn) => {
+    note(`${label} ${id}${suffix}`);
+    return fn().catch(e => { note(`  ${e.message}`); return null; });
+  };
   if (ids.arxiv) {
-    const m = await fromArxiv(ids.arxiv, fetchImpl).catch(e => { note(e.message); return null; });
-    if (m) { note(`arXiv:${ids.arxiv}${suffix} → arXiv API`); return m; }
+    const m = await tried("arXiv:", ids.arxiv, () => fromArxiv(ids.arxiv, fetchImpl));
+    if (m) { note("  → arXiv API"); return m; }
   }
   if (ids.doi) {
-    const m = await fromCrossref(ids.doi, fetchImpl).catch(e => { note(e.message); return null; });
-    if (m) { note(`DOI ${ids.doi}${suffix} → Crossref`); return m; }
+    const m = await tried("DOI", ids.doi, () => fromCrossref(ids.doi, fetchImpl));
+    if (m) { note("  → Crossref"); return m; }
   }
   if (ids.isbn) {
-    const m = await fromOpenLibrary(ids.isbn, fetchImpl).catch(e => { note(e.message); return null; });
-    if (m) { note(`ISBN ${ids.isbn}${suffix} → Open Library`); return m; }
+    const m = await tried("ISBN", ids.isbn, () => fromOpenLibrary(ids.isbn, fetchImpl));
+    if (m) { note("  → Open Library"); return m; }
   }
   for (const [key, db, label] of [["pmid", "pubmed", "PMID"], ["pmcid", "pmc", "PMC id"]]) {
     if (!ids[key]) continue;
     const id = key === "pmcid" ? ids[key].replace(/^PMC/i, "") : ids[key];
-    const m = await fromPubmed(id, fetchImpl, db).catch(e => { note(e.message); return null; });
+    const m = await tried(label, ids[key], () => fromPubmed(id, fetchImpl, db));
     if (!m) continue;
     // NCBI usually knows the DOI, and Crossref's author list is better formed
     if (m.doi) {
       const better = await fromCrossref(m.doi, fetchImpl).catch(() => null);
-      if (better) { note(`${label} ${ids[key]}${suffix} → PubMed → Crossref`); return better; }
+      if (better) { note("  → PubMed → Crossref"); return better; }
     }
-    note(`${label} ${ids[key]}${suffix} → PubMed`);
+    note("  → PubMed");
     return m;
   }
   return null;
@@ -1487,6 +1513,7 @@ const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&g
 const byIdea = id => readings.filter(r=>r.ideas.includes(id));
 const cardsOf = id => byIdea(id).flatMap(r=>r.cards.map(c=>({...c, src:r})));
 const words = html => (html.replace(/<[^>]+>/g," ").match(/[A-Za-z0-9'’-]+/g)||[]).length;
+const shownTitle = r => r.title || r.file || r.doi || "Untitled source";
 const captionAuthors = a =>
   !a?.length ? `<i style="color:var(--warn)">authors missing</i>`
   : a.length > 3 ? esc(a[0]) + " et al."
@@ -1496,7 +1523,7 @@ const KIND = {paper:"Paper", book:"Book", essay:"Essay", talk:"Talk"};
 const TONE = {thesis:"var(--s1)", case:"var(--s2)", concept:"var(--s3)", counter:"var(--s4)", quote:"var(--s5)"};
 
 function cover(r, extra=""){
-  const surname = (r.authors[0] || r.title || "?").split(" ").slice(-1)[0];
+  const surname = (r.authors[0] || r.title || r.venue || "?").split(" ").slice(-1)[0];
   const mono = esc(surname[0] || "?");
   const n = r.cards.length;
   return `<div class="cover cover--${r.kind} ${extra}" style="--h:${r.h}">
@@ -1670,7 +1697,7 @@ function viewReading(){
       ${rs.map(r=>`<button class="tile ${r.needsReview?"tile--review":""}" data-reading="${r.id}">
         ${cover(r)}
         <span class="tile__cap">
-          <span class="tile__t">${esc(r.title)}</span>
+          <span class="tile__t">${esc(shownTitle(r))}</span>
           <span class="tile__a" style="display:block; margin-top:3px">${captionAuthors(r.authors)} · ${r.year||"n.d."}</span>
         </span>
         <span class="tile__foot">
@@ -1705,6 +1732,7 @@ function viewNote(){
           <label class="wide"><span>Authors</span><input id="rv-authors" value="${esc(r.authors.join(", "))}" placeholder="Separated by commas"></label>
           <label><span>Year</span><input id="rv-year" value="${esc(r.year||"")}"></label>
           <label><span>Published in</span><input id="rv-venue" value="${esc(r.venue||"")}"></label>
+          ${r.doi?`<label class="wide"><span>DOI — found, but not checked</span><input id="rv-doi" value="${esc(r.doi)}" readonly></label>`:""}
         </div>
         <div class="review__act">
           <button class="btn btn--primary" data-accept="${r.id}">Save and clear the flag</button>
@@ -1712,7 +1740,7 @@ function viewNote(){
         </div>
       </div>`:""}
       <span class="lbl">${KIND[r.kind]} · ${r.year||"no date"}</span>
-      <h1 class="note__title" style="margin-top:7px">${esc(r.title)}</h1>
+      <h1 class="note__title" style="margin-top:7px">${esc(shownTitle(r))}</h1>
       <p class="note__authors">${esc(r.authors.join(", "))}</p>
       <p class="note__venue">${esc(r.venue)}</p>
 
@@ -1892,6 +1920,9 @@ function viewNotes(){
     </ol>
     <p>For a book there is no DOI, so the title page carries the load: the publisher line gives the imprint and tells the tool it is looking at a book rather than a paper.</p>
 
+    <h3>It refuses the wrong record, not just the missing one</h3>
+    <p>Every answer from a registry is checked against the identifier that was asked for. If Crossref returns a record whose DOI is not the one requested, it is thrown away rather than filed. That sounds paranoid until you meet the failure it prevents: a wrong citation that looks completely confident, which you discover while proofreading a bibliography months later. A blank field announces itself; a plausible wrong one does not.</p>
+
     <h3>What happens when it still cannot tell</h3>
     <p>This is the part that actually matters, and the part most tools get wrong. A resolver that fails silently and writes <em>Unknown author</em> is worse than one that fails loudly, because you find out six weeks later when you are writing the citation.</p>
     <p>So nothing is ever invented. No author, no year, no venue. If a step could not establish a field, the source lands with a <strong>Check</strong> flag and opens straight into a small form with everything that <em>was</em> found already filled in — usually you are typing one field, not four. The sidebar shows exactly which step produced which field, so when something is wrong you can see why. A scanned page with no text layer says so plainly and asks for a title.</p>
@@ -1952,56 +1983,72 @@ function render(){
  */
 const LIVE = location.protocol === "file:";
 
-const RECORDED = [
-  ["api.crossref.org/works/10.1073", {message:{DOI:"10.1073/pnas.0610172104",type:"journal-article",
+/*
+ * Keyed on the EXACT request URL. An earlier version matched by substring, so any DOI
+ * sharing a prefix with a recording — every 10.2307/… JSTOR id, say — was answered with
+ * the wrong paper. A missing recording must fail, not return a neighbour's record.
+ */
+const CR = "https://api.crossref.org/works/";
+const RECORDED = new Map([
+  [CR + encodeURIComponent("10.1073/pnas.0610172104"), {message:{DOI:"10.1073/pnas.0610172104",type:"journal-article",
     title:["Growth, innovation, scaling, and the pace of life in cities"],
     "container-title":["Proceedings of the National Academy of Sciences"],
     author:[{given:"Luís M. A.",family:"Bettencourt"},{given:"José",family:"Lobo"},{given:"Dirk",family:"Helbing"},
             {given:"Christian",family:"Kühnert"},{given:"Geoffrey B.",family:"West"}],
     "published-print":{"date-parts":[[2007,4,24]]}}}],
-  ["api.crossref.org/works/10.1126", {message:{DOI:"10.1126/science.276.5309.122",type:"journal-article",
+  [CR + encodeURIComponent("10.1126/science.276.5309.122"), {message:{DOI:"10.1126/science.276.5309.122",type:"journal-article",
     title:["A General Model for the Origin of Allometric Scaling Laws in Biology"],
     "container-title":["Science"],
     author:[{given:"Geoffrey B.",family:"West"},{given:"James H.",family:"Brown"},{given:"Brian J.",family:"Enquist"}],
     "published-print":{"date-parts":[[1997,4,4]]}}}],
-  ["api.crossref.org/works?", {message:{items:[
-    {DOI:"10.1525/9780520314207-011",type:"journal-article",title:["The Tyranny of Structurelessness"],
-     "container-title":["Berkeley Journal of Sociology"],author:[{given:"Jo",family:"Freeman"}],
-     "published-print":{"date-parts":[[1972]]}}]}}],
-  ["api.crossref.org/works/10.2307", {message:{DOI:"10.2307/1885060",type:"journal-article",
+  [CR + encodeURIComponent("10.2307/1885060"), {message:{DOI:"10.2307/1885060",type:"journal-article",
     title:["Signaling Games and Stable Equilibria"],
     "container-title":["The Quarterly Journal of Economics"],
     author:[{given:"In-Koo",family:"Cho"},{given:"David M.",family:"Kreps"}],
     "published-print":{"date-parts":[[1987,5]]},publisher:"Oxford University Press (OUP)"}}],
-  ["api.crossref.org/works/10.3386", {message:{DOI:"10.3386/w1885",type:"report",
+  [CR + encodeURIComponent("10.3386/w1885"), {message:{DOI:"10.3386/w1885",type:"report",
     title:["Signaling Games and Stable Equilibria"],
     author:[{given:"In-Koo",family:"Cho"},{given:"David M.",family:"Kreps"}],
     publisher:"National Bureau of Economic Research","published-print":{"date-parts":[[1986]]}}}],
-  ["export.arxiv.org", `<?xml version="1.0"?><feed><entry><id>http://arxiv.org/abs/1911.01547v2</id>
-    <published>2019-11-05T02:19:24Z</published><title>On the Measure of Intelligence</title>
+  ["https://export.arxiv.org/api/query?id_list=1911.01547", `<?xml version="1.0"?><feed>
+    <entry><id>http://arxiv.org/abs/1911.01547v2</id><published>2019-11-05T02:19:24Z</published>
+    <title>On the Measure of Intelligence</title>
     <summary>To make deliberate progress towards more intelligent systems, we need a clear
     definition of intelligence.</summary><author><name>François Chollet</name></author></entry></feed>`],
-  ["openlibrary.org", {"ISBN:9780300078152":{title:"Seeing Like a State",
-    subtitle:"How Certain Schemes to Improve the Human Condition Have Failed",
-    authors:[{name:"James C. Scott"}],publish_date:"1998",
-    publishers:[{name:"Yale University Press"}]}}],
-];
+  ["https://openlibrary.org/api/books?bibkeys=ISBN:9780300078152&format=json&jscmd=data",
+    {"ISBN:9780300078152":{title:"Seeing Like a State",
+     subtitle:"How Certain Schemes to Improve the Human Condition Have Failed",
+     authors:[{name:"James C. Scott"}],publish_date:"1998",
+     publishers:[{name:"Yale University Press"}]}}],
+]);
+
+/** The title search is answered for any query — confirmByTitle checks the match itself. */
+const RECORDED_SEARCH = {message:{items:[
+  {DOI:"10.1525/9780520314207-011",type:"journal-article",title:["The Tyranny of Structurelessness"],
+   "container-title":["Berkeley Journal of Sociology"],author:[{given:"Jo",family:"Freeman"}],
+   "published-print":{"date-parts":[[1972]]}}]}};
+
+function replay(url){
+  const hit = RECORDED.has(url) ? RECORDED.get(url)
+            : url.startsWith(CR + "?") || url.startsWith("https://api.crossref.org/works?") ? RECORDED_SEARCH
+            : null;
+  if(hit === null) return null;
+  const isText = typeof hit === "string";
+  return { ok:true, status:200, headers:{get:()=>isText?"application/xml":"application/json"},
+           json:async()=>hit, text:async()=>isText?hit:JSON.stringify(hit),
+           arrayBuffer:async()=>new TextEncoder().encode(isText?hit:JSON.stringify(hit)).buffer };
+}
 
 let liveFailed = false;
-async function appFetch(url){
+async function appFetch(url, onStep){
   if(LIVE && !liveFailed){
     try{ return await fetch(url); }
     catch{ liveFailed = true; }                        // opened locally but offline
   }
   await new Promise(r=>setTimeout(r, 260));            // registries are not instant
-  for(const [pattern, value] of RECORDED){
-    if(url.includes(pattern)){
-      const isText = typeof value === "string";
-      return { ok:true, status:200, headers:{get:()=>isText?"application/xml":"application/json"},
-               json:async()=>value, text:async()=>isText?value:JSON.stringify(value),
-               arrayBuffer:async()=>new TextEncoder().encode(isText?value:JSON.stringify(value)).buffer };
-    }
-  }
+  const canned = replay(url);
+  if(canned) return canned;
+  onStep?.("  this preview has no network, and no recorded answer for that one");
   throw new TypeError("Failed to fetch");
 }
 
@@ -2065,9 +2112,14 @@ async function addSource(input, fileName, realFile){
   tiles.prepend(ghost);
 
   const steps = ghost.querySelector("#steps");
-  const onStep = m => { steps.innerHTML += `<span class="step">${esc(m)}</span>`; };
+  const trail = [];
+  const onStep = m => {
+    if(trail[trail.length-1] === m) return;            // the ladder retries; say it once
+    trail.push(m);
+    steps.innerHTML += `<span class="step">${esc(m)}</span>`;
+  };
 
-  const deps = { fetch: appFetch, onStep };
+  const deps = { fetch: url => appFetch(url, onStep), onStep };
   let payload = input;
   if(realFile){
     payload = { file: realFile };
@@ -2090,14 +2142,16 @@ async function addSource(input, fileName, realFile){
   const r = {
     id:"n"+Date.now(),
     kind: meta.kind || "paper",
-    title: meta.title || (fileName || "Untitled source"),
+    title: meta.title || null,
+    file: fileName || null,
     authors: meta.authors || [],
     year: meta.year || null,
     venue: meta.venue || (fileName ? "Local file" : "Pasted link"),
     doi: meta.doi || null,
     h: hueFor(meta.title || String(input)),
     ideas:[state.idea], status:"queued", summary:"", cards:[],
-    confidence: meta.confidence, needsReview: meta.needsReview, provenance: meta.provenance,
+    confidence: meta.confidence, needsReview: meta.needsReview,
+    provenance: trail.length ? trail : meta.provenance,
     url: meta.url || (typeof input === "string" ? input : null), doi: meta.doi || null,
   };
   readings.unshift(r);
