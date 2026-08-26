@@ -166,7 +166,7 @@ a{color:var(--accent)}
 .chip--queued{color:var(--faint)}
 
 /* ============ cockpit ============ */
-.hero{display:flex; align-items:flex-end; justify-content:space-between; gap:30px; margin-bottom:24px}
+.hero{display:flex; align-items:center; justify-content:space-between; gap:30px; margin-bottom:24px}
 .hero h1{font-size:30px; line-height:1.15}
 .hero p{color:var(--muted); font-size:14.5px; margin-top:7px; max-width:56ch}
 .gauges{display:flex; gap:0; border:1px solid var(--line); border-radius:var(--r); overflow:hidden; background:var(--surface)}
@@ -1583,10 +1583,7 @@ function viewCockpit(){
 
   return `
   <div class="hero">
-    <div>
-      <h1>Four ideas on the bench.</h1>
-      <p><b>The Cost of Legibility</b> has been in drafting for nine days with four sources still unread — that is the one to sit down with.</p>
-    </div>
+    <h1>Ideas</h1>
     <div class="gauges">
       <div class="gauge"><span class="gauge__n">${ideas.length}</span><span class="gauge__l">Ideas</span></div>
       <div class="gauge"><span class="gauge__n">${readN}<span style="color:var(--faint)">/${readings.length}</span></span><span class="gauge__l">Read</span></div>
