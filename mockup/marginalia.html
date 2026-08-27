@@ -125,19 +125,22 @@ a{color:var(--accent)}
   backdrop-filter:blur(10px); border-bottom:1px solid var(--line);
   padding:0 30px; display:flex; align-items:flex-end; gap:22px; min-height:56px;
 }
-.crumb{display:flex; align-items:baseline; gap:9px; align-self:center}
+.crumb{display:flex; align-items:baseline; gap:9px; align-self:center; min-width:0}
 .topbar--tabs .crumb{align-self:flex-end; padding-bottom:10px}
-.crumb__t{font-family:var(--serif); font-size:17px; font-weight:600}
+/* One row, always: a long title gives up width and ellipsises rather than wrapping to a
+   second line, which used to leave the pill and the tabs floating at different heights. */
+.crumb__t{font-family:var(--serif); font-size:17px; font-weight:600;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .crumb__stage{
   font-family:var(--mono); font-size:10px; letter-spacing:.09em; text-transform:uppercase;
   color:var(--stage); border:1px solid color-mix(in srgb, var(--stage) 40%, transparent);
   background:color-mix(in srgb, var(--stage) 11%, transparent);
-  padding:2px 7px; border-radius:20px;
+  padding:2px 7px; border-radius:20px; flex:none;
   /* Centred, not baseline-aligned: on a baseline the pill's padding and the descender
      space under its all-caps text both hang below the title, and it reads as sagging. */
   align-self:center;
 }
-.tabs{display:flex; gap:2px; align-self:flex-end}
+.tabs{display:flex; gap:2px; align-self:flex-end; flex:none}
 .tab{
   padding:9px 13px 11px; font-size:13.5px; color:var(--muted);
   border-bottom:2px solid transparent; margin-bottom:-1px;
@@ -145,7 +148,8 @@ a{color:var(--accent)}
 .tab:hover{color:var(--ink-2)}
 .tab[aria-current="true"]{color:var(--ink); border-bottom-color:var(--stage,var(--accent)); font-weight:500}
 .tab__n{font-family:var(--mono); font-size:10.5px; color:var(--faint); margin-left:5px}
-.topbar__right{margin-left:auto; align-self:center; display:flex; gap:8px; align-items:baseline}
+.topbar__right{margin-left:auto; align-self:center; display:flex; gap:8px; align-items:baseline;
+  flex:none; white-space:nowrap}
 .topbar--tabs .topbar__right{align-self:flex-end; padding-bottom:12px}
 
 .view{padding:30px; max-width:1320px; width:100%}
@@ -557,7 +561,14 @@ table.lib{border-collapse:collapse; width:100%; min-width:720px; font-size:13.5p
   .app{grid-template-columns:1fr}
   .rail{position:static; height:auto; flex-direction:column}
   .view{padding:20px 16px}
-  .topbar{padding:0 16px; flex-wrap:wrap}
+  /* Narrow: the title and the tabs stack, so the padding that baselines the title
+     against the tabs becomes a dead band between two rows. Drop it, close the row
+     gap, and pull the tabs left by their own padding so the labels start on the
+     same edge as the title. */
+  .topbar{padding:0 16px; flex-wrap:wrap; row-gap:5px}
+  .topbar--tabs{padding-top:11px}
+  .topbar--tabs .crumb{flex:1 0 100%; align-self:flex-start; padding-bottom:0}
+  .topbar--tabs .tabs{margin-left:-13px}
   .hero{flex-direction:column; align-items:flex-start}
   .gauges{width:100%}
 }
