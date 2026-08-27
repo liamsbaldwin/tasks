@@ -125,7 +125,8 @@ a{color:var(--accent)}
   backdrop-filter:blur(10px); border-bottom:1px solid var(--line);
   padding:0 30px; display:flex; align-items:flex-end; gap:22px; min-height:56px;
 }
-.crumb{display:flex; align-items:center; gap:9px; align-self:center}
+.crumb{display:flex; align-items:baseline; gap:9px; align-self:center}
+.topbar--tabs .crumb{align-self:flex-end; padding-bottom:10px}
 .crumb__t{font-family:var(--serif); font-size:17px; font-weight:600}
 .crumb__stage{
   font-family:var(--mono); font-size:10px; letter-spacing:.09em; text-transform:uppercase;
@@ -141,7 +142,8 @@ a{color:var(--accent)}
 .tab:hover{color:var(--ink-2)}
 .tab[aria-current="true"]{color:var(--ink); border-bottom-color:var(--stage,var(--accent)); font-weight:500}
 .tab__n{font-family:var(--mono); font-size:10.5px; color:var(--faint); margin-left:5px}
-.topbar__right{margin-left:auto; align-self:center; display:flex; gap:8px; align-items:center}
+.topbar__right{margin-left:auto; align-self:center; display:flex; gap:8px; align-items:baseline}
+.topbar--tabs .topbar__right{align-self:flex-end; padding-bottom:12px}
 
 .view{padding:30px; max-width:1320px; width:100%}
 .view--wide{max-width:none}
@@ -1602,6 +1604,7 @@ function renderRail(){
 
 function renderTopbar(){
   const t = $("#topbar");
+  t.classList.toggle("topbar--tabs", state.view === "idea");
   if(state.view!=="idea"){
     const titles = {cockpit:["Cockpit","Everything on the bench"], library:["Library","Every source, across every idea"], notes:["Why it works this way","Design notes & alternatives"]};
     const [a,b] = titles[state.view];
