@@ -2,11 +2,15 @@ name = "marginalia"
 main = "src/index.js"
 compatibility_date = "2025-08-01"
 
-# The page itself. `npm run build` writes mockup/marginalia.html; this serves it.
+# The page itself. `npm run bundle` writes worker/public/index.html.
+#
+# run_worker_first matters: without it Cloudflare answers from the asset store before
+# the Worker ever runs, and /api/state would be served the HTML page instead of your
+# notebook. Everything else is a static file and is served as one.
 [assets]
 directory = "./public"
 binding = "ASSETS"
-not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
 
 [[d1_databases]]
 binding = "DB"

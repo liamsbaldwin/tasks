@@ -36,6 +36,16 @@ npm run deploy                 # 5. build, bundle, publish
 
 Wrangler prints your URL: `https://marginalia.<your-subdomain>.workers.dev`.
 
+## Check it worked
+
+```sh
+npm run smoke -- https://marginalia.<your-subdomain>.workers.dev  YOUR-SYNC-TOKEN
+```
+
+Six checks: the page serves, your notebook is refused without the key and returned with
+it, a stale write is rejected, nothing was written by the attempt, and a real Crossref
+lookup comes back through the proxy. It never writes to your notebook.
+
 ### Making the secret
 
 Any long random string. On a Mac or Linux box:
@@ -45,6 +55,17 @@ openssl rand -base64 32
 ```
 
 Keep a copy — you need it once per device.
+
+### If wrangler rejects `run_worker_first`
+
+Older versions only accept a boolean. Change that line in `worker/wrangler.toml` to:
+
+```toml
+run_worker_first = true
+```
+
+It works the same way — every request goes through the Worker, which hands the static
+ones straight to the asset store.
 
 ## Getting it onto your devices
 

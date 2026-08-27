@@ -10,7 +10,8 @@
     "resolve": "node bin/resolve.mjs",
     "bundle": "node bin/bundle.mjs",
     "deploy": "npm run build && npm run bundle && cd worker && wrangler deploy",
-    "db:init": "cd worker && wrangler d1 execute marginalia --remote --file=./schema.sql"
+    "db:init": "cd worker && wrangler d1 execute marginalia --remote --file=./schema.sql",
+    "smoke": "node bin/smoke.mjs"
   },
   "repository": {
     "type": "git",
