@@ -12,20 +12,18 @@ Open it in a browser — no build step, no dependencies, no server.
 |---|---|
 | **Idea** | A title, a 1–3 sentence brief, and a stage. The unit of work. |
 | **Source** | A paper, book, essay, or talk. Lives in one shared library, tagged onto one or more ideas. |
-| **Card** | One claim, quote, or objection lifted from a source, with its page reference. |
-| **Draft** | One markdown essay/script per idea, written next to that idea's cards. |
+| **Notes** | A page per source — summary, argument, objections — not a drawer. |
+| **Draft** | One essay per idea, written next to that idea's reading. |
 
-Ideas move through five stages — spark, gathering, drafting, cutting, published —
-and the interface colours them on a cool-to-warm ramp, so the cockpit shows at a
-glance which projects are heating up and which have gone cold.
+Ideas move through four stages — reading, drafting, editing, published — and the
+interface colours them on a cool-to-warm ramp, so the cockpit shows at a glance which
+projects are heating up and which have gone cold.
 
 ## The three decisions worth arguing with
 
-1. **The card is the load-bearing part.** Reading lists and drafts are the visible
-   halves of the job; the hunt for "where did I read that?" is the invisible half
-   where projects die. Cards made while reading appear automatically in an evidence
-   rail beside the draft, and clicking one inserts it with the citation formed.
-   That yields the most useful number in the tool: **unspent cards**.
+1. **Adding a source must cost nothing.** Paste a link or drop a PDF and the tile
+   builds itself — title, authors, year, cover. A reading list you have to fill in by
+   hand is a reading list you stop filling in.
 2. **Sources are shared, not owned.** Ideas are tags on one library, not folders.
    Filing a paper under a second idea is one click and brings its notes along.
 3. **Notes get a page, not a dropdown.** A drawer signals "keep it short"; the
@@ -34,6 +32,15 @@ glance which projects are heating up and which have gone cold.
 The reasoning behind these, plus three organisational alternatives that were considered
 and rejected, is in this README rather than inside the app — that tab is now a Roadmap
 for planning the project instead.
+
+## Running it on your phone and your laptop
+
+[`SETUP.md`](SETUP.md) — a Cloudflare Worker plus one D1 row, on the free plan. Five
+one-off commands, then `npm run deploy`. Merging is per record, so edits made on two
+devices at once both survive; deletes stick; and lookups start working on the phone,
+because the Worker fetches them on the page's behalf.
+
+With no server behind it the page is unchanged: local, offline, one file.
 
 ## Editing
 

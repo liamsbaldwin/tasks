@@ -1,0 +1,17 @@
+name = "marginalia"
+main = "src/index.js"
+compatibility_date = "2025-08-01"
+
+# The page itself. `npm run build` writes mockup/marginalia.html; this serves it.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "marginalia"
+database_id = "PUT-YOUR-DATABASE-ID-HERE"   # printed by: wrangler d1 create marginalia
+
+# The shared secret is NOT kept here. Set it once with:
+#   wrangler secret put SYNC_TOKEN

@@ -1,1 +1,4 @@
 node_modules/
+.marginalia-state.json
+worker/public/
+worker/.wrangler/

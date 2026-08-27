@@ -7,7 +7,10 @@
     "start": "node bin/serve.mjs",
     "test": "node --test \"test/*.test.js\"",
     "build": "node build.mjs",
-    "resolve": "node bin/resolve.mjs"
+    "resolve": "node bin/resolve.mjs",
+    "bundle": "node bin/bundle.mjs",
+    "deploy": "npm run build && npm run bundle && cd worker && wrangler deploy",
+    "db:init": "cd worker && wrangler d1 execute marginalia --remote --file=./schema.sql"
   },
   "repository": {
     "type": "git",
