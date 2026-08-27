@@ -451,6 +451,7 @@ select.inp{cursor:pointer}
 }
 .rich__bar button:hover{background:var(--surface-2); color:var(--ink); border-color:var(--line)}
 .rich__bar button b{font-family:var(--serif); font-weight:700}
+.rich__bar button[data-cmd="quote"] b{font-size:19px; line-height:0; position:relative; top:4px}
 .rich__bar button i{font-family:var(--serif)}
 .rich__hint{
   margin-left:6px; font-family:var(--mono); font-size:9.5px; letter-spacing:.06em;
@@ -486,15 +487,16 @@ select.inp{cursor:pointer}
 .saved{margin-left:10px; color:var(--good); opacity:0; transition:opacity .25s ease}
 .saved.on{opacity:1}
 .paper h1{font-size:33px; line-height:1.15; margin:10px 0 6px; max-width:24ch}
-.paper__deck{font-family:var(--serif); font-size:17px; color:var(--muted); font-style:italic; margin-bottom:26px}
+.paper__deck{font-family:var(--serif); font-size:17px; color:var(--muted); font-style:italic; margin-bottom:22px}
 .prose{font-family:var(--serif); font-size:18px; line-height:1.72; max-width:65ch; outline:none}
 .prose h2{font-size:20px; margin:34px 0 10px; letter-spacing:0}
+.prose > :first-child{margin-top:0}
 .prose p{margin:0 0 1.05em}
-.prose blockquote{
-  margin:1.3em 0; padding:2px 0 2px 18px; border-left:2px solid var(--stage);
+.prose blockquote, .pad blockquote{
+  margin:1.3em 0; padding:2px 0 2px 18px; border-left:2px solid var(--stage, var(--line));
   font-size:16.5px; color:var(--ink-2);
 }
-.prose blockquote cite{display:block; font-style:normal; font-family:var(--mono); font-size:11px; color:var(--faint); margin-top:7px}
+.prose blockquote cite, .pad blockquote cite{display:block; font-style:normal; font-family:var(--mono); font-size:11px; color:var(--faint); margin-top:7px}
 .prose .tk{background:color-mix(in srgb, var(--warn) 20%, transparent); border-radius:3px; padding:0 3px}
 .prose .justin{animation:flash 1.1s ease}
 @keyframes flash{0%{background:var(--accent-soft)} 100%{background:transparent}}
@@ -2259,8 +2261,8 @@ function richBar(){
     <button data-cmd="bold" title="Bold (⌘B)" aria-label="Bold"><b>B</b></button>
     <button data-cmd="italic" title="Italic (⌘I)" aria-label="Italic"><i>I</i></button>
     <button data-cmd="insertUnorderedList" title="Bullets" aria-label="Bullet list">•</button>
+    <button data-cmd="quote" title="Quote block" aria-label="Quote block"><b>&#8220;</b></button>
     <button data-cmd="math" title="Maths — or just type $x^2$" aria-label="Insert maths">∑</button>
-    <span class="rich__hint">$…$ for maths</span>
   </div>`;
 }
 
@@ -2394,7 +2396,12 @@ document.addEventListener("click", async e => {
     const editor = btn.closest(".rich")?.querySelector("[data-edit]");
     if(!editor) return;
     editor.focus();
-    if(btn.dataset.cmd === "math"){
+    if(btn.dataset.cmd === "quote"){
+      const sel = getSelection();
+      const node = sel.anchorNode;
+      const el = node && (node.nodeType === 1 ? node : node.parentElement);
+      document.execCommand("formatBlock", false, el?.closest("blockquote") ? "p" : "blockquote");
+    }else if(btn.dataset.cmd === "math"){
       const sel = getSelection();
       const picked = sel.rangeCount ? sel.toString() : "";
       document.execCommand("insertText", false, "$" + (picked || "x^2") + "$");
