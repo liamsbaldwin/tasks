@@ -1063,7 +1063,11 @@ async function getJson(url, fetchImpl, headers = {}) {
     // A browser reports a CORS refusal as a TypeError with no status.
     throw new LookupError(`Could not reach ${new URL(url).host}`, "network");
   }
-  if (!res.ok) throw new LookupError(`${new URL(url).host} returned ${res.status}`, "http");
+  if (!res.ok) {
+    const err = new LookupError(`${new URL(url).host} returned ${res.status}`, "http");
+    err.status = res.status;
+    throw err;
+  }
   return res.json();
 }
 
@@ -1441,7 +1445,13 @@ async function lookupIds(ids, fetchImpl, note, where = "") {
   // one was found — "we know the DOI, we just could not check it" is useful, actionable news.
   const tried = (label, id, fn) => {
     note(`${label} ${id}${suffix}`);
-    return fn().catch(e => { note(`  ${e.message}`); return null; });
+    return fn().catch(e => {
+      // "there is no such record" and "I could not ask" are different problems
+      note("  " + (e.status === 404
+        ? `no record for it — that ${label.replace(/[:]/g, "").toLowerCase()} may not be registered`
+        : e.message));
+      return null;
+    });
   };
   if (ids.arxiv) {
     const m = await tried("arXiv:", ids.arxiv, () => fromArxiv(ids.arxiv, fetchImpl));
@@ -1849,9 +1859,14 @@ function viewNote(){
     <div>
       ${r.needsReview?`<div class="review">
         <div class="review__h"><h3>Worth a second look</h3></div>
-        <p class="review__why">${esc(why||"Some fields could not be filled in automatically.")}
-          ${r.doi?`The identifier it did find is <code>${esc(r.doi)}</code>.`:""}
-          Correct the title and byline below — they are editable in place — then clear this.</p>
+        <p class="review__why">${lookupsUnavailable() && r.doi
+          ? `The identifier is right — <code>${esc(r.doi)}</code> — this page just has no
+             network to check it against. Run it locally (<code>npm start</code>) and this
+             fills itself in.`
+          : esc(why || "Some fields could not be filled in automatically.")}
+          ${r.doi?`<a href="https://doi.org/${esc(r.doi)}" target="_blank" rel="noreferrer noopener"
+             style="white-space:nowrap">Open it &#8599;</a> to copy the title, or`:""}
+          correct the title and byline below — they are editable in place — then clear this.</p>
         <div class="review__act">
           <button class="btn btn--primary" data-accept="${r.id}">Looks right</button>
           <span class="lbl">or paste a DOI into the bar above to fill it in for you</span>

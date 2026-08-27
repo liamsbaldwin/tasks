@@ -399,7 +399,11 @@ async function getJson(url, fetchImpl, headers = {}) {
     // A browser reports a CORS refusal as a TypeError with no status.
     throw new LookupError(`Could not reach ${new URL(url).host}`, "network");
   }
-  if (!res.ok) throw new LookupError(`${new URL(url).host} returned ${res.status}`, "http");
+  if (!res.ok) {
+    const err = new LookupError(`${new URL(url).host} returned ${res.status}`, "http");
+    err.status = res.status;
+    throw err;
+  }
   return res.json();
 }
 
@@ -777,7 +781,13 @@ async function lookupIds(ids, fetchImpl, note, where = "") {
   // one was found — "we know the DOI, we just could not check it" is useful, actionable news.
   const tried = (label, id, fn) => {
     note(`${label} ${id}${suffix}`);
-    return fn().catch(e => { note(`  ${e.message}`); return null; });
+    return fn().catch(e => {
+      // "there is no such record" and "I could not ask" are different problems
+      note("  " + (e.status === 404
+        ? `no record for it — that ${label.replace(/[:]/g, "").toLowerCase()} may not be registered`
+        : e.message));
+      return null;
+    });
   };
   if (ids.arxiv) {
     const m = await tried("arXiv:", ids.arxiv, () => fromArxiv(ids.arxiv, fetchImpl));
