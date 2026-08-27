@@ -11,7 +11,6 @@ const END = "/* <<< end generated >>> */";
 const resolver = readFileSync("src/resolve.js", "utf8")
   .replace(/^export\s+/gm, "")
   .trim();
-const samples = readFileSync("src/pdf-samples.json", "utf8");
 
 /*
  * pdf.js goes in as inert text and is turned into a blob module on first use, so a
@@ -41,7 +40,7 @@ try {
   console.warn("katex not installed — the mockup will ship without maths rendering");
 }
 
-const block = `${START}\nconst PDF_SAMPLES = ${samples};\n\n${resolver}\n${END}`;
+const block = `${START}\n${resolver}\n${END}`;
 
 const PDFJS_START = "<!-- <<< pdf.js, inlined by build.mjs >>> -->";
 const PDFJS_END = "<!-- <<< end pdf.js >>> -->";
