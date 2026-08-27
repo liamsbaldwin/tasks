@@ -2185,7 +2185,7 @@ async function addSource(input, fileName, realFile){
     ideas:[state.idea], status:"queued", summary:"",
     confidence: meta.confidence, needsReview: meta.needsReview,
     provenance: trail.length ? trail : meta.provenance,
-    url: meta.url || (typeof input === "string" ? input : null), doi: meta.doi || null,
+    url: meta.url || (typeof input === "string" ? input : null),
   };
   readings.unshift(r);
   state.filter = "all";
