@@ -271,9 +271,9 @@ a{color:var(--accent)}
 .filter[aria-pressed="true"]{background:var(--surface); border-color:var(--line); color:var(--ink); box-shadow:var(--shadow)}
 
 .tiles{display:grid; grid-template-columns:repeat(auto-fill,minmax(152px,1fr)); gap:18px}
-.tilewrap{position:relative; display:flex; transition:transform .16s ease}
+.tilewrap{position:relative; display:grid; transition:transform .16s ease}
 .tilewrap:hover{transform:translateY(-3px)}
-.tilewrap > .tile{flex:1 1 auto; min-width:0}
+.tilewrap > .tile{min-width:0}
 .tile__del{
   position:absolute; top:7px; right:7px; z-index:5;
   width:22px; height:22px; border-radius:50%; display:grid; place-items:center;
@@ -304,15 +304,15 @@ a{color:var(--accent)}
 .toast button{color:var(--accent); font-weight:500; font-size:13px}
 .toast button:hover{text-decoration:underline}
 .tile{
-  display:flex; flex-direction:column; gap:9px; text-align:left; padding:0;
-  transition:transform .16s ease;
+  display:grid; grid-template-rows:auto 1fr auto; gap:9px;
+  text-align:left; padding:0; transition:transform .16s ease;
 }
 .tile:hover{transform:translateY(-3px)}
-.tile__cap{flex:1 1 auto; min-height:0}
+.tile__cap{min-height:0}
 .tile__t{display:block; font-family:var(--serif); font-size:15px; line-height:1.3; font-weight:600}
 .tile:hover .tile__t{color:var(--accent)}
 .tile__a{font-size:12px; color:var(--muted); line-height:1.35}
-.tile__foot{flex:0 0 auto; margin-top:auto; display:flex; align-items:center; gap:6px}
+.tile__foot{display:flex; align-items:center; gap:6px}
 .tile__note{
   font-family:var(--mono); font-size:10px; color:var(--faint);
   display:inline-flex; align-items:center; gap:3px; margin-left:auto;
@@ -321,7 +321,7 @@ a{color:var(--accent)}
 
 /* generated covers — deterministic art, since papers have no jacket */
 .cover{
-  flex:0 0 auto;                 /* never shrink — see .tile__cap */
+  width:100%;                    /* stated, not inferred — see .tile */
   position:relative; aspect-ratio:3/4; border-radius:6px; overflow:hidden;
   background:hsl(var(--h) var(--cover-s) var(--cover-l));
   box-shadow:var(--shadow); display:flex; flex-direction:column; justify-content:flex-end;
