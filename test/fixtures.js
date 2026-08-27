@@ -121,3 +121,10 @@ export const PUBMED_BETTENCOURT = { result: {
     articleids: [{ idtype: "pubmed", value: "17360779" }, { idtype: "doi", value: "10.1073/pnas.0610172104" }],
   },
 }};
+
+export const OEMBED_TALK = {
+  title: "The surprising math of cities and corporations",
+  author_name: "TED",
+  provider_name: "YouTube",
+  thumbnail_url: "https://i.ytimg.com/vi/XyCY6mjWOPc/hqdefault.jpg",
+};

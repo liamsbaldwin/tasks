@@ -76,6 +76,9 @@ export function parseIdentifiers(text) {
   const pmid = s.match(/pubmed\.ncbi\.nlm\.nih\.gov\/(\d{6,9})/i) || s.match(/\bPMID:?\s*(\d{6,9})\b/i);
   if (pmid) out.pmid = pmid[1];
 
+  const yt = s.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|live\/)|youtu\.be\/)([\w-]{11})/i);
+  if (yt) out.youtube = yt[1];
+
   // Only trust a bare ISBN if the string says so, or it is an isbn-shaped URL segment;
   // otherwise long digit runs in page text produce nonsense.
   if (/isbn/i.test(s) || /openlibrary|goodreads|worldcat/i.test(s)) {
@@ -370,12 +373,16 @@ export function parseCoverCitation(text) {
   };
 }
 
-/** Is this an archive's cover sheet rather than the paper's own first page? */
+/**
+ * Is this an archive's cover sheet rather than the paper's own first page?
+ *
+ * Keyed on the labelled citation, not the download stamp: JSTOR prints "This content
+ * downloaded from …" on *every* page, so testing for it marks the whole document as
+ * cover sheet and there is never a real page to fall through to.
+ */
 export function isCoverPage(page) {
   const t = page.items.map(i => i.str).join(" ");
-  return /\bAuthor\(s\):/i.test(t) ||
-         /JSTOR is a not-for-profit/i.test(t) ||
-         /This content downloaded from/i.test(t);
+  return /\bAuthor\(s\):/i.test(t) || /JSTOR is a not-for-profit/i.test(t);
 }
 
 /* ------------------------------------------------------------------ registries */
@@ -497,7 +504,27 @@ export async function fromOpenLibrary(isbn, fetchImpl) {
     venue: (b.publishers || []).map(p => p.name).join(", "),
     kind: "book",
     url: b.url || null,
-    cover: b.cover?.medium || null,
+    cover: b.cover?.large || b.cover?.medium || null,
+  };
+}
+
+/**
+ * A talk has no DOI and no cover, but oEmbed gives its title, its channel and a
+ * thumbnail — which is the closest thing a video has to a jacket.
+ */
+export async function fromYouTube(id, fetchImpl) {
+  const watch = `https://www.youtube.com/watch?v=${id}`;
+  const j = await getJson(
+    `https://www.youtube.com/oembed?url=${encodeURIComponent(watch)}&format=json`, fetchImpl);
+  if (!j || !j.title) return null;
+  return {
+    title: cleanTitle(j.title),
+    authors: j.author_name ? [j.author_name] : [],
+    year: null,                       // oEmbed does not carry one, so do not invent one
+    venue: j.provider_name || "YouTube",
+    kind: "talk",
+    url: watch,
+    cover: j.thumbnail_url || `https://img.youtube.com/vi/${id}/hqdefault.jpg`,
   };
 }
 
@@ -763,6 +790,10 @@ async function lookupIds(ids, fetchImpl, note, where = "") {
   if (ids.isbn) {
     const m = await tried("ISBN", ids.isbn, () => fromOpenLibrary(ids.isbn, fetchImpl));
     if (m) { note("  → Open Library"); return m; }
+  }
+  if (ids.youtube) {
+    const m = await tried("Video", ids.youtube, () => fromYouTube(ids.youtube, fetchImpl));
+    if (m) { note("  → oEmbed"); return m; }
   }
   for (const [key, db, label] of [["pmid", "pubmed", "PMID"], ["pmcid", "pmc", "PMC id"]]) {
     if (!ids[key]) continue;

@@ -3,7 +3,9 @@
  * They are committed, so this only needs running when a new case is added:
  *   node test/make-fixtures.mjs
  */
-import { chromium } from 'playwright';
+// playwright is a dev-only dependency; fall back to a global install
+const { chromium } = await import('playwright')
+  .catch(() => import('/opt/node22/lib/node_modules/playwright/index.mjs'));
 import { fileURLToPath } from 'node:url';
 
 const DIR = fileURLToPath(new URL('./fixtures/', import.meta.url));
@@ -81,7 +83,8 @@ for(const p of papers){
 }
 
 // A JSTOR download: a labelled cover sheet, then the article's own first page.
-await (async()=>{ 
+await (async()=>{
+  const page = await b.newPage();
   await page.setContent(`<!doctype html><html><head><title></title></head><body>
 <style>@page{margin:0} body{margin:0;font-family:Times,serif}
   .sheet{width:8.5in;height:11in;padding:1in 1.1in;box-sizing:border-box;page-break-after:always}
@@ -110,6 +113,7 @@ await (async()=>{
   All use subject to https://about.jstor.org/terms</div>
 </div>
 <div class="sheet">
+  <div class="stamp" style="margin:0 0 18px">This content downloaded from<br>129.246.254.203 on Wed, 26 Aug 2026 13:22:30 UTC<br>All use subject to https://about.jstor.org/terms</div>
   <div class="jh"><div class="sm">THE</div><div class="bg">QUARTERLY JOURNAL<br>OF ECONOMICS</div></div>
   <div class="vol">Vol. CII &nbsp; May 1987 &nbsp; Issue 2</div>
   <div class="at">SIGNALING GAMES AND STABLE EQUILIBRIA*</div>
@@ -119,6 +123,7 @@ await (async()=>{
   ${'We consider refinements that restrict those beliefs. '.repeat(10)}</div>
 </div></body></html>`);
   await page.pdf({ path:DIR+'jstor-cover.pdf', width:'8.5in', height:'11in', printBackground:true });
+  await page.close();
 })();
 await b.close();
 console.log('wrote', papers.length + 1, 'fixture PDFs to', DIR);

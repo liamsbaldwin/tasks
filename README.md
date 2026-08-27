@@ -104,6 +104,24 @@ Registries used: Crossref (DOIs), arXiv, Open Library (ISBNs), plus Google Schol
 `citation_*` meta tags on publisher landing pages. All allow direct browser requests and
 need no API key.
 
+### Covers
+
+In order of preference:
+
+1. **A thumbnail of the paper's own first page**, rendered locally with the pdf.js that
+   is already loaded for reading the text. No network, works for anything you drop in,
+   and you recognise your own PDFs by sight. An archive cover sheet is skipped, so you
+   get the article rather than a JSTOR banner.
+2. **The jacket**, for a book Open Library resolved, at the largest size it holds.
+3. **The still**, for a talk, from the video's own oEmbed record.
+4. **The drawn stand-in** otherwise — a monogram, the publisher line, and a form that
+   says what kind of thing it is.
+
+The drawn cover stays in the markup underneath the real one, so an image that 404s or
+is blocked reveals it again rather than leaving a hole. Thumbnails are WebP where the
+browser can encode it and JPEG otherwise (older Safari quietly returns a PNG when asked
+for WebP, which is far bigger, so the result is checked rather than assumed).
+
 ### It never accepts the wrong record
 
 Every registry answer is checked against the identifier that was requested: a Crossref

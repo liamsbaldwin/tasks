@@ -369,6 +369,19 @@ a{color:var(--accent)}
   border-left:8px solid hsl(var(--h) 40% var(--cover-ink-l) / .45);
   border-top:5px solid transparent; border-bottom:5px solid transparent;
 }
+.cover__art{
+  position:absolute; inset:0; z-index:1; width:100%; height:100%;
+  object-fit:cover; object-position:top center; background:var(--surface-2);
+}
+/* with real art, the drawn stand-in underneath gets out of the way */
+.cover--art .cover__mono, .cover--art .cover__v{display:none}
+.cover--art::before, .cover--art::after{display:none}
+.cover--art .cover__kind{
+  background:rgba(0,0,0,.55); color:#fff; opacity:1;
+  padding:2px 6px; border-radius:4px; top:7px; left:7px;
+}
+.cover--book.cover--art{padding-left:10px}
+
 .cover--new{animation:pop .4s cubic-bezier(.2,.9,.3,1.2)}
 @keyframes pop{from{transform:scale(.9); opacity:0} to{transform:scale(1); opacity:1}}
 .tile--ghost .cover{background:var(--surface-2); box-shadow:none; border:1px solid var(--line)}
@@ -501,9 +514,7 @@ select.inp{cursor:pointer}
 .prose .justin{animation:flash 1.1s ease}
 @keyframes flash{0%{background:var(--accent-soft)} 100%{background:transparent}}
 
-.wordbar{display:flex; align-items:center; gap:12px; margin:14px 2px 0}
-.wordbar__track{flex:1; height:4px; border-radius:2px; background:var(--surface-3); overflow:hidden}
-.wordbar__fill{height:100%; background:var(--stage); border-radius:2px}
+.wordbar{display:flex; align-items:baseline; gap:14px; margin:14px 2px 0}
 
 /* ============ library ============ */
 .tablewrap{overflow-x:auto; border:1px solid var(--line); border-radius:var(--r); background:var(--surface)}
@@ -728,6 +739,9 @@ function parseIdentifiers(text) {
 
   const pmid = s.match(/pubmed\.ncbi\.nlm\.nih\.gov\/(\d{6,9})/i) || s.match(/\bPMID:?\s*(\d{6,9})\b/i);
   if (pmid) out.pmid = pmid[1];
+
+  const yt = s.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|live\/)|youtu\.be\/)([\w-]{11})/i);
+  if (yt) out.youtube = yt[1];
 
   // Only trust a bare ISBN if the string says so, or it is an isbn-shaped URL segment;
   // otherwise long digit runs in page text produce nonsense.
@@ -1023,12 +1037,16 @@ function parseCoverCitation(text) {
   };
 }
 
-/** Is this an archive's cover sheet rather than the paper's own first page? */
+/**
+ * Is this an archive's cover sheet rather than the paper's own first page?
+ *
+ * Keyed on the labelled citation, not the download stamp: JSTOR prints "This content
+ * downloaded from …" on *every* page, so testing for it marks the whole document as
+ * cover sheet and there is never a real page to fall through to.
+ */
 function isCoverPage(page) {
   const t = page.items.map(i => i.str).join(" ");
-  return /\bAuthor\(s\):/i.test(t) ||
-         /JSTOR is a not-for-profit/i.test(t) ||
-         /This content downloaded from/i.test(t);
+  return /\bAuthor\(s\):/i.test(t) || /JSTOR is a not-for-profit/i.test(t);
 }
 
 /* ------------------------------------------------------------------ registries */
@@ -1150,7 +1168,27 @@ async function fromOpenLibrary(isbn, fetchImpl) {
     venue: (b.publishers || []).map(p => p.name).join(", "),
     kind: "book",
     url: b.url || null,
-    cover: b.cover?.medium || null,
+    cover: b.cover?.large || b.cover?.medium || null,
+  };
+}
+
+/**
+ * A talk has no DOI and no cover, but oEmbed gives its title, its channel and a
+ * thumbnail — which is the closest thing a video has to a jacket.
+ */
+async function fromYouTube(id, fetchImpl) {
+  const watch = `https://www.youtube.com/watch?v=${id}`;
+  const j = await getJson(
+    `https://www.youtube.com/oembed?url=${encodeURIComponent(watch)}&format=json`, fetchImpl);
+  if (!j || !j.title) return null;
+  return {
+    title: cleanTitle(j.title),
+    authors: j.author_name ? [j.author_name] : [],
+    year: null,                       // oEmbed does not carry one, so do not invent one
+    venue: j.provider_name || "YouTube",
+    kind: "talk",
+    url: watch,
+    cover: j.thumbnail_url || `https://img.youtube.com/vi/${id}/hqdefault.jpg`,
   };
 }
 
@@ -1417,6 +1455,10 @@ async function lookupIds(ids, fetchImpl, note, where = "") {
     const m = await tried("ISBN", ids.isbn, () => fromOpenLibrary(ids.isbn, fetchImpl));
     if (m) { note("  → Open Library"); return m; }
   }
+  if (ids.youtube) {
+    const m = await tried("Video", ids.youtube, () => fromYouTube(ids.youtube, fetchImpl));
+    if (m) { note("  → oEmbed"); return m; }
+  }
   for (const [key, db, label] of [["pmid", "pubmed", "PMID"], ["pmcid", "pmc", "PMC id"]]) {
     if (!ids[key]) continue;
     const id = key === "pmcid" ? ids[key].replace(/^PMC/i, "") : ids[key];
@@ -1452,10 +1494,7 @@ const ideas = [
   {
     id:"legibility", title:"The Cost of Legibility", stage:"drafting",
     blurb:"Every system that wants to be governed first has to be made readable — and the act of making it readable quietly destroys the thing worth governing. Where does the trade actually bite?",
-    essay:{
-      deck:"On what standardisation buys, and what it silently spends.",
-      target:4000
-    }
+    essay:{ deck:"On what standardisation buys, and what it silently spends." }
   },
   {
     id:"forget", title:"Why Interfaces Forget", stage:"reading",
@@ -1468,7 +1507,7 @@ const ideas = [
   {
     id:"tendays", title:"Ten Days a Week", stage:"editing",
     blurb:"For twelve years France ran on a ten-day week, and it failed for reasons that had nothing to do with astronomy. A short piece on the one unit of measure a state cannot simply legislate.",
-    essay:{ deck:"The calendar the Revolution could not make stick.", target:2500 }
+    essay:{ deck:"The calendar the Revolution could not make stick." }
   },
   {
     id:"maps", title:"The Map Became the Territory", stage:"published",
@@ -1588,14 +1627,34 @@ const captionAuthors = a =>
 const authorLine = a => !a?.length ? "—" : a.length>2 ? a[0].split(" ").slice(-1)[0]+" et al." : a.map(n=>n.split(" ").slice(-1)[0]).join(" & ");
 const KIND = {paper:"Paper", book:"Book", essay:"Essay", talk:"Talk"};
 
+/*
+ * A cover, in order of preference: a thumbnail of the paper's own first page, then a
+ * jacket or video still from wherever the source came from, then the drawn stand-in.
+ * The drawn one stays in the markup underneath, so a remote image that 404s or is
+ * blocked simply reveals it again rather than leaving a hole.
+ */
 function cover(r, extra=""){
   const surname = (r.authors[0] || r.title || r.venue || "?").split(" ").slice(-1)[0];
   const mono = esc(surname[0] || "?");
-  return `<div class="cover cover--${r.kind} ${extra}" style="--h:${r.h}">
+  const art = r.thumb || r.coverUrl;
+  return `<div class="cover cover--${r.kind} ${art?"cover--art":""} ${extra}" style="--h:${r.h}">
+    ${art?`<img class="cover__art" src="${esc(art)}" alt="" loading="lazy">`:""}
     <span class="cover__kind">${KIND[r.kind]}</span>
     <span class="cover__mono">${mono}</span>
     <span class="cover__v">${esc(r.venue)}</span>
   </div>`;
+}
+
+/** A broken or blocked image falls back to the drawn cover instead of a blank box. */
+function wireCoverArt(){
+  $$(".cover__art").forEach(img => {
+    if(img.dataset.wired) return;
+    img.dataset.wired = "1";
+    img.addEventListener("error", () => {
+      img.closest(".cover")?.classList.remove("cover--art");
+      img.remove();
+    });
+  });
 }
 
 /* ==================== chrome ==================== */
@@ -1872,7 +1931,7 @@ function viewNote(){
 /* ==================== idea: draft ==================== */
 function viewDraft(){
   const i = ideas.find(x=>x.id===state.idea), st = stageOf(i.stage);
-  const w = words(drafts[i.id]||""), target = (i.essay&&i.essay.target)||4000;
+  const w = words(drafts[i.id]||"");
   return `<div class="draft" style="--stage:${st.c}">
     <div class="paper">
       <div class="paper__eyebrow">Script <span id="saved" class="saved">Saved</span></div>
@@ -1883,9 +1942,7 @@ function viewDraft(){
            data-ph="Start anywhere. The first paragraph is always wrong.">${drafts[i.id]||""}</div></div>
     </div>
     <div class="wordbar">
-      <span class="mono" style="font-size:11.5px; color:var(--muted)"><span id="wordnow">${w.toLocaleString()}</span> /
-        <input class="inp inp--num" data-edit="idea.essay.target" value="${target}" aria-label="Word target"> words</span>
-      <span class="wordbar__track"><span class="wordbar__fill" id="wordfill" style="width:${Math.min(100,w/target*100)}%"></span></span>
+      <span class="mono" style="font-size:11.5px; color:var(--muted)"><span id="wordnow">${w.toLocaleString()}</span> words</span>
       <span class="mono" style="font-size:11.5px; color:var(--faint)"><span id="readtime">${readTime(w)}</span> read</span>
     </div>
   </div>`;
@@ -2019,6 +2076,7 @@ function render(){
   else                            v.innerHTML = viewReading();
   renderNoticeIfNeeded();
   syncPlaceholders();
+  wireCoverArt();
   save();
 }
 
@@ -2138,6 +2196,38 @@ async function loadPdfjs(){
   return pdfjs;
 }
 
+/*
+ * A paper has no jacket, but its own first page is instantly recognisable — you know
+ * your PDFs by sight. pdf.js is already here for the text, so this costs one more read
+ * of the file and no network at all. An archive cover sheet is skipped, for the same
+ * reason the resolver skips it: nobody recognises a JSTOR banner.
+ */
+async function pdfThumbnail(file, lib){
+  try{
+    const doc = await lib.getDocument({ data:new Uint8Array(await file.arrayBuffer()) }).promise;
+    let pageNo = 1;
+    for(let i = 1; i <= Math.min(doc.numPages, 3); i++){
+      const tc = await (await doc.getPage(i)).getTextContent();
+      if(!isCoverPage({ items: tc.items })){ pageNo = i; break; }   // the resolver's own test
+    }
+    const page = await doc.getPage(pageNo);
+    const base = page.getViewport({ scale:1 });
+    const vp = page.getViewport({ scale: 340 / base.width });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(vp.width);
+    canvas.height = Math.round(vp.height);
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    await page.render({ canvasContext:ctx, viewport:vp }).promise;
+    await doc.destroy();
+    // WebP is roughly half the size on a page of text. Older Safari silently hands back
+    // a PNG when asked for one, which is far bigger, so check what actually came out.
+    const webp = canvas.toDataURL("image/webp", 0.7);
+    return webp.startsWith("data:image/webp") ? webp : canvas.toDataURL("image/jpeg", 0.68);
+  }catch{ return null; }
+}
+
 /** Adds a tile, showing the resolver working as it goes. */
 async function addSource(input, fileName, realFile){
   const tiles = $("#tiles"); if(!tiles) return;
@@ -2186,7 +2276,13 @@ async function addSource(input, fileName, realFile){
     confidence: meta.confidence, needsReview: meta.needsReview,
     provenance: trail.length ? trail : meta.provenance,
     url: meta.url || (typeof input === "string" ? input : null),
+    coverUrl: meta.cover || null,
   };
+  // the thumbnail comes after the metadata, so nothing waits on it that need not
+  if(realFile && pdfjs){
+    onStep("Making a thumbnail from page 1");
+    r.thumb = await pdfThumbnail(realFile, pdfjs);
+  }
   readings.unshift(r);
   state.filter = "all";
   render();
@@ -2458,15 +2554,25 @@ let saveTimer = null;
 function save(){
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
+    const flash = () => {
+      const flag = $("#saved");
+      if(!flag) return;
+      flag.classList.add("on");
+      clearTimeout(flag._t);
+      flag._t = setTimeout(() => flag.classList.remove("on"), 1200);
+    };
     try{
       localStorage.setItem(STORE, JSON.stringify({ ideas, readings, drafts }));
-      const flag = $("#saved");
-      if(flag){
-        flag.classList.add("on");
-        clearTimeout(flag._t);
-        flag._t = setTimeout(() => flag.classList.remove("on"), 1200);
-      }
-    }catch{ /* private window, or storage full — carry on in memory */ }
+      flash();
+    }catch{
+      // out of room, most likely the thumbnails. Words matter more than pictures.
+      try{
+        localStorage.setItem(STORE, JSON.stringify({
+          ideas, drafts, readings: readings.map(r => ({ ...r, thumb:null })),
+        }));
+        flash();
+      }catch{ /* private window, or genuinely full — carry on in memory */ }
+    }
   }, 300);
 }
 
@@ -2512,11 +2618,9 @@ function applyEdit(el){
 
   if(path === "draft"){
     drafts[state.idea] = raw;
-    const target = (modelFor("idea").essay || {}).target || 4000;
     const w = words(raw);
-    const now = $("#wordnow"), fill = $("#wordfill"), mins = $("#readtime");
+    const now = $("#wordnow"), mins = $("#readtime");
     if(now) now.textContent = w.toLocaleString();
-    if(fill) fill.style.width = Math.min(100, w / target * 100) + "%";
     if(mins) mins.textContent = readTime(w);
     return;
   }
@@ -2529,7 +2633,6 @@ function applyEdit(el){
 
   if(field === "authors")      obj.authors = raw.split(",").map(a => a.trim()).filter(Boolean);
   else if(field === "year")    obj.year = Number(raw) || null;
-  else if(field === "target")  obj.target = Number(raw) || 4000;
   else                         obj[field] = raw;
 
   // an edited source is one you have looked at
@@ -2570,7 +2673,7 @@ function syncPlaceholders(){
 /* ==================== ideas ==================== */
 function newIdea(){
   const id = "i" + Date.now();
-  ideas.push({ id, title:"Untitled idea", blurb:"", stage:"reading", essay:{ deck:"", target:3000 } });
+  ideas.push({ id, title:"Untitled idea", blurb:"", stage:"reading", essay:{ deck:"" } });
   drafts[id] = "";
   state.view = "idea"; state.idea = id; state.tab = "brief"; state.reading = null;
   render();

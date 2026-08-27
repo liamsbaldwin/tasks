@@ -330,6 +330,36 @@ test("NCBI answering for a different PMID is refused", async () => {
   assert.equal(m.needsReview, true);
 });
 
+test("a video link is read through oEmbed, thumbnail and all", async () => {
+  const fetch = F.mockFetch([["youtube.com/oembed", F.OEMBED_TALK]]);
+  const m = await R.resolveSource("https://www.youtube.com/watch?v=XyCY6mjWOPc", { fetch, getDocument });
+  assert.equal(m.kind, "talk");
+  assert.equal(m.title, "The surprising math of cities and corporations");
+  assert.deepEqual(m.authors, ["TED"]);
+  assert.match(m.cover, /hqdefault\.jpg$/);
+  assert.equal(m.year, null);            // oEmbed carries no date, so none is invented
+  assert.equal(m.needsReview, false);
+});
+
+test("every YouTube URL shape yields the same id", () => {
+  const id = (u) => R.parseIdentifiers(u).youtube;
+  assert.equal(id("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), "dQw4w9WgXcQ");
+  assert.equal(id("https://youtu.be/XqZsoesa55w"), "XqZsoesa55w");
+  assert.equal(id("https://www.youtube.com/embed/aBcDeFgHiJk"), "aBcDeFgHiJk");
+  assert.equal(id("https://www.youtube.com/watch?t=30&v=dQw4w9WgXcQ"), "dQw4w9WgXcQ");
+  assert.equal(id("https://example.com/watch?v=notavideoid"), undefined);
+});
+
+test("a book cover comes back at the largest size Open Library has", async () => {
+  const fetch = F.mockFetch([["openlibrary.org", {
+    "ISBN:9780300078152": { ...F.OPENLIBRARY_SCOTT["ISBN:9780300078152"],
+      cover: { medium: "https://covers.openlibrary.org/b/id/1-M.jpg",
+               large:  "https://covers.openlibrary.org/b/id/1-L.jpg" } },
+  }]]);
+  const m = await R.resolveSource("ISBN 978-0-300-07815-2", { fetch, getDocument });
+  assert.match(m.cover, /-L\.jpg$/);
+});
+
 /* ---------------------------------------------------------------- links */
 
 test("an arXiv link never downloads the PDF — the id is in the URL", async () => {
