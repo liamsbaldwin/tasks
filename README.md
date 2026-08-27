@@ -31,8 +31,9 @@ glance which projects are heating up and which have gone cold.
 3. **Notes get a page, not a dropdown.** A drawer signals "keep it short"; the
    summary is where you find out whether you actually understood the source.
 
-Full reasoning, plus three organisational alternatives that were considered and
-rejected, are in the **Why it works this way** tab of the mockup.
+The reasoning behind these, plus three organisational alternatives that were considered
+and rejected, is in this README rather than inside the app — that tab is now a Roadmap
+for planning the project instead.
 
 ## Editing
 
@@ -44,7 +45,8 @@ save buttons, no edit mode.
 | **Ideas** | `+` in the rail creates one. Title, blurb and open questions are editable in place; the stage picker moves it between Reading / Drafting / Editing / Published; the brief page deletes it, with undo. |
 | **Sources** | Added by pasting a link or dropping a PDF. Title, authors and venue are editable in place on the source's page; kind and year sit in the sidebar; status is three buttons. Hover a tile for a × to delete, with undo. |
 | **Filing** | A source can sit under several ideas. Each tag has an × to unfile it, and a picker adds it to another. |
-| **Writing** | The deck, the prose and the word target are all editable, and the word count updates as you type. |
+| **Writing** | The deck and the prose are editable, and the word count updates as you type. A full progress bar is fifteen minutes on screen. |
+| **Roadmap** | One page that is not about a particular idea — a blank document for planning the project as a whole, with the same editor as everywhere else. |
 
 ### Formatting
 

@@ -535,32 +535,7 @@ table.lib{border-collapse:collapse; width:100%; min-width:720px; font-size:13.5p
   background:color-mix(in srgb, var(--stage) 13%, transparent); color:var(--stage); white-space:nowrap}
 
 /* ============ design notes ============ */
-.doc{max-width:74ch}
-.doc h1{font-size:29px; margin-bottom:8px}
-.doc__lede{font-family:var(--serif); font-size:18px; color:var(--muted); line-height:1.6; margin-bottom:30px}
-.doc h2{font-size:19px; margin:34px 0 12px; padding-top:20px; border-top:1px solid var(--line)}
-.doc h3{font-size:15px; margin:20px 0 6px}
-.doc p{margin:0 0 12px; line-height:1.68; color:var(--ink-2)}
-.doc ul{margin:0 0 14px; padding-left:19px; color:var(--ink-2)}
-.doc li{margin-bottom:7px; line-height:1.6}
-.doc strong{color:var(--ink); font-weight:600}
-.ladder{margin:0 0 16px; padding-left:0; list-style:none; counter-reset:rung; display:flex; flex-direction:column; gap:10px}
-.ladder li{position:relative; padding-left:34px; line-height:1.6; color:var(--ink-2)}
-.ladder li::before{
-  counter-increment:rung; content:counter(rung);
-  position:absolute; left:0; top:1px; width:22px; height:22px; border-radius:50%;
-  display:grid; place-items:center; font-family:var(--mono); font-size:11px;
-  background:var(--accent-soft); color:var(--accent);
-}
-.doc code{font-family:var(--mono); font-size:12.5px; background:var(--surface-2); padding:1px 5px; border-radius:4px}
-.opts{display:grid; gap:12px; margin:16px 0 20px}
-.opt{border:1px solid var(--line); border-radius:var(--r); padding:14px 16px; background:var(--surface)}
-.opt--pick{border-color:color-mix(in srgb, var(--accent) 45%, transparent); box-shadow:0 0 0 3px var(--accent-soft)}
-.opt__h{display:flex; align-items:center; gap:9px; margin-bottom:6px}
-.opt__h h3{margin:0; font-size:15px}
-.opt__tag{font-family:var(--mono); font-size:9.5px; letter-spacing:.09em; text-transform:uppercase; color:var(--accent);
-  border:1px solid color-mix(in srgb,var(--accent) 40%,transparent); padding:2px 7px; border-radius:20px; margin-left:auto}
-.opt p{margin:0; font-size:13.5px; color:var(--muted)}
+.prose code, .pad code{font-family:var(--mono); font-size:.85em; background:var(--surface-2); padding:1px 5px; border-radius:4px}
 
 @media (max-width:1080px){
   .note,.draft{grid-template-columns:minmax(0,1fr)}
@@ -591,9 +566,9 @@ table.lib{border-collapse:collapse; width:100%; min-width:720px; font-size:13.5p
         <svg class="nav__ico" viewBox="0 0 20 20"><path d="M4 4h4v13H4zM9 4h3v13H9zM13.4 4.6l3 .8-3 12-3-.8z"/></svg>
         Library <span class="nav__count" id="libcount"></span>
       </button>
-      <button class="nav__item" data-go="notes">
-        <svg class="nav__ico" viewBox="0 0 20 20"><path d="M6 3h8l3 3v11H6z"/><path d="M9 8h5M9 11h5M9 14h3"/></svg>
-        Why it works this way
+      <button class="nav__item" data-go="roadmap">
+        <svg class="nav__ico" viewBox="0 0 20 20"><path d="M5 17V4l5 2 5-2v9"/><path d="M5 11l5 2 5-2"/><circle cx="15" cy="16" r="1.6"/></svg>
+        Roadmap
       </button>
     </nav>
     <div class="rail__head">
@@ -1602,6 +1577,8 @@ const drafts = {
   maps:`<h2>Instruments that move what they measure</h2><p>Shipped. Full script in the archive.</p>`
 };
 
+let roadmapDoc = "";
+
 const state = {
   view:"cockpit", idea:"legibility", tab:"reading", reading:null,
   filter:"all"
@@ -1693,7 +1670,7 @@ function renderTopbar(){
   const t = $("#topbar");
   t.classList.toggle("topbar--tabs", state.view === "idea");
   if(state.view!=="idea"){
-    const titles = {cockpit:["Cockpit","Everything on the bench"], library:["Library","Every source, across every idea"], notes:["Why it works this way","Design notes & alternatives"]};
+    const titles = {cockpit:["Cockpit","Everything on the bench"], library:["Library","Every source, across every idea"], roadmap:["Roadmap","Where the whole thing is going"]};
     const [a,b] = titles[state.view];
     t.style.removeProperty("--stage");
     t.innerHTML = `<div class="crumb"><span class="crumb__t">${a}</span>
@@ -1992,96 +1969,18 @@ function viewLibrary(){
 }
 
 /* ==================== design notes ==================== */
-function viewNotes(){
-  return `<div class="doc">
-    <span class="lbl">Design notes</span>
-    <h1 style="margin-top:8px">Why it works this way</h1>
-    <p class="doc__lede">Your sketch — ideas in a rail, a reading page of tiles, a writing page — is right, and this is built on it. I changed three things, and each change is arguable. Here is what and why, so you can overrule me.</p>
-
-    <h2>1. The summary is the load-bearing part</h2>
-    <p>A reading list and a draft are the two visible halves of the job. The invisible half is the bit in between: remembering that Scott said something about forestry, and going hunting for it. That hunt is where research projects die — not in the reading, and not in the writing.</p>
-    <p>The thing that prevents it is the <strong>summary</strong> on each source: what you would tell a friend at dinner, in your own words. Writing it is how you find out whether you actually understood the thing, and it is what you re-read six weeks later instead of the paper. So it gets a full page with room to write, not a drawer — which is also the answer to your suggestion of a dropdown on each tile. A drawer signals “keep this short”. The tile still tells you at a glance whether a summary exists, which is the part the dropdown was really for.</p>
-    <p>The count of read-but-not-yet-summarised sources is the most useful signal in the tool: it is the pile of work you have done and not yet banked.</p>
-
-    <h2>2. Sources are shared, not owned</h2>
-    <p>You described readings as living inside an idea. In practice a good source serves two or three ideas at once, and the moment you have to decide which folder a paper "belongs" to, you have added the exact friction you asked me to avoid.</p>
-    <p>So: one <strong>library</strong>, and ideas are tags on it. Nothing about the interface changes — the reading page still shows only that idea's tiles. But adding an existing source to a second idea is one click, and your notes come with it.</p>
-
-    <h2>3. Ideas have a temperature</h2>
-    <p>An idea moves: reading → drafting → editing → published. That is a real sequence, so the interface encodes it as one — the colour of an idea warms as it moves toward the camera, and the cockpit shows the whole pipeline at a glance. This is the "am I actually making progress" view, and it is the thing a plain folder tree can never give you.</p>
-
-    <h2>Four ways this could have been organised</h2>
-    <div class="opts">
-      <div class="opt opt--pick">
-        <div class="opt__h"><h3>Idea-first navigation, library-backed data</h3><span class="opt__tag">Built</span></div>
-        <p>You navigate by idea, exactly as you sketched. Underneath, sources live in one pool and are tagged. Best of both: simple mental model, no duplication, and cross-idea search comes free.</p>
-      </div>
-      <div class="opt">
-        <div class="opt__h"><h3>Strict idea folders</h3></div>
-        <p>Your original sketch, taken literally. Simplest possible model, and genuinely fine for the first six months. It breaks the first time a paper matters to two ideas, and it breaks quietly — you end up with two copies and notes in the wrong one.</p>
-      </div>
-      <div class="opt">
-        <div class="opt__h"><h3>Note-first (zettelkasten)</h3></div>
-        <p>Atomic notes are primary, ideas are just clusters that emerge from links between them. Powerful for people who read very widely without knowing what they are making. Wrong here: you already know the output is an essay and then a video, and this model is famously good at generating notes and bad at generating finished work.</p>
-      </div>
-      <div class="opt">
-        <div class="opt__h"><h3>Pure kanban board</h3></div>
-        <p>Every idea a card, dragged across stage columns. Great overview, no depth — it tracks the project without holding any of the work. It survives here as the pipeline strip at the top of the cockpit, which is the useful 10% of it.</p>
-      </div>
+/*
+ * The one page that is not about a particular idea: somewhere to think about the project
+ * as a whole. Deliberately a blank document rather than a template — the shape of a plan
+ * is the planner's business, and a form with headings would only get argued with.
+ */
+function viewRoadmap(){
+  return `<div class="draft">
+    <div class="paper">
+      <div class="paper__eyebrow">Roadmap <span id="saved" class="saved">Saved</span></div>
+      <div class="rich">${richBar()}<div class="prose" contenteditable="true" data-edit="roadmap" data-rich="1"
+           data-ph="What is the whole project for? What ships first, and what is it waiting on? What are you still unsure about?">${roadmapDoc}</div></div>
     </div>
-
-    <h2>Adding a source has to cost about four seconds</h2>
-    <p>The capture bar takes anything you can copy or drag, and works down a ladder, stopping at the first step that gives a real answer. The order matters: the cheapest and most reliable identifiers are tried first, and reading ink off the page is the last resort, not the first.</p>
-    <ol class="ladder">
-      <li><strong>An identifier in what you pasted.</strong> A DOI, an arXiv id, an ISBN, or a URL containing one. Several archives also mint their DOIs mechanically from an id sitting in the URL, so those are derived rather than looked up: a JSTOR stable id is <code>10.2307/&lt;id&gt;</code>, an NBER working paper is <code>10.3386/w&lt;n&gt;</code>, SSRN is <code>10.2139/ssrn.&lt;id&gt;</code>, a Nature slug is <code>10.1038/&lt;slug&gt;</code>. PubMed links go through NCBI, which hands back the DOI. Springer, Wiley, Taylor &amp; Francis, bioRxiv and the rest already put the DOI in the URL and need no special case. No download happens at any of this.</li>
-      <li><strong>An identifier printed inside the PDF.</strong> Nearly every published paper prints its own DOI in the footer of page 1; preprints carry an arXiv stamp up the left margin; JSTOR prints <code>Stable URL:</code> on its cover sheet. All are found in the text layer and looked up.</li>
-      <li><strong>The archive's cover sheet.</strong> JSTOR and friends prepend a page carrying a labelled citation — <code>Author(s):</code>, <code>Source:</code>, <code>Published by:</code>. That is better structured than anything a heuristic could infer, and it works with no network at all.</li>
-      <li><strong>The PDF's embedded metadata</strong> — but only after a sanity check. Half the papers you download claim to be titled <code>Microsoft Word - final_v3.doc</code> or <code>main.pdf</code>. Those are rejected rather than believed.</li>
-      <li><strong>The page, read the way you read it.</strong> Text runs are grouped into blocks by type size and position; the largest block near the top is the title, and the first block below it that reads like names rather than prose is the byline. Superscript affiliation markers are stripped, a title wrapped over two lines is kept whole, a wrapped subtitle is not mistaken for an author, and a cover sheet is skipped so the paper's own first page gets read instead.</li>
-      <li><strong>A check against Crossref.</strong> Whatever the previous steps produced is searched for by title. If a record matches closely enough, the guess is replaced by the real one. If the top hit is a different paper, it is discarded rather than trusted.</li>
-    </ol>
-    <p>For a book there is no DOI, so the title page carries the load: the publisher line gives the imprint and tells the tool it is looking at a book rather than a paper.</p>
-
-    <h3>It refuses the wrong record, not just the missing one</h3>
-    <p>Every answer from a registry is checked against the identifier that was asked for. If Crossref returns a record whose DOI is not the one requested, it is thrown away rather than filed. That sounds paranoid until you meet the failure it prevents: a wrong citation that looks completely confident, which you discover while proofreading a bibliography months later. A blank field announces itself; a plausible wrong one does not.</p>
-
-    <h3>What happens when it still cannot tell</h3>
-    <p>This is the part that actually matters, and the part most tools get wrong. A resolver that fails silently and writes <em>Unknown author</em> is worse than one that fails loudly, because you find out six weeks later when you are writing the citation.</p>
-    <p>So nothing is ever invented. No author, no year, no venue. If a step could not establish a field, the source lands with a <strong>Check</strong> flag and opens straight into a small form with everything that <em>was</em> found already filled in — usually you are typing one field, not four. The sidebar shows exactly which step produced which field, so when something is wrong you can see why. A scanned page with no text layer says so plainly and asks for a title.</p>
-    <p>Unconfirmed is not the same as wrong: a title read off page 1 is perfectly usable, it just has not been checked against a registry, so it gets flagged. Anything a registry confirmed goes straight in.</p>
-
-    <h3>This hosted preview cannot look anything up</h3>
-    <p>Worth stating plainly, because it makes the preview misleading to test with: a published page runs in a sandbox with no outbound network, and no capability grants one. So the copy you are reading resolves only its handful of sample links, from recorded answers. Paste a real DOI and it will land in “needs checking” however good the identifier is — you are seeing the sandbox, not the resolver. Dropped PDFs are the exception: those are read here for real, because pdf.js is built into the page and needs no network.</p>
-    <p>Run it locally — <code>npm start</code> — and every lookup goes to the real Crossref, arXiv, Open Library and NCBI. There is also <code>npm run resolve -- &lt;url&gt;</code> to check a single link from a terminal.</p>
-
-    <h3>The one real limitation</h3>
-    <p>A browser cannot download a PDF from a site that refuses cross-origin requests, and most publishers do. The tool does not pretend otherwise: when a link cannot be fetched it says the site will not allow it and asks you to drag the file in instead, which always works. This is also why the identifier-first ordering matters — for JSTOR, NBER, SSRN, arXiv, doi.org, PubMed and every publisher that puts the DOI in the URL, the download never needs to happen at all.</p>
-    <p>The case with no way around it is a link whose id cannot be turned into a DOI — a ScienceDirect PII, for instance. There the answer is to drag the file in, and the resolver reads it locally.</p>
-
-    <h2>How to actually run it</h2>
-    <p><strong>A single local HTML file, no server, no password.</strong> You open it from your own disk. On first run it asks for a folder — say <code>~/Projects/marginalia</code> — and from then on it reads and writes:</p>
-    <ul>
-      <li><code>data.json</code> — ideas, sources, notes.</li>
-      <li><code>essays/*.md</code> — one plain markdown file per draft, so your writing is never trapped in this tool.</li>
-      <li><code>pdfs/</code> — the papers themselves.</li>
-    </ul>
-    <p>That folder is a git repo, which gives you version history of every draft for free, and a backup by pushing it to a private remote. There is nothing to host, nothing to log into, and no account that can be shut down. It is also genuinely private in the way a password-protected site is not.</p>
-    <p>The one thing you lose is your phone. If reading on the sofa and capturing a source from your phone matters, the upgrade path is small: the same file served by a ~50-line local server, reachable from your phone over Tailscale. I would not build that until you have wanted it twice.</p>
-
-    <h2>Deleting</h2>
-    <p>Hover any tile for a ×; the same control sits on every row of the library and on the source's own page. It deletes straight away and offers an undo for a few seconds, rather than asking “are you sure?” first — a confirm dialog taxes every deletion to guard against the rare mistake, while undo taxes none and still catches it. Where a source is filed under more than one idea, its page also offers to take it out of just this one, which is not the same as deleting it.</p>
-
-    <h2>Deliberately not here</h2>
-    <ul>
-      <li><strong>Due dates and priorities.</strong> This is your own project. A tool that can nag you about a self-imposed deadline is a tool you will start avoiding.</li>
-      <li><strong>Rich text everywhere.</strong> Notes are plain, drafts are markdown. Formatting is procrastination in a costume.</li>
-      <li><strong>A separate "notes" section.</strong> Notes belong to the thing they are about. There is no orphan-note inbox to feel guilty about.</li>
-      <li><strong>Collaboration, sharing, export-to-anything.</strong> Nobody else is coming.</li>
-    </ul>
-
-    <h2>What I would build first</h2>
-    <p>The cockpit, the capture bar, the tile grid, and the note page — that is the useful core and about a day's work. Everything else is decoration.</p>
-    <p style="color:var(--faint); font-size:13px; margin-top:26px">Every screen in this prototype is live: add and delete ideas and sources, rename anything, move an idea between stages, write. What you type is kept in this browser and survives a reload — <em>Reset</em> in the bottom corner restores the sample data. The real build writes to a folder instead, so your drafts are plain markdown files you can keep.</p>
   </div>`;
 }
 
@@ -2092,7 +1991,7 @@ function render(){
   v.classList.toggle("view--wide", state.view==="idea" && state.tab==="draft");
   if(state.view==="cockpit") v.innerHTML = viewCockpit();
   else if(state.view==="library") v.innerHTML = viewLibrary();
-  else if(state.view==="notes")   v.innerHTML = viewNotes();
+  else if(state.view==="roadmap") v.innerHTML = viewRoadmap();
   else if(state.reading)          v.innerHTML = viewNote();
   else if(state.tab==="brief")    v.innerHTML = viewBrief();
   else if(state.tab==="draft")    v.innerHTML = viewDraft();
@@ -2585,13 +2484,13 @@ function save(){
       flag._t = setTimeout(() => flag.classList.remove("on"), 1200);
     };
     try{
-      localStorage.setItem(STORE, JSON.stringify({ ideas, readings, drafts }));
+      localStorage.setItem(STORE, JSON.stringify({ ideas, readings, drafts, roadmap:roadmapDoc }));
       flash();
     }catch{
       // out of room, most likely the thumbnails. Words matter more than pictures.
       try{
         localStorage.setItem(STORE, JSON.stringify({
-          ideas, drafts, readings: readings.map(r => ({ ...r, thumb:null })),
+          ideas, drafts, roadmap:roadmapDoc, readings: readings.map(r => ({ ...r, thumb:null })),
         }));
         flash();
       }catch{ /* private window, or genuinely full — carry on in memory */ }
@@ -2610,6 +2509,7 @@ function load(){
     readings.length = 0; readings.push(...d.readings);
     Object.keys(drafts).forEach(k => delete drafts[k]);
     Object.assign(drafts, d.drafts || {});
+    roadmapDoc = typeof d.roadmap === "string" ? d.roadmap : "";
     return true;
   }catch{ return false; }
 }
@@ -2638,6 +2538,8 @@ function applyEdit(el){
   const raw = el.isContentEditable
     ? (el.dataset.rich ? el.innerHTML : el.textContent.replace(/\s+/g, " ").trim())
     : el.value;
+
+  if(path === "roadmap"){ roadmapDoc = raw; return; }
 
   if(path === "draft"){
     drafts[state.idea] = raw;
