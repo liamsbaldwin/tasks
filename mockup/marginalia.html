@@ -133,6 +133,9 @@ a{color:var(--accent)}
   color:var(--stage); border:1px solid color-mix(in srgb, var(--stage) 40%, transparent);
   background:color-mix(in srgb, var(--stage) 11%, transparent);
   padding:2px 7px; border-radius:20px;
+  /* Centred, not baseline-aligned: on a baseline the pill's padding and the descender
+     space under its all-caps text both hang below the title, and it reads as sagging. */
+  align-self:center;
 }
 .tabs{display:flex; gap:2px; align-self:flex-end}
 .tab{
