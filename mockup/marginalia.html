@@ -514,7 +514,9 @@ select.inp{cursor:pointer}
 .prose .justin{animation:flash 1.1s ease}
 @keyframes flash{0%{background:var(--accent-soft)} 100%{background:transparent}}
 
-.wordbar{display:flex; align-items:baseline; gap:14px; margin:14px 2px 0}
+.wordbar{display:flex; align-items:center; gap:14px; margin:14px 2px 0}
+.wordbar__track{flex:1; height:4px; border-radius:2px; background:var(--surface-3); overflow:hidden}
+.wordbar__fill{display:block; height:100%; background:var(--stage); border-radius:2px; transition:width .2s ease}
 
 /* ============ library ============ */
 .tablewrap{overflow-x:auto; border:1px solid var(--line); border-radius:var(--r); background:var(--surface)}
@@ -1627,8 +1629,12 @@ function words(html){
   return ((box.textContent || "").match(WORD_RE) || []).length + n;
 }
 
-/** Roughly speaking pace for a script. Never "0 min" for something you have written. */
-const readTime = w => !w ? "—" : w < 150 ? "<1 min" : Math.round(w / 150) + " min";
+const WPM = 150;              // roughly speaking pace, for a script
+const FULL_BAR_MINUTES = 15;  // a full bar is a quarter of an hour on screen
+const barPct = w => Math.min(100, w / (WPM * FULL_BAR_MINUTES) * 100);
+
+/** Never "0 min" for something you have written. */
+const readTime = w => !w ? "—" : w < WPM ? "<1 min" : Math.round(w / WPM) + " min";
 const shownTitle = r => r.title || r.file || r.doi || "Untitled source";
 const captionAuthors = a =>
   !a?.length ? `<i style="color:var(--warn)">authors missing</i>`
@@ -1958,6 +1964,8 @@ function viewDraft(){
     </div>
     <div class="wordbar">
       <span class="mono" style="font-size:11.5px; color:var(--muted)"><span id="wordnow">${w.toLocaleString()}</span> words</span>
+      <span class="wordbar__track" title="A full bar is about ${FULL_BAR_MINUTES} minutes on screen">
+        <span class="wordbar__fill" id="wordfill" style="width:${barPct(w)}%"></span></span>
       <span class="mono" style="font-size:11.5px; color:var(--faint)"><span id="readtime">${readTime(w)}</span> read</span>
     </div>
   </div>`;
@@ -2634,9 +2642,10 @@ function applyEdit(el){
   if(path === "draft"){
     drafts[state.idea] = raw;
     const w = words(raw);
-    const now = $("#wordnow"), mins = $("#readtime");
+    const now = $("#wordnow"), mins = $("#readtime"), fill = $("#wordfill");
     if(now) now.textContent = w.toLocaleString();
     if(mins) mins.textContent = readTime(w);
+    if(fill) fill.style.width = barPct(w) + "%";
     return;
   }
 
