@@ -495,12 +495,10 @@ select.inp{cursor:pointer}
 
 /* The roadmap is a page you write on, not a box you fill in: no card, no rule, and a
    generous click target so anywhere below the last line still puts the caret in.
-   The toolbar rides alongside the title rather than sitting above the text, so nothing
-   moves when you click in and the title sits right on top of what you are writing. */
+   The hero stays on one row at every width: "Saved" is invisible most of the time and
+   would otherwise claim a whole row of its own, pushing the title away from the text. */
 .rm{max-width:820px}
-.rm .hero{margin-bottom:8px; flex-direction:row; align-items:center; gap:14px; flex-wrap:wrap}
-.rm__tools{display:flex; align-items:center; gap:14px; margin-left:auto}
-.rm .rich__bar{height:26px; margin:0}          /* fixed, so focusing shifts nothing */
+.rm .hero{margin-bottom:5px; flex-direction:row; align-items:center; gap:14px}
 .rm__doc{min-height:58vh}
 .paper{
   background:var(--surface); border:1px solid var(--line); border-radius:var(--r);
@@ -1985,13 +1983,10 @@ function viewLibrary(){
  * is the planner's business, and a form with headings would only get argued with.
  */
 function viewRoadmap(){
-  return `<div class="rm rich">
-    <div class="hero">
-      <h1>Roadmap</h1>
-      <span class="rm__tools">${richBar()}<span id="saved" class="saved">Saved</span></span>
-    </div>
-    <div class="prose rm__doc" contenteditable="true" data-edit="roadmap" data-rich="1"
-         data-ph="What is the whole project for? What ships first, and what is it waiting on? What are you still unsure about?">${roadmapDoc}</div>
+  return `<div class="rm">
+    <div class="hero"><h1>Roadmap</h1><span id="saved" class="saved">Saved</span></div>
+    <div class="rich">${richBar()}<div class="prose rm__doc" contenteditable="true" data-edit="roadmap" data-rich="1"
+         data-ph="What is the whole project for? What ships first, and what is it waiting on? What are you still unsure about?">${roadmapDoc}</div></div>
   </div>`;
 }
 
