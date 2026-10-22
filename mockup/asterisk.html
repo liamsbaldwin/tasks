@@ -92,6 +92,9 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 .page{padding-left:var(--gutter); padding-right:var(--gutter-r)}
 .page__in{max-width:var(--column); margin-inline:auto; padding-block:78px 90px}
 .page--draft .page__in{padding-bottom:116px}
+/* Progress is a chart, not prose: it gets the wider measure so a year of days can be
+   read at a glance. Still centred on the same axis as every other page. */
+.page--prog .page__in{max-width:52rem}
 
 .pagehead{margin-bottom:38px}
 .headrow{display:flex; align-items:flex-start; justify-content:space-between; gap:24px; flex-wrap:wrap}
@@ -162,39 +165,38 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 .fig__n{font-family:var(--display); font-size:27px; line-height:1.1; display:block; font-variant-numeric:tabular-nums}
 .fig__l{display:block; font-size:11px; letter-spacing:.11em; text-transform:uppercase; color:var(--faint); margin-top:2px}
 
-.card{border:1px solid var(--rule); border-radius:3px; padding:20px 18px 18px; margin-bottom:14px}
+/* The calendar and its caption run wider than the reading column, and share one width
+   with each other. Cells are a fraction of that width rather than a fixed size, so a
+   year always fits and never has to be scrolled sideways. */
+.wide{max-width:52rem; margin-inline:auto; container-type:inline-size}
 .card__t{font-size:12px; letter-spacing:.11em; text-transform:uppercase; color:var(--faint); margin-bottom:16px}
-.heat{overflow-x:auto; padding-bottom:4px}
-.heat__grid{display:grid; grid-template-columns:auto 1fr; gap:0 7px; min-width:max-content}
-.heat__days{display:grid; grid-template-rows:repeat(7, 9px); gap:2px; padding-top:20px; font-size:9.5px; color:var(--faint)}
-.heat__days span{line-height:9px}
-.heat__cols{display:flex; flex-direction:column; gap:4px}
-/* Same column rhythm as the cells, or the labels drift and December falls off the end.
-   A month name is wider than one column and simply overhangs the next, as it should. */
+/* A square derived from the container's own width: 1fr tracks plus aspect-ratio is
+   circular — the browser settles on a fixed size and the year runs off the edge. */
+.heat__grid{
+  --n:53; --lab:26px; --gap:2px;
+  --c:calc((100cqw - var(--lab) - 8px - (var(--n) - 1) * var(--gap)) / var(--n));
+  display:grid; grid-template-columns:var(--lab) 1fr; gap:5px 8px;
+}
 .heat__months{
-  display:grid; grid-auto-flow:column; grid-auto-columns:9px; gap:2px;
-  font-size:10.5px; color:var(--faint); height:16px;
+  grid-column:2; display:grid; grid-template-columns:repeat(var(--n), var(--c)); gap:var(--gap);
+  font-size:11px; color:var(--faint);
 }
 .heat__months span{white-space:nowrap}
-.heat__cells{display:grid; grid-auto-flow:column; grid-template-rows:repeat(7, 9px); gap:2px}
-.cell{width:9px; height:9px; border-radius:1.5px; background:var(--paper-2)}
+.heat__days{
+  grid-column:1; display:grid; grid-template-rows:repeat(7, var(--c)); gap:var(--gap);
+  font-size:10px; color:var(--faint); align-items:center;
+}
+.heat__cells{grid-column:2; display:grid; grid-template-columns:repeat(var(--n), var(--c)); gap:var(--gap)}
+.cell{width:100%; height:var(--c); border-radius:2px; background:var(--paper-2)}
 .cell[data-l="1"]{background:rgba(45,144,207,.28)}
 .cell[data-l="2"]{background:rgba(45,144,207,.5)}
 .cell[data-l="3"]{background:rgba(45,144,207,.74)}
 .cell[data-l="4"]{background:var(--blue)}
 .cell--none{background:none}
-.legend{display:flex; align-items:center; gap:4px; margin-top:12px; font-size:11px; color:var(--faint)}
-.legend .cell{width:9px; height:9px}
-.note{font-size:14.5px; color:var(--faint); line-height:1.5}
-.logbtn{font-size:14.5px; color:var(--blue); margin-left:auto}
+.legend{display:flex; align-items:center; gap:4px; margin-top:14px; font-size:11px; color:var(--faint)}
+.legend .cell{width:11px; height:11px}
+.note{font-size:14.5px; color:var(--faint); line-height:1.5; margin-top:20px}
 
-.bars{display:flex; flex-direction:column; gap:20px; margin-top:34px}
-.bar__top{display:flex; align-items:baseline; gap:12px; justify-content:space-between}
-.bar__t{font-family:var(--display); font-size:21px; line-height:1.2}
-.bar__n{font-size:14px; color:var(--faint); white-space:nowrap; font-variant-numeric:tabular-nums}
-.bar__track{height:3px; background:var(--paper-2); margin-top:9px}
-.bar__fill{display:block; height:100%; background:var(--blue)}
-.subhead{font-family:var(--display); font-size:26px; color:var(--blue); margin:46px 0 4px}
 
 /* ============ writing ============ */
 .prose{font-size:18px; line-height:1.68; outline:none}
@@ -243,6 +245,10 @@ h1[contenteditable].is-empty::before,.pagedeck[contenteditable].is-empty::before
 .back{font-family:var(--display); font-size:17px; color:var(--blue); display:inline-block; margin-bottom:26px}
 .empty{color:var(--faint); font-style:italic}
 
+@media (max-width:620px){
+  .heat__grid{--lab:0px; --gap:1.5px}
+  .heat__days{display:none}
+}
 @media (max-width:860px){
   :root{--rail:min(84vw, 320px)}
   .page__in{padding-top:72px}
@@ -1371,29 +1377,17 @@ function viewProgress(){
         <div class="fig"><span class="fig__n">${count("essay")}</span><span class="fig__l">Essays</span></div>
         <div class="fig"><span class="fig__n">${count("video")}</span><span class="fig__l">Videos</span></div>
       </div></div></div>
-  <div class="card">
-    <div class="card__t" style="display:flex; align-items:baseline">
-      ${mine.length} logged in ${year}
-      <button class="logbtn" data-logvideo>+ Log a video</button>
-    </div>
+  <div class="wide">
+    <div class="card__t">${mine.length} logged in ${year}</div>
     ${heatmap(year)}
-  </div>
-  <p class="note">A reading counts once its notes pass ${READING_WORDS} words, an essay once its draft
-    passes ${ESSAY_WORDS.toLocaleString()}. Filing a source or moving an idea's stage credits nothing.
-    Videos are the one you mark by hand.</p>
-  <h2 class="subhead">By idea</h2>
-  <div class="bars">${data.ideas.map(i => {
-    const rs = byIdea(i.id), r = readN(i.id);
-    const pct = rs.length ? Math.round(r / rs.length * 100) : 0;
-    return `<div class="bar">
-      <div class="bar__top"><span class="bar__t">${esc(i.title)}</span>
-        <span class="bar__n">${STAGES[i.stage]} · ${r}/${rs.length} read · ${words(data.drafts[i.id] || "").toLocaleString()} w</span></div>
-      <div class="bar__track"><span class="bar__fill" style="width:${pct}%"></span></div>
-    </div>`;
-  }).join("")}</div>`;
+    <p class="note">A reading counts once its notes pass ${READING_WORDS} words, an essay once its
+      draft passes ${ESSAY_WORDS.toLocaleString()}. Filing a source or moving an idea's stage credits
+      nothing. Videos are the one you mark by hand.</p>
+  </div>`;
 }
 
-/* A year of days, a column per week, Monday at the top. */
+/* A year of days: seven rows of weeks, Monday at the top. Laid out in rows rather than
+   columns so each cell can be a fraction of the width and the year always fits. */
 function heatmap(year){
   const counts = {};
   for(const e of data.log) counts[e.d] = (counts[e.d] || 0) + 1;
@@ -1413,8 +1407,8 @@ function heatmap(year){
     }
     weeks.push(week);
   }
+  const n = weeks.length;
 
-  const level = n => !n ? 0 : n >= 4 ? 4 : n;
   const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   let lastMonth = -1;
   const months = weeks.map(w => {
@@ -1426,19 +1420,19 @@ function heatmap(year){
     return `<span>${MONTHS[m]}</span>`;
   }).join("");
 
-  const cells = weeks.map(w => w.map(day => day === null
-    ? `<span class="cell cell--none"></span>`
+  const level = n => !n ? 0 : n >= 4 ? 4 : n;
+  const rows = Array.from({length: 7}, (_, r) => weeks.map(w => w[r]));
+  const cells = rows.flat().map(day => day === null
+    ? `<span class="cell" style="background:none"></span>`
     : `<span class="cell" data-l="${level(counts[day] || 0)}" title="${day}${
-        counts[day] ? ` — ${counts[day]} logged` : ""}"></span>`).join("")).join("");
+        counts[day] ? ` — ${counts[day]} logged` : ""}"></span>`).join("");
 
-  return `<div class="heat"><div class="heat__grid">
-    <div class="heat__days"><span></span><span>Mon</span><span></span><span>Wed</span>
-      <span></span><span>Fri</span><span></span></div>
-    <div class="heat__cols">
-      <div class="heat__months">${months}</div>
-      <div class="heat__cells">${cells}</div>
-    </div>
-  </div></div>
+  const DAYS = ["Mon","","Wed","","Fri","",""];
+  return `<div class="heat__grid" style="--n:${n}">
+    <div class="heat__months">${months}</div>
+    <div class="heat__days">${DAYS.map(d => `<span>${d}</span>`).join("")}</div>
+    <div class="heat__cells">${cells}</div>
+  </div>
   <div class="legend">Less<span class="cell" data-l="0"></span><span class="cell" data-l="1"></span>
     <span class="cell" data-l="2"></span><span class="cell" data-l="3"></span>
     <span class="cell" data-l="4"></span>More</div>`;
@@ -1509,6 +1503,7 @@ function render(){
   renderMenu();
   const page = $("#page");
   page.classList.toggle("page--draft", view === "draft");
+  page.classList.toggle("page--prog", view === "progress");
   $("#view").innerHTML =
       view === "sources" && openSource ? viewSource()
     : view === "sources"  ? viewSources()
@@ -1826,10 +1821,6 @@ document.addEventListener("click", e => {
     return render();
   }
   if(e.target.closest("#plus")){ capture = !capture; return render(); }
-  if(e.target.closest("[data-logvideo]")){
-    data.log.push({d:today(), kind:"video"});
-    save(); return render();
-  }
   const del = e.target.closest("[data-del]");
   if(del){
     const i = data.readings.findIndex(r => r.id === del.dataset.del);
