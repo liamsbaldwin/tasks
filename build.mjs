@@ -49,20 +49,31 @@ const syncBlock = `${SYNC_START}\n${sync}\n${SYNC_END}`;
 const PDFJS_START = "<!-- <<< pdf.js, inlined by build.mjs >>> -->";
 const PDFJS_END = "<!-- <<< end pdf.js >>> -->";
 
-const html = readFileSync(HTML, "utf8");
-const a = html.indexOf(START), b = html.indexOf(END);
-if (a === -1 || b === -1) throw new Error(`${HTML} is missing the generated-block markers`);
-let out = html.slice(0, a) + block + html.slice(b + END.length);
+/*
+ * Each page takes whichever blocks it declares markers for, so the alternate mockup can
+ * share the resolver and the PDF reader without also carrying the syncing layer.
+ */
+function inject(file, pairs) {
+  let out = readFileSync(file, "utf8");
+  let injected = 0;
+  for (const { start, end, body, keepStart } of pairs) {
+    const a = out.indexOf(start), b = out.indexOf(end);
+    if (a === -1 || b === -1) continue;                 // this page does not want it
+    out = keepStart
+      ? out.slice(0, a + start.length) + "\n" + body + out.slice(b)
+      : out.slice(0, a) + body + out.slice(b + end.length);
+    injected += body.length;
+  }
+  if (!injected) throw new Error(`${file} has no build markers at all`);
+  writeFileSync(file, out);
+  return { injected, size: out.length };
+}
 
-const e = out.indexOf(SYNC_START), f = out.indexOf(SYNC_END);
-if (e === -1 || f === -1) throw new Error(`${HTML} is missing the sync markers`);
-out = out.slice(0, e) + syncBlock + out.slice(f + SYNC_END.length);
-
-const c = out.indexOf(PDFJS_START), d = out.indexOf(PDFJS_END);
-if (c === -1 || d === -1) throw new Error(`${HTML} is missing the pdf.js markers`);
-out = out.slice(0, c + PDFJS_START.length) + "\n" + pdfjsBlocks + out.slice(d);
-
-writeFileSync(HTML, out);
-console.log(`injected ${(block.length / 1024).toFixed(0)}KB resolver + ` +
-            `${(syncBlock.length / 1024).toFixed(0)}KB sync + ` +
-            `${(pdfjsBlocks.length / 1024).toFixed(0)}KB pdf.js → ${(out.length / 1024).toFixed(0)}KB page`);
+for (const file of [HTML, "mockup/asterisk.html"]) {
+  const { injected, size } = inject(file, [
+    { start: START, end: END, body: block },
+    { start: SYNC_START, end: SYNC_END, body: syncBlock },
+    { start: PDFJS_START, end: PDFJS_END, body: pdfjsBlocks, keepStart: true },
+  ]);
+  console.log(`${file}: injected ${(injected / 1024).toFixed(0)}KB → ${(size / 1024).toFixed(0)}KB page`);
+}
