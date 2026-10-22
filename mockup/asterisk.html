@@ -1,0 +1,448 @@
+<title>Marginalia Quarterly</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Libre+Caslon+Display&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Courier+Prime:wght@400;700&display=swap">
+
+<style>
+/* Layout: a quarterly's contents page and article pages, operated as an app —
+   masthead band, letterspaced caps for every label, rules instead of cards. */
+:root{
+  /* Uncoated book stock: a cream pulled green-grey rather than pink. */
+  --paper:#F2EEE2; --paper-2:#E8E3D3; --paper-3:#DDD7C3;
+  --ink:#16150F; --ink-2:#4B4738; --faint:#8B8573;
+  --rule:#CBC4AE; --rule-soft:#DFD9C7;
+  /* One spot colour, the way a two-colour pamphlet is printed. Ultramarine, not orange. */
+  --spot:#1E3DA6; --spot-ink:#FFFFFF; --spot-soft:rgba(30,61,166,.10);
+  /* Stage inks, all from the printed-ink family. */
+  --st-reading:#1E3DA6; --st-drafting:#5C6B28; --st-editing:#6E2B4F; --st-published:#215C51;
+
+  --display:"Archivo", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --title:"Libre Caslon Display", "Libre Caslon Text", Georgia, serif;
+  --text:"Libre Caslon Text", Georgia, "Times New Roman", serif;
+  --utility:"Courier Prime", ui-monospace, "Courier New", monospace;
+
+  --measure:34rem;
+  --gutter:max(16px, env(safe-area-inset-left, 0px));
+  --gutter-r:max(16px, env(safe-area-inset-right, 0px));
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#14130F; --paper-2:#1C1A15; --paper-3:#26231B;
+    --ink:#EFE9D8; --ink-2:#BDB7A4; --faint:#837D6C;
+    --rule:#38342A; --rule-soft:#2A271F;
+    --spot:#94A9F4; --spot-ink:#14130F; --spot-soft:rgba(148,169,244,.14);
+    --st-reading:#94A9F4; --st-drafting:#A8B964; --st-editing:#D28FB4; --st-published:#6FBDAB;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#14130F; --paper-2:#1C1A15; --paper-3:#26231B;
+  --ink:#EFE9D8; --ink-2:#BDB7A4; --faint:#837D6C;
+  --rule:#38342A; --rule-soft:#2A271F;
+  --spot:#94A9F4; --spot-ink:#14130F; --spot-soft:rgba(148,169,244,.14);
+  --st-reading:#94A9F4; --st-drafting:#A8B964; --st-editing:#D28FB4; --st-published:#6FBDAB;
+  color-scheme:dark;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+body{
+  background:var(--paper); color:var(--ink);
+  font-family:var(--text); font-size:17px; line-height:1.6;
+  margin:0; -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{text-wrap:balance; margin:0}
+button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor:pointer}
+:focus-visible{outline:2px solid var(--spot); outline-offset:3px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important}}
+
+.wrap{max-width:1040px; margin-inline:auto; padding-left:var(--gutter); padding-right:var(--gutter-r)}
+
+/* ============ masthead ============ */
+.masthead{border-bottom:3px solid var(--ink); background:var(--paper)}
+.masthead__in{display:flex; align-items:flex-end; gap:16px; padding-block:18px 12px; flex-wrap:wrap}
+.logo{display:flex; align-items:center; gap:9px; margin-right:auto}
+.logo__name{
+  font-family:var(--display); font-weight:700; font-size:27px; letter-spacing:-.022em;
+  line-height:1; text-transform:lowercase;
+}
+.ast{width:19px; height:19px; color:var(--spot); flex:none}
+.issue{
+  font-family:var(--utility); font-size:11px; color:var(--faint);
+  letter-spacing:.04em; text-align:right; line-height:1.45;
+}
+.issue b{color:var(--ink-2); font-weight:700}
+
+/* The nav is a row of departments, the way a contents page lists them. */
+.depts{border-bottom:1px solid var(--ink); background:var(--paper)}
+.depts__in{display:flex; gap:26px; flex-wrap:wrap; width:100%; padding-block:0}
+.dept{
+  font-family:var(--display); font-weight:600; font-size:11.5px; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--faint); padding:11px 0 9px;
+  border-bottom:3px solid transparent; margin-bottom:-1px;
+}
+.dept:hover{color:var(--ink-2)}
+.dept[aria-current="true"]{color:var(--ink); border-bottom-color:var(--spot)}
+.dept__n{font-family:var(--utility); font-size:10px; color:var(--faint); margin-left:5px; letter-spacing:0}
+
+main{padding-block:34px 70px}
+
+/* ============ contents ============ */
+.kicker{
+  font-family:var(--display); font-weight:600; font-size:11px; letter-spacing:.15em;
+  text-transform:uppercase; color:var(--faint);
+}
+.secthead{display:flex; align-items:baseline; gap:14px; margin-bottom:22px}
+.secthead .rule{flex:1; height:1px; background:var(--rule)}
+
+.toc{border-top:1px solid var(--ink)}
+.entry{
+  display:grid; grid-template-columns:3.1rem minmax(0,1fr) auto; gap:0 20px; align-items:start;
+  width:100%; text-align:left; padding:19px 0 20px; border-bottom:1px solid var(--rule-soft);
+}
+.entry:hover{background:var(--paper-2)}
+.entry__folio{
+  font-family:var(--utility); font-size:12px; color:var(--faint);
+  padding-top:.55rem; font-variant-numeric:tabular-nums;
+}
+.entry__title{
+  display:block; font-family:var(--title); font-size:26px; line-height:1.12;
+  letter-spacing:-.005em; margin-bottom:5px;
+}
+.entry__dek{display:block; font-size:16px; color:var(--ink-2); max-width:var(--measure); line-height:1.5}
+.entry__meta{
+  display:flex; flex-direction:column; align-items:flex-end; gap:5px;
+  padding-top:.5rem; text-align:right;
+}
+.stage{
+  font-family:var(--display); font-weight:600; font-size:10px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--st); white-space:nowrap;
+  display:flex; align-items:center; gap:6px;
+}
+.stage::before{content:""; width:7px; height:7px; background:var(--st); flex:none}
+.tally{display:block; font-family:var(--utility); font-size:11px; color:var(--faint); white-space:nowrap}
+
+/* ============ the catalogue of sources ============ */
+.cat{border-top:1px solid var(--ink)}
+.src{
+  display:grid; grid-template-columns:3.1rem minmax(0,1fr) 7.5rem; gap:0 20px;
+  width:100%; text-align:left; padding:15px 0; border-bottom:1px solid var(--rule-soft);
+  align-items:baseline;
+}
+.src:hover{background:var(--paper-2)}
+.src__kind{
+  font-family:var(--display); font-weight:600; font-size:9.5px; letter-spacing:.11em;
+  text-transform:uppercase; color:var(--faint); padding-top:.3rem;
+}
+.src__title{display:block; font-family:var(--text); font-size:18px; font-style:italic; line-height:1.3}
+.src__by{display:block; font-size:14.5px; color:var(--ink-2); margin-top:2px}
+.src__right{font-family:var(--utility); font-size:11.5px; color:var(--faint); text-align:right; line-height:1.5}
+.src__state{display:block; color:var(--spot); font-weight:700}
+.src--read .src__state{color:var(--st-published)}
+.src--queued .src__state{color:var(--faint); font-weight:400}
+
+/* ============ an article page ============ */
+.article{max-width:var(--measure); margin-inline:auto}
+.titleblock{text-align:center; padding:14px 0 30px; border-bottom:1px solid var(--rule)}
+.titleblock .kicker{display:block; margin-bottom:14px}
+.titleblock h1{
+  font-family:var(--title); font-size:clamp(32px, 6vw, 46px); line-height:1.06;
+  letter-spacing:-.012em; margin-bottom:12px;
+}
+.deck{font-size:18px; font-style:italic; color:var(--ink-2); line-height:1.45}
+.byline{
+  font-family:var(--utility); font-size:11px; color:var(--faint); letter-spacing:.04em;
+  margin-top:18px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;
+}
+
+.body{padding-top:28px}
+.body h2{
+  font-family:var(--display); font-weight:700; font-size:13px; letter-spacing:.13em;
+  text-transform:uppercase; margin:38px 0 12px; color:var(--ink);
+}
+.body h2:first-child{margin-top:0}
+.body p{margin:0 0 1.05em}
+/* An 18th-century book opening: a two-line drop cap on the first paragraph only. */
+.body > p:first-of-type::first-letter{
+  font-family:var(--title); font-size:3.35em; line-height:.82; float:left;
+  padding:.06em .09em 0 0; color:var(--spot);
+}
+.body blockquote{
+  margin:1.5em 0; padding-left:20px; border-left:2px solid var(--spot);
+  font-size:16px; color:var(--ink-2);
+}
+.body blockquote cite{
+  display:block; font-family:var(--utility); font-size:11px; font-style:normal;
+  color:var(--faint); margin-top:8px;
+}
+.endmark{display:flex; justify-content:center; padding:26px 0 8px; color:var(--spot)}
+.endmark svg{width:17px; height:17px}
+.folio{
+  font-family:var(--utility); font-size:11px; color:var(--faint); text-align:center;
+  padding-top:14px; border-top:1px solid var(--rule); display:flex;
+  justify-content:space-between; gap:14px;
+}
+
+/* ============ a source's note ============ */
+.note{max-width:var(--measure); margin-inline:auto}
+.note__head{border-bottom:3px double var(--ink); padding-bottom:16px; margin-bottom:22px}
+.note__title{font-family:var(--title); font-size:30px; line-height:1.12; margin:8px 0 7px}
+.note__by{font-size:16px; color:var(--ink-2); font-style:italic}
+.note__facts{
+  display:flex; gap:18px; flex-wrap:wrap; margin-top:13px;
+  font-family:var(--utility); font-size:11.5px; color:var(--faint);
+}
+.back{
+  font-family:var(--display); font-weight:600; font-size:11px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--spot); margin-bottom:22px; display:inline-block;
+}
+
+.empty{font-style:italic; color:var(--faint)}
+
+@media (max-width:620px){
+  .entry{grid-template-columns:2.4rem minmax(0,1fr); gap:0 14px}
+  .entry__meta{grid-column:2; align-items:flex-start; text-align:left; flex-direction:row; gap:14px; padding-top:9px}
+  .src{grid-template-columns:minmax(0,1fr); gap:4px}
+  .src__kind{padding-top:0}
+  .src__right{text-align:left}
+  .masthead__in{align-items:flex-start}
+  .issue{text-align:left}
+}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<!-- Drawn by hand rather than set from a font: six strokes, none quite even. -->
+<g id="ast">
+  <g stroke="currentColor" stroke-width="1.7" stroke-linecap="round" fill="none">
+    <path d="M10 1.6 C10.3 5.2 10.1 7.4 10 10"/>
+    <path d="M10 10 C9.9 12.7 10.2 15.1 9.8 18.3"/>
+    <path d="M2.1 5.4 C5.1 7.2 7.6 8.6 10 10"/>
+    <path d="M10 10 C12.5 11.4 15.1 12.8 17.8 14.4"/>
+    <path d="M17.9 5.5 C15 7.3 12.4 8.7 10 10"/>
+    <path d="M10 10 C7.5 11.5 4.9 12.9 2.2 14.5"/>
+  </g>
+</g>
+</defs></svg>
+
+<header class="masthead">
+  <div class="wrap masthead__in">
+    <div class="logo">
+      <span class="logo__name">marginalia</span>
+      <svg class="ast" viewBox="0 0 20 20"><use href="#ast"/></svg>
+    </div>
+    <div class="issue">
+      <b id="issue-ideas">5 ideas</b> in hand<br>
+      <span id="issue-sources">16 sources</span> on the shelf
+    </div>
+  </div>
+</header>
+
+<nav class="depts"><div class="wrap depts__in" id="depts"></div></nav>
+
+<main><div class="wrap" id="view"></div></main>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const AST = '<svg viewBox="0 0 20 20"><use href="#ast"/></svg>';
+
+const STAGES = {
+  reading:  {label:"Reading",   c:"var(--st-reading)"},
+  drafting: {label:"Drafting",  c:"var(--st-drafting)"},
+  editing:  {label:"Editing",   c:"var(--st-editing)"},
+  published:{label:"Published", c:"var(--st-published)"},
+};
+const KIND = {book:"Book", paper:"Paper", essay:"Essay", talk:"Talk"};
+
+const ideas = [
+  {id:"legibility", title:"The Cost of Legibility", stage:"drafting",
+   dek:"Every system that wants to be governed first has to be made readable — and the act of making it readable quietly destroys the thing worth governing.",
+   deck:"On what standardisation buys, and what it silently spends."},
+  {id:"forget", title:"Why Interfaces Forget", stage:"reading",
+   dek:"Software used to remember where you were. Somewhere between the desktop and the feed, interfaces stopped keeping state on your behalf."},
+  {id:"scale", title:"Scaling Laws Outside the Lab", stage:"reading",
+   dek:"Metabolic scaling is beautiful in biology and suspiciously popular everywhere else. When does a power law describe a mechanism?"},
+  {id:"tendays", title:"Ten Days a Week", stage:"editing",
+   dek:"The French Republican calendar failed for reasons that had nothing to do with revolutionary fervour and everything to do with market days."},
+  {id:"maps", title:"The Map Became the Territory", stage:"published",
+   dek:"What happens after the model is good enough that nobody checks it against the ground any more."},
+];
+
+const readings = [
+  {id:"r1", kind:"book", title:"Seeing Like a State", authors:["James C. Scott"], year:1998,
+   venue:"Yale University Press", ideas:["legibility","maps"], status:"read",
+   summary:"Scott's core move: states can only administer what they can see, so they simplify reality into legible grids — cadastral maps, permanent surnames, standard measures, scientific forestry. The simplification is genuinely useful, but it deletes the local, unwritten knowledge that made the original system work."},
+  {id:"r3", kind:"essay", title:"The Tyranny of Structurelessness", authors:["Jo Freeman"], year:1972,
+   venue:"Berkeley Journal of Sociology", ideas:["legibility"], status:"read",
+   summary:"The inverse argument, and the one that keeps the thesis honest: refusing to make a group legible does not abolish its power structure, it makes it invisible and unaccountable."},
+  {id:"r2", kind:"book", title:"The Measure of All Things", authors:["Ken Alder"], year:2002,
+   venue:"The Free Press", ideas:["legibility"], status:"reading",
+   summary:"The seven-year expedition to measure the meridian and define the metre. Useful as the control case: a standardisation project that mostly worked, and whose surveyors quietly fudged data they could not reconcile."},
+  {id:"r4", kind:"book", title:"Standards: Recipes for Reality", authors:["Lawrence Busch"], year:2011,
+   venue:"MIT Press", ideas:["legibility"], status:"queued", summary:""},
+  {id:"r5", kind:"paper", title:"Cadastral Maps and the Fiscal Grid", authors:["R. Kain","E. Baigent"], year:1992,
+   venue:"The Cadastral Map in the Service of the State", ideas:["legibility"], status:"queued", summary:""},
+  {id:"r6", kind:"paper", title:"The Computer for the 21st Century", authors:["Mark Weiser"], year:1991,
+   venue:"Scientific American 265(3)", ideas:["forget"], status:"reading",
+   summary:"The disappearing-computer essay. Worth reading against the grain: Weiser wanted machines that faded into the background because they held context for you. What actually shipped fades into the background while holding nothing."},
+  {id:"r7", kind:"essay", title:"As We May Think", authors:["Vannevar Bush"], year:1945,
+   venue:"The Atlantic", ideas:["forget","legibility"], status:"queued", summary:""},
+  {id:"r8", kind:"paper", title:"Direct Manipulation: A Step Beyond Programming Languages",
+   authors:["Ben Shneiderman"], year:1983, venue:"IEEE Computer 16(8)", ideas:["forget"], status:"queued", summary:""},
+  {id:"r9", kind:"paper", title:"Beyond Being There", authors:["Jim Hollan","Scott Stornetta"], year:1992,
+   venue:"CHI '92", ideas:["forget"], status:"queued", summary:""},
+  {id:"r10", kind:"paper", title:"A General Model for the Origin of Allometric Scaling Laws in Biology",
+   authors:["G. West","J. Brown","B. Enquist"], year:1997, venue:"Science 276", ideas:["scale"], status:"queued", summary:""},
+  {id:"r11", kind:"book", title:"Scale", authors:["Geoffrey West"], year:2017,
+   venue:"Penguin Press", ideas:["scale"], status:"queued", summary:""},
+  {id:"r12", kind:"paper", title:"Growth, Innovation, Scaling, and the Pace of Life in Cities",
+   authors:["L. Bettencourt","J. Lobo","G. West"], year:2007, venue:"PNAS 104(17)", ideas:["scale","maps"], status:"queued", summary:""},
+  {id:"r13", kind:"talk", title:"The Surprising Math of Cities and Corporations", authors:["Geoffrey West"], year:2011,
+   venue:"TED", ideas:["scale"], status:"queued", summary:""},
+  {id:"r14", kind:"book", title:"Time and the French Revolution", authors:["Matthew Shaw"], year:2011,
+   venue:"The Boydell Press", ideas:["tendays"], status:"read",
+   summary:"The Republican calendar as administrative project rather than symbolic gesture. Market days, wages and religious observance all ran on the seven-day rhythm, and none of them could be re-cut by decree."},
+  {id:"r15", kind:"paper", title:"The French Republican Calendar: A Case Study in the Sociology of Time",
+   authors:["Eviatar Zerubavel"], year:1977, venue:"American Sociological Review 42(6)",
+   ideas:["tendays","legibility"], status:"read",
+   summary:"The week is the only major time unit with no astronomical anchor — it is purely social, which is exactly why it proved unbudgeable."},
+  {id:"r16", kind:"book", title:"The Calendar in Revolutionary France", authors:["Sanja Perovic"], year:2012,
+   venue:"Cambridge University Press", ideas:["tendays"], status:"reading", summary:""},
+];
+
+const draft = `<h2>1 · The forest that was counted to death</h2>
+<p>In the late eighteenth century, Prussian and Saxon foresters set out to solve a problem that sounds purely administrative: nobody knew how much timber the crown owned. What followed is the cleanest example I know of a measurement project that changed the thing it measured.</p>
+<blockquote>Scientific forestry produced a forest that was easier to count and, within a century, one that was dying.<cite>Scott, Seeing Like a State (1998), p. 20</cite></blockquote>
+<p>The order of operations matters. The foresters did not set out to simplify the forest. They set out to <i>see</i> it — and seeing required a unit, and the unit required that everything which was not that unit stop mattering.</p>
+<h2>2 · What legibility actually buys</h2>
+<p>It would be easy, and wrong, to write this as a story about bureaucratic vandalism. Legibility is the precondition for almost everything I would not want to live without: public health statistics, land title that survives the death of the person who remembers the boundary, a currency.</p>
+<blockquote>The legibility of a society provides the capacity for large-scale social engineering; high-modernist ideology provides the desire.<cite>Scott, Seeing Like a State (1998), p. 5</cite></blockquote>
+<p>So the question is not whether to measure. It is what the measurement is allowed to overwrite once it exists, and who gets to say.</p>`;
+
+const roadmap = `<h2>What the whole thing is for</h2>
+<p>Four essays and a video apiece, on the same underlying argument: that the instruments we use to see a system are never neutral observers of it. Legibility is the clearest case; the calendar piece is the cheapest to finish; the scaling piece is the one most likely to be wrong.</p>
+<h2>What ships first</h2>
+<p><i>Ten Days a Week</i> — it is nearly edited and the reading is done. <i>The Cost of Legibility</i> is the better essay but still owes a section on who gets to object.</p>
+<h2>Still unsure about</h2>
+<p>Whether the scaling piece is an essay or a footnote in someone else's. The literature is enormous and I have read four of it.</p>`;
+
+let view = "contents", openSource = null;
+
+const byIdea = id => readings.filter(r => r.ideas.includes(id));
+const read = id => byIdea(id).filter(r => r.status === "read").length;
+
+function renderDepts(){
+  const tabs = [
+    ["contents","Contents", ideas.length],
+    ["sources","Sources", readings.length],
+    ["draft","The Draft", null],
+    ["roadmap","Roadmap", null],
+  ];
+  $("#depts").innerHTML = tabs.map(([id,label,n]) =>
+    `<button class="dept" data-view="${id}" aria-current="${view===id}">${label}${
+      n==null ? "" : `<span class="dept__n">${n}</span>`}</button>`).join("");
+}
+
+function viewContents(){
+  return `<div class="secthead"><span class="kicker">Contents</span><span class="rule"></span></div>
+  <div class="toc">${ideas.map((i, n) => {
+    const st = STAGES[i.stage], rs = byIdea(i.id);
+    return `<button class="entry" data-idea="${i.id}">
+      <span class="entry__folio">${String(n + 1).padStart(2,"0")}</span>
+      <span>
+        <span class="entry__title">${esc(i.title)}</span>
+        <span class="entry__dek">${esc(i.dek)}</span>
+      </span>
+      <span class="entry__meta">
+        <span class="stage" style="--st:${st.c}">${st.label}</span>
+        <span class="tally">${read(i.id)}/${rs.length} read</span>
+      </span>
+    </button>`;
+  }).join("")}</div>`;
+}
+
+function viewSources(){
+  return `<div class="secthead"><span class="kicker">Sources</span><span class="rule"></span>
+    <span class="tally">${readings.filter(r=>r.status==="read").length} of ${readings.length} read</span></div>
+  <div class="cat">${readings.map(r => `
+    <button class="src src--${r.status}" data-src="${r.id}">
+      <span class="src__kind">${KIND[r.kind]}</span>
+      <span>
+        <span class="src__title">${esc(r.title)}</span>
+        <span class="src__by">${r.authors.map(esc).join(" &amp; ")} · ${esc(r.venue)}</span>
+      </span>
+      <span class="src__right">${r.year}<span class="src__state">${
+        r.status === "read" ? "read" : r.status === "reading" ? "reading" : "queued"}</span></span>
+    </button>`).join("")}</div>`;
+}
+
+function viewSource(){
+  const r = readings.find(x => x.id === openSource);
+  return `<div class="note">
+    <button class="back" data-view="sources">&larr; Sources</button>
+    <div class="note__head">
+      <span class="kicker">${KIND[r.kind]}</span>
+      <h1 class="note__title">${esc(r.title)}</h1>
+      <div class="note__by">${r.authors.map(esc).join(" &amp; ")}</div>
+      <div class="note__facts">
+        <span>${esc(r.venue)}</span><span>${r.year}</span>
+        <span>${r.ideas.map(id => esc(ideas.find(i=>i.id===id)?.title || id)).join(" · ")}</span>
+      </div>
+    </div>
+    ${r.summary
+      ? `<div class="body"><p>${esc(r.summary)}</p></div><div class="endmark">${AST}</div>`
+      : `<p class="empty">Not read yet. The note is where the argument goes once it is.</p>`}
+  </div>`;
+}
+
+function viewDraft(){
+  const i = ideas[0], rs = byIdea(i.id);
+  return `<article class="article">
+    <div class="titleblock">
+      <span class="kicker">The Draft</span>
+      <h1>${esc(i.title)}</h1>
+      <p class="deck">${esc(i.deck)}</p>
+      <div class="byline"><span>${STAGES[i.stage].label}</span><span>·</span>
+        <span>${read(i.id)} of ${rs.length} sources read</span><span>·</span><span>287 words</span></div>
+    </div>
+    <div class="body">${draft}</div>
+    <div class="endmark">${AST}</div>
+    <div class="folio"><span>Marginalia</span><span>The Cost of Legibility</span></div>
+  </article>`;
+}
+
+function viewRoadmap(){
+  return `<article class="article">
+    <div class="titleblock">
+      <span class="kicker">Roadmap</span>
+      <h1>Where the whole thing is going</h1>
+    </div>
+    <div class="body">${roadmap}</div>
+    <div class="endmark">${AST}</div>
+  </article>`;
+}
+
+function render(){
+  renderDepts();
+  $("#issue-ideas").textContent = `${ideas.length} ideas`;
+  $("#issue-sources").textContent = `${readings.length} sources`;
+  $("#view").innerHTML =
+      view === "sources" && openSource ? viewSource()
+    : view === "sources"  ? viewSources()
+    : view === "draft"    ? viewDraft()
+    : view === "roadmap"  ? viewRoadmap()
+    : viewContents();
+  window.scrollTo(0, 0);
+}
+
+document.addEventListener("click", e => {
+  const dept = e.target.closest("[data-view]");
+  if(dept){ view = dept.dataset.view; openSource = null; return render(); }
+  const src = e.target.closest("[data-src]");
+  if(src){ view = "sources"; openSource = src.dataset.src; return render(); }
+  const idea = e.target.closest("[data-idea]");
+  if(idea){ view = "draft"; openSource = null; return render(); }
+});
+
+render();
+</script>
