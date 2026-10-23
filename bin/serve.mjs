@@ -12,6 +12,7 @@
 import { createServer } from "node:http";
 import { readFile, writeFile, rename } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { FAVICON } from "../src/favicon.js";
 
 const FILE  = fileURLToPath(new URL("../mockup/asterisk.html", import.meta.url));
 const STATE = process.env.MARGINALIA_STATE
@@ -121,7 +122,7 @@ createServer(async (req, res) => {
     const html = await readFile(FILE, "utf8");
     res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
     res.end(`<!doctype html><html><head><meta charset="utf-8">` +
-            `<meta name="viewport" content="width=device-width,initial-scale=1">` +
+            `<meta name="viewport" content="width=device-width,initial-scale=1">` + FAVICON +
             `</head><body>${html}</body></html>`);
   } catch (e) {
     res.writeHead(500).end(String(e));
