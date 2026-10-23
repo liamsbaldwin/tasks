@@ -402,11 +402,14 @@ h1[contenteditable].is-empty::before,.pagedeck[contenteditable].is-empty::before
    longest option whatever is chosen, which left a hole in the line, and its menu opens
    over the word you just clicked. This one is as wide as the word, opens above the
    line so the word stays in view, and scrolls once the list is long.
-   Its own class, not .menu — that one is the navigation. */
+   Its own class, not .menu — that one is the navigation. It opens on whichever side
+   of the line has the room, and never taller than that room: the height is set when
+   it opens, so a notebook with forty ideas gets a list that scrolls rather than one
+   that runs off the screen. */
 .filed{position:relative; display:inline-block}
 .filemenu{
   position:absolute; bottom:calc(100% + 9px); right:0; z-index:30;
-  min-width:13rem; max-width:24rem; max-height:15.5rem; overflow:auto;
+  min-width:13rem; max-width:24rem; max-height:15.5rem; overflow-y:auto; overscroll-behavior:contain;
   background:var(--paper); border:1px solid var(--rule);
   box-shadow:0 6px 22px rgba(60,54,40,.09); padding:4px 0; text-align:left;
 }
@@ -414,6 +417,7 @@ h1[contenteditable].is-empty::before,.pagedeck[contenteditable].is-empty::before
   display:block; width:100%; text-align:left; padding:6px 14px;
   font:inherit; color:var(--ink-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
+.filemenu--down{top:calc(100% + 9px); bottom:auto}
 .filemenu__i:hover{background:var(--blue-wash); color:var(--blue)}
 .filemenu__i--on{color:var(--blue)}
 .back{font-family:var(--display); font-size:17px; color:var(--blue); display:inline-block; margin-bottom:26px}
@@ -1577,7 +1581,7 @@ function viewContents(){
   return `<div class="pagehead"><h1 class="pagetitle">Contents</h1></div>
   <div class="list">${data.ideas.map(i => `
     <button class="row" data-idea="${i.id}">
-      <span class="row__t">${esc(i.title)}</span>
+      <span class="row__t">${esc(ideaName(i))}</span>
       <span class="row__d">${esc(i.dek)}</span>
       <span class="row__m"><b>${STAGES[i.stage]}</b><span>${readN(i.id)}/${byIdea(i.id).length} read</span>
         <span>${words(data.drafts[i.id] || "").toLocaleString()} words</span></span>
@@ -1715,17 +1719,21 @@ function viewSource(){
     ${filedMenu(r)}</span></div>`;
 }
 
-/* The project a reading is filed under, and the list to change it. A reading filed
-   under more than one shows the first; the data keeps the rest until this is used. */
+/* The project a reading is filed under, and the list to change it. An idea with no
+   name is not offered: a blank line in a menu is a line you cannot read and cannot
+   mean to choose. A reading filed under more than one shows the first; the data keeps
+   the rest until this is used. */
+const ideaName = i => (i.title || "").trim() || "Untitled";
 function filedMenu(r){
   const filed = data.ideas.find(i => r.ideas.includes(i.id));
   const row = (id, title) => `<button class="filemenu__i ${
     (filed?.id || "") === id ? "filemenu__i--on" : ""}" data-fileto="${id}">${esc(title)}</button>`;
   return `<span class="filed">
     <button class="meta" id="filed" data-file title="File it under a project"
-      >${esc(filed ? filed.title : "Unfiled")}</button>
+      >${esc(filed ? ideaName(filed) : "Unfiled")}</button>
     <div class="filemenu" id="filemenu" hidden>
-      ${data.ideas.map(i => row(i.id, i.title)).join("")}${row("", "Unfiled")}
+      ${data.ideas.filter(i => (i.title || "").trim())
+        .map(i => row(i.id, i.title)).join("")}${row("", "Unfiled")}
     </div></span>`;
 }
 
@@ -2347,7 +2355,10 @@ document.addEventListener("click", e => {
   }
   if(e.target.closest("[data-file]")){
     const m = $("#filemenu");
-    if(m) m.hidden = !m.hidden;
+    if(m){
+      m.hidden = !m.hidden;
+      if(!m.hidden) fitFiled(m);
+    }
     return;
   }
   const to = e.target.closest("[data-fileto]");
@@ -2358,7 +2369,7 @@ document.addEventListener("click", e => {
       r.ideas = id ? [id] : [];
       // The word and the ticked row are the only things that change; redrawing the
       // page would send you back to the top of the note.
-      $("#filed").textContent = id ? data.ideas.find(i => i.id === id).title : "Unfiled";
+      $("#filed").textContent = id ? ideaName(data.ideas.find(i => i.id === id)) : "Unfiled";
       document.querySelectorAll("[data-fileto]").forEach(b =>
         b.classList.toggle("filemenu__i--on", b.dataset.fileto === id));
       save();
@@ -2412,6 +2423,16 @@ document.addEventListener("click", e => {
   const idea = e.target.closest("[data-idea]");
   if(idea){ view = "draft"; openIdea = idea.dataset.idea; openSource = null; return render(); }
 });
+
+/* Open it where there is room for it, and no taller than that room. */
+const FILED_MAX = 248;                       // 15.5rem, the most it ever wants
+function fitFiled(m){
+  const r = $("#filed").getBoundingClientRect();
+  const above = r.top - 16, below = innerHeight - r.bottom - 16;
+  const down = below > above;
+  m.classList.toggle("filemenu--down", down);
+  m.style.maxHeight = Math.max(110, Math.min(FILED_MAX, down ? below : above)) + "px";
+}
 
 /* The filing list shuts when you look away from it. */
 const shutFiled = () => $("#filemenu")?.setAttribute("hidden", "");
