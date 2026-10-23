@@ -15,6 +15,7 @@
   --blue:#2D90CF;
   --blue-pale:#ABD3EC;      /* the menu's current item */
   --blue-wash:rgba(45,144,207,.09);
+  --blue-breath:rgba(45,144,207,.055);   /* today: present, but barely */
   --rule:#E3DFD2;
   --paper-2:#F1EEE3;
   --display:"Newsreader", Georgia, "Times New Roman", serif;
@@ -97,15 +98,19 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 .page--prog .page__in{max-width:52rem}
 /* The roadmap is the one page with a working column beside the text, so the pair is
    centred rather than the prose alone: the text sits left of centre and the pane takes
-   the room that was margin. */
-.page--road{padding-left:calc(var(--rail) + 26px)}
+   the room that was margin.
+
+   Two flex columns rather than a grid, deliberately. A grid sizes its rows to the
+   tallest thing in them, so a pane that spans both rows lends its height to the text's
+   rows: open a day, turn the month over, and the prose slides down by however much the
+   calendar grew. Flex columns do not talk to each other, so the text sits still. */
+.page--road{padding-left:calc(var(--rail) + 14px)}
 .page--road .page__in{
-  max-width:74rem;
-  display:grid; grid-template-columns:minmax(0,42rem) minmax(0,1fr); gap:0 46px;
+  max-width:80rem; margin-inline:0;            /* left-aligned, so wide screens do not drift right */
+  display:flex; align-items:flex-start; gap:0 44px;
 }
-.page--road .pagehead{grid-column:1; grid-row:1}
-.page--road .rich{grid-column:1; grid-row:2}
-.page--road .rmpane{grid-column:2; grid-row:1 / span 2; position:static; width:auto; margin:0}
+.road__col{flex:0 1 36rem; min-width:0}
+.page--road .rmpane{flex:1 1 0; min-width:0; position:static; width:auto; margin:0}
 
 .pagehead{margin-bottom:38px}
 .headrow{display:flex; align-items:flex-start; justify-content:space-between; gap:24px; flex-wrap:wrap}
@@ -214,13 +219,13 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 /* The rule for what counts is worth one glyph at the end of the legend, and nothing
    more until it is asked for. */
 .info{
-  margin-left:auto; width:16px; height:16px; border-radius:50%; flex:none;
-  border:1px solid var(--rule); color:var(--faint);
-  font-family:var(--display); font-size:10.5px; line-height:1;
-  display:grid; place-items:center; transition:color .12s ease, border-color .12s ease;
+  margin-left:auto; width:17px; height:17px; flex:none; color:var(--faint);
+  display:grid; place-items:center; transition:color .12s ease;
 }
-.info:hover, .info[aria-expanded="true"]{color:var(--blue); border-color:var(--blue)}
-.counts{margin-top:14px; font-size:13px; color:var(--faint); line-height:1.55; max-width:56ch}
+.info svg{display:block; width:17px; height:17px}
+.info:hover, .info[aria-expanded="true"]{color:var(--blue)}
+/* The note belongs to the tracker, so it runs the tracker's width. */
+.counts{margin-top:14px; font-size:13px; color:var(--faint); line-height:1.55}
 
 
 /* ============ writing ============ */
@@ -256,47 +261,52 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 /* The roadmap's pane: this week in words, the month for everything else. Wider than the
    footnote margin, and it folds under the text when the window cannot spare the room. */
 .rmpane{position:absolute; left:100%; top:78px; width:21rem; margin-left:26px}
-.pane__t{font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); margin-bottom:10px}
+.pane__t{font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); margin-bottom:12px}
 .week{
   display:grid; grid-template-columns:repeat(7,1fr); gap:1px;
   background:var(--rule); border:1px solid var(--rule); margin-bottom:34px;
 }
-.wk{display:flex; flex-direction:column; background:var(--paper); min-height:132px}
-.wk--today{background:var(--blue-wash)}
+.wk{display:flex; flex-direction:column; background:var(--paper); min-height:176px}
+/* Cells sit on the grid's rule colour, so a translucent wash set as the background
+   replaces the paper and takes its tint from the lines — which is how a 5% blue ends up
+   reading as grey. Lay the wash over paper instead. */
+.wk--today{background:linear-gradient(var(--blue-breath), var(--blue-breath)) var(--paper)}
 .wk__d{
-  font-size:10.5px; color:var(--faint); padding:6px 7px 0; white-space:nowrap;
+  font-size:11.5px; color:var(--faint); padding:7px 9px 0; white-space:nowrap;
   font-variant-numeric:tabular-nums; text-align:right;
 }
 .wk--today .wk__d{color:var(--blue)}
 .wk__b{
-  flex:1; font-size:12.5px; line-height:1.35; padding:5px 7px 8px; outline:none;
+  flex:1; font-size:13.5px; line-height:1.4; padding:6px 9px 10px; outline:none;
   color:var(--ink-2); overflow-wrap:anywhere;
 }
 
 .cal__head{display:flex; align-items:baseline; gap:10px; margin-bottom:10px}
-.cal__m{font-family:var(--display); font-size:23px; color:var(--blue)}
+.cal__m{font-family:var(--display); font-size:26px; color:var(--blue)}
 .cal__nav{margin-left:auto; display:flex; gap:2px}
 .cal__nav button{width:24px; height:24px; border-radius:3px; color:var(--faint); font-size:14px}
 .cal__nav button:hover{background:var(--blue-wash); color:var(--blue)}
 .cal__g{display:grid; grid-template-columns:repeat(7,1fr); gap:1px; background:var(--rule);
   border:1px solid var(--rule)}
-.cal__g > *{background:var(--paper); min-height:64px; padding:4px 6px}
-.cal__dow{min-height:0; font-size:9.5px; letter-spacing:.08em; text-transform:uppercase;
-  color:var(--faint); text-align:right; padding-bottom:5px}
-.cal__d{text-align:right; font-size:12.5px; color:var(--ink-2); font-variant-numeric:tabular-nums;
+.cal__g > *{background:var(--paper); min-height:88px; padding:6px 8px}
+.cal__dow{min-height:0; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--faint); text-align:right; padding-bottom:6px}
+.cal__d{text-align:right; font-size:14px; color:var(--ink-2); font-variant-numeric:tabular-nums;
   cursor:pointer; position:relative}
-.cal__d:hover{background:var(--blue-wash)}
+.cal__d:hover{background:linear-gradient(var(--blue-wash), var(--blue-wash)) var(--paper)}
 /* Fade the number, not the cell: opacity on the cell makes its paper translucent and
    the grid lines show through, which reads as a block of grey. */
 .cal__d--out span{color:#C2BCAB}
-.cal__d--today{background:var(--blue-wash)}
+.cal__d--today{background:linear-gradient(var(--blue-breath), var(--blue-breath)) var(--paper)}
 .cal__d--today span{color:var(--blue)}
 .cal__d--sel{outline:1.5px solid var(--blue); outline-offset:-1.5px}
 .cal__mark{
-  position:absolute; left:6px; right:6px; bottom:6px; height:2px; background:var(--blue);
+  position:absolute; left:8px; right:8px; bottom:8px; height:2.5px; background:var(--blue);
   border-radius:1px;
 }
 .pick{margin-top:12px; display:grid; grid-template-columns:4.2rem 1fr; gap:8px; align-items:baseline}
+/* Kept in the layout when no day is picked: the line is the same height either way. */
+.pick--off{visibility:hidden}
 .pick time{font-size:12px; color:var(--blue); font-variant-numeric:tabular-nums}
 .pick__b{
   font-size:13.5px; line-height:1.4; outline:none; color:var(--ink-2);
@@ -308,10 +318,11 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 @media (max-width:1240px){
   .page--road{padding-left:var(--gutter)}
   .page--road .page__in{display:block; max-width:var(--column)}
+  .road__col{flex:none}
   .page--road .rmpane{
     margin:46px 0 0; padding-top:22px; border-top:1px solid var(--rule);
   }
-  .wk{min-height:104px}
+  .wk{min-height:120px}
 }
 [contenteditable]{outline:none}
 [contenteditable].is-empty::before{content:attr(data-ph); color:var(--faint); font-style:italic}
@@ -1601,7 +1612,17 @@ function heatmap(year){
     <span class="cell" data-l="2"></span><span class="cell" data-l="3"></span>
     <span class="cell" data-l="4"></span>More
     <button class="info" id="info" aria-expanded="false" aria-controls="counts"
-      aria-label="What counts">i</button></div>`;
+      aria-label="What counts">${infoGlyph()}</button></div>`;
+}
+
+/* Drawn rather than set: a letter inside a 17px ring sits wherever the loaded serif
+   happens to put it, which is rarely the middle. */
+function infoGlyph(){
+  return `<svg viewBox="0 0 17 17" aria-hidden="true" fill="none">
+    <circle cx="8.5" cy="8.5" r="7.6" stroke="currentColor" stroke-width=".9" stroke-opacity=".4"/>
+    <circle cx="8.5" cy="4.9" r="1" fill="currentColor"/>
+    <path d="M8.5 7.4v4.9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+  </svg>`;
 }
 
 function viewSource(){
@@ -1654,9 +1675,11 @@ function draftFoot(){
 }
 
 function viewRoadmap(){
-  return `<div class="pagehead"><h1 class="pagetitle">Roadmap</h1></div>
-  <div class="rich">${tools()}<div class="prose" contenteditable="true" data-edit="roadmap" data-rich="1"
-    data-ph="What is the whole project for? What ships first, and what is it waiting on?">${data.roadmap}</div></div>
+  return `<div class="road__col">
+    <div class="pagehead"><h1 class="pagetitle">Roadmap</h1></div>
+    <div class="rich">${tools()}<div class="prose" contenteditable="true" data-edit="roadmap" data-rich="1"
+      data-ph="What is the whole project for? What ships first, and what is it waiting on?">${data.roadmap}</div></div>
+  </div>
   <aside class="rmpane" id="rmpane">${pane()}</aside>`;
 }
 
@@ -1693,10 +1716,10 @@ function monthCal(){
   const y = ref.getFullYear(), mo = ref.getMonth();
   const lead = (ref.getDay() + 6) % 7;
   const start = new Date(y, mo, 1 - lead);
-  const weeks = Math.ceil((lead + new Date(y, mo + 1, 0).getDate()) / 7);
+  const WEEKS = 6;            // every month gets six rows, so none is taller than another
 
   let cells = "";
-  for(let i = 0; i < weeks * 7; i++){
+  for(let i = 0; i < WEEKS * 7; i++){
     const d = new Date(start); d.setDate(start.getDate() + i);
     const key = isoOf(d);
     cells += `<div class="cal__d ${d.getMonth() !== mo ? "cal__d--out" : ""} ${
@@ -1705,14 +1728,22 @@ function monthCal(){
       <span>${d.getDate()}</span>${data.days[key] ? `<i class="cal__mark"></i>` : ""}</div>`;
   }
 
-  const sel = calSel ? new Date(calSel + "T00:00:00") : null;
   return `<div class="cal__head"><span class="cal__m">${MONTHS[mo].slice(0,3)} ${y}</span>
       <span class="cal__nav"><button data-cal="-1" aria-label="Previous month">&larr;</button>
         <button data-cal="1" aria-label="Next month">&rarr;</button></span></div>
     <div class="cal__g">${DOW.map(d => `<div class="cal__dow">${d[0]}</div>`).join("")}${cells}</div>
-    ${sel ? `<div class="pick"><time>${sel.getDate()} ${MONTHS[sel.getMonth()].slice(0,3)}</time>
-      <span class="pick__b" contenteditable="true" data-edit="day" data-date="${calSel}"
-        >${esc(data.days[calSel] || "")}</span></div>` : ""}`;
+    ${pickRow()}`;
+}
+
+/* The line under the month. It is in the layout whether or not a day is picked — hidden
+   rather than absent — because a row that comes and goes is a row that moves the page. */
+function pickRow(){
+  const sel = calSel ? new Date(calSel + "T00:00:00") : null;
+  if(!sel) return `<div class="pick pick--off" aria-hidden="true"><time>1 Jan</time>
+    <span class="pick__b"></span></div>`;
+  return `<div class="pick"><time>${sel.getDate()} ${MONTHS[sel.getMonth()].slice(0,3)}</time>
+    <span class="pick__b" contenteditable="true" data-edit="day" data-date="${calSel}"
+      >${esc(data.days[calSel] || "")}</span></div>`;
 }
 
 function renderPane(){
@@ -2167,8 +2198,16 @@ document.addEventListener("click", e => {
   const pickDay = e.target.closest("[data-day]");
   if(pickDay){
     calSel = calSel === pickDay.dataset.day ? null : pickDay.dataset.day;
-    renderPane();
-    $(".pick__b")?.focus();
+    document.querySelectorAll(".cal__d--sel").forEach(d => d.classList.remove("cal__d--sel"));
+    if(calSel) pickDay.classList.add("cal__d--sel");
+    const row = $(".pick");
+    if(row){
+      row.outerHTML = pickRow();
+      // preventScroll, or the browser scrolls the line into view and the page — text
+      // and all — slides under the cursor, which is exactly what picking a day must not do.
+      $(".pick__b")?.focus({ preventScroll: true });
+      document.querySelectorAll(".pick__b[contenteditable]").forEach(markEmpty);
+    }
     return;
   }
   if(e.target.closest("#info")){
