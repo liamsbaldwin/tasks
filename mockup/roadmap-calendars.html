@@ -1,0 +1,341 @@
+<title>Roadmap Calendar Studies</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..600;1,8..60,400..500&display=swap">
+
+<style>
+/* Layout: the Quarterly's roadmap page, rendered five times, each with the dates put
+   somewhere different. The prose and its measure never change — only the calendar. */
+:root{
+  --paper:#FAF8F0; --ink:#000000; --ink-2:#2A2A28; --faint:#7E7B72;
+  --blue:#2D90CF; --blue-pale:#ABD3EC; --blue-wash:rgba(45,144,207,.10);
+  --rule:#E3DFD2; --paper-2:#F1EEE3;
+  --display:"Newsreader", Georgia, "Times New Roman", serif;
+  --text:"Source Serif 4", Georgia, "Times New Roman", serif;
+  --column:42rem;
+  --gutter:max(16px, env(safe-area-inset-left, 0px));
+  --gutter-r:max(16px, env(safe-area-inset-right, 0px));
+  --ease:cubic-bezier(.22,.61,.36,1);
+  color-scheme:light;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{background:var(--paper)}
+body{color:var(--ink); font-family:var(--text); font-size:18px; line-height:1.62; margin:0;
+  -webkit-font-smoothing:antialiased}
+h1,h2,h3{margin:0; font-weight:400; text-wrap:balance}
+p{margin:0}
+button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor:pointer}
+:focus-visible{outline:2px solid var(--blue); outline-offset:3px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ---- the chooser, deliberately not part of the design being judged ---- */
+.picker{
+  position:sticky; top:0; z-index:20; background:var(--paper);
+  border-bottom:1px solid var(--rule);
+  padding-left:var(--gutter); padding-right:var(--gutter-r);
+}
+.picker__in{
+  max-width:72rem; margin-inline:auto; display:flex; gap:6px; align-items:baseline;
+  flex-wrap:wrap; padding-block:11px;
+}
+.picker__l{font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint);
+  margin-right:8px}
+.opt{
+  font-size:14px; color:var(--faint); padding:4px 10px; border-radius:3px; white-space:nowrap;
+}
+.opt:hover{background:var(--blue-wash); color:var(--blue)}
+.opt[aria-current="true"]{background:var(--blue); color:#FFF}
+
+.sheet{padding-left:var(--gutter); padding-right:var(--gutter-r)}
+.sheet__in{max-width:var(--column); margin-inline:auto; padding-block:52px 80px; position:relative}
+.verdict{
+  max-width:var(--column); margin:0 auto; padding:14px 0 0;
+  border-top:1px solid var(--rule); font-size:14px; color:var(--faint); line-height:1.55;
+}
+.verdict b{color:var(--ink-2); font-weight:400}
+
+.pagetitle{font-family:var(--display); color:var(--blue); font-size:clamp(34px,5.4vw,52px);
+  line-height:1.04; letter-spacing:-.016em}
+.prose{font-size:18px; line-height:1.68; margin-top:26px}
+.prose h2{font-family:var(--display); font-size:25px; line-height:1.2; margin:34px 0 9px;
+  letter-spacing:-.008em}
+.prose h2:first-child{margin-top:0}
+.prose p{margin:0 0 1.05em}
+.prose p:last-child{margin-bottom:0}
+.prose i{font-style:italic}
+
+/* ============ A · margin ============ */
+.margin{position:absolute; left:100%; top:52px; width:15rem; margin-left:34px}
+.mini{position:sticky; top:66px}
+.mini__m{font-family:var(--display); font-size:17px; color:var(--blue); margin-bottom:7px}
+.mini__g{display:grid; grid-template-columns:repeat(7,1fr); gap:2px; font-size:11px;
+  font-variant-numeric:tabular-nums; margin-bottom:16px}
+.mini__g span{aspect-ratio:1; display:grid; place-items:center; color:var(--ink-2); border-radius:2px}
+.mini__g .dow{color:var(--faint); font-size:9.5px; aspect-ratio:auto}
+.mini__g .on{background:var(--blue); color:#FFF}
+.mini__g .today{outline:1px solid var(--blue); color:var(--blue)}
+.next{font-size:13.5px; line-height:1.45; color:var(--ink-2)}
+.next div{margin-bottom:9px; display:grid; grid-template-columns:3.6rem 1fr; gap:8px}
+.next time{color:var(--blue); font-variant-numeric:tabular-nums}
+
+/* ============ B · ribbon below ============ */
+.ribbon{margin-top:54px; padding-top:22px; border-top:1px solid var(--rule)}
+.ribbon__t, .board__t, .grid__t{font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+  color:var(--faint); margin-bottom:20px}
+/* The labels overhang their month by design, so on a phone the ribbon scrolls inside
+   its own box rather than pushing the page sideways. */
+.ribbon__scroll{overflow-x:auto}
+.months{display:grid; grid-template-columns:repeat(12,1fr); position:relative; height:62px}
+.mon{position:relative; border-left:1px solid var(--rule)}
+.mon:last-child{border-right:1px solid var(--rule)}
+.mon__l{position:absolute; top:0; left:5px; font-size:11px; color:var(--faint)}
+.mon__axis{position:absolute; left:0; right:0; top:34px; height:1px; background:var(--rule)}
+.pin{position:absolute; top:31px; width:7px; height:7px; border-radius:50%; background:var(--blue);
+  transform:translateX(-50%)}
+/* Numbered, not labelled: two dates a fortnight apart put their captions on top of each
+   other, and nudging them apart only moves the collision somewhere else. */
+.pin__n{
+  position:absolute; top:-17px; left:50%; transform:translateX(-50%);
+  font-size:10.5px; color:var(--blue); font-variant-numeric:tabular-nums;
+}
+.keys{
+  display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:7px 28px; margin-top:20px;
+  font-size:13.5px; line-height:1.4; color:var(--ink-2);
+}
+.keys div{display:grid; grid-template-columns:1.2rem 3.6rem 1fr; gap:8px; align-items:baseline}
+.keys b{color:var(--blue); font-weight:400; font-variant-numeric:tabular-nums}
+.keys time{color:var(--faint); font-variant-numeric:tabular-nums}
+.now{position:absolute; top:22px; bottom:22px; width:1px; background:var(--blue); opacity:.45}
+
+/* ============ C · dated gutter ============ */
+.gutter-date{
+  position:absolute; right:calc(100% + 26px); width:7rem; text-align:right;
+  font-size:12.5px; line-height:1.4; color:var(--blue); font-variant-numeric:tabular-nums;
+}
+.gutter-date small{display:block; color:var(--faint); font-size:11.5px}
+.anchored{position:relative}
+
+/* ============ D · quarter board ============ */
+.board{margin-top:54px; padding-top:22px; border-top:1px solid var(--rule)}
+.quarters{display:grid; grid-template-columns:repeat(4,1fr); gap:0}
+.q{padding:0 16px; border-left:1px solid var(--rule)}
+.q:first-child{padding-left:0; border-left:0}
+.q__t{font-family:var(--display); font-size:19px; color:var(--blue); margin-bottom:12px}
+.q__i{font-size:13.5px; line-height:1.4; color:var(--ink-2); margin-bottom:11px}
+.q__i time{display:block; color:var(--faint); font-variant-numeric:tabular-nums; font-size:12px}
+.q--now{background:var(--blue-wash); margin-inline:-16px; padding-inline:16px; border-radius:3px}
+
+/* ============ E · month grid below ============ */
+.cal{margin-top:54px; padding-top:22px; border-top:1px solid var(--rule)}
+.cal__head{display:flex; align-items:baseline; gap:14px; margin-bottom:14px}
+.cal__m{font-family:var(--display); font-size:24px; color:var(--blue)}
+.cal__nav{margin-left:auto; display:flex; gap:4px}
+.cal__nav button{width:26px; height:26px; border-radius:3px; color:var(--faint); font-size:15px}
+.cal__nav button:hover{background:var(--blue-wash); color:var(--blue)}
+.cal__g{display:grid; grid-template-columns:repeat(7,1fr); gap:1px; background:var(--rule);
+  border:1px solid var(--rule)}
+.cal__g > *{background:var(--paper); min-height:76px; padding:5px 7px}
+.cal__dow{min-height:0; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--faint); text-align:right}
+.cal__n{font-size:12.5px; color:var(--faint); font-variant-numeric:tabular-nums; text-align:right}
+.cal__d--out .cal__n{opacity:.35}
+.cal__d--today{background:var(--blue-wash)}
+.cal__d--today .cal__n{color:var(--blue)}
+.ev{font-size:11.5px; line-height:1.3; color:var(--ink-2); margin-top:4px;
+  border-left:2px solid var(--blue); padding-left:5px}
+
+@media (max-width:1240px){
+  .margin{position:static; width:auto; margin:44px 0 0; padding-top:20px;
+    border-top:1px solid var(--rule)}
+  .mini{position:static}
+  .mini__g{max-width:17rem}
+  .gutter-date{position:static; width:auto; text-align:left; margin-bottom:3px}
+}
+@media (max-width:760px){
+  .quarters{grid-template-columns:1fr 1fr; gap:22px 0}
+  .q:nth-child(3){padding-left:0; border-left:0}
+  .months{min-width:640px}
+  .keys{grid-template-columns:1fr}
+  .cal__g > *{min-height:58px}
+  .ev{font-size:10px}
+}
+</style>
+
+<nav class="picker"><div class="picker__in">
+  <span class="picker__l">Where the calendar goes</span>
+  <div id="opts"></div>
+</div></nav>
+
+<div class="sheet"><div class="sheet__in" id="sheet"></div></div>
+<p class="verdict" id="verdict"></p>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+const TODAY = new Date(); TODAY.setHours(0,0,0,0);
+const day = n => { const d = new Date(TODAY); d.setDate(d.getDate() + n); return d; };
+const iso = d => d.toISOString().slice(0,10);
+const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const fmt = d => `${d.getDate()} ${MON[d.getMonth()]}`;
+
+/* The roadmap's own deadlines, dated from today so the studies never go stale. */
+const marks = [
+  {d: day(-26), t:"The Map Became the Territory published",   idea:"maps"},
+  {d: day(6),   t:"Ten Days a Week — draft locked",           idea:"tendays"},
+  {d: day(13),  t:"Legibility — section on who gets to object", idea:"legibility"},
+  {d: day(27),  t:"Ten Days a Week — video cut",              idea:"tendays"},
+  {d: day(41),  t:"Scaling Laws — reading done",              idea:"scale"},
+  {d: day(55),  t:"Legibility — draft locked",                idea:"legibility"},
+  {d: day(96),  t:"Why Interfaces Forget — first draft",      idea:"forget"},
+].sort((a,b) => a.d - b.d);
+
+const prose = `<h2>What the whole thing is for</h2>
+<p>Four essays and a video apiece, on the same underlying argument: that the instruments we use to see a system are never neutral observers of it. Legibility is the clearest case; the calendar piece is the cheapest to finish; the scaling piece is the one most likely to be wrong.</p>
+<h2>What ships first</h2>
+<p><i>Ten Days a Week</i> — it is nearly edited and the reading is done. <i>The Cost of Legibility</i> is the better essay but still owes a section on who gets to object.</p>
+<h2>Still unsure about</h2>
+<p>Whether the scaling piece is an essay or a footnote in someone else's. The literature is enormous and I have read four of it.</p>`;
+
+const head = `<h1 class="pagetitle">Roadmap</h1>`;
+
+/* ---------- A · a small calendar in the margin ---------- */
+function marginStudy(){
+  return `${head}<div class="prose">${prose}</div>
+  <div class="margin"><div class="mini">
+    ${miniMonth(TODAY)}
+    <div class="next">${marks.filter(m => m.d >= TODAY).slice(0,4).map(m =>
+      `<div><time>${fmt(m.d)}</time><span>${esc(m.t)}</span></div>`).join("")}</div>
+  </div></div>`;
+}
+
+function miniMonth(ref){
+  const y = ref.getFullYear(), mo = ref.getMonth();
+  const first = new Date(y, mo, 1);
+  const lead = (first.getDay() + 6) % 7;
+  const days = new Date(y, mo + 1, 0).getDate();
+  const on = new Set(marks.map(m => iso(m.d)));
+  let cells = "";
+  for(let i = 0; i < lead; i++) cells += "<span></span>";
+  for(let n = 1; n <= days; n++){
+    const d = new Date(y, mo, n);
+    const cls = [on.has(iso(d)) ? "on" : "", iso(d) === iso(TODAY) ? "today" : ""].join(" ").trim();
+    cells += `<span class="${cls}">${n}</span>`;
+  }
+  return `<div class="mini__m">${MON[mo]} ${y}</div>
+    <div class="mini__g">${["M","T","W","T","F","S","S"].map(d =>
+      `<span class="dow">${d}</span>`).join("")}${cells}</div>`;
+}
+
+/* ---------- B · a ribbon of twelve months under the text ---------- */
+function ribbonStudy(){
+  const y = TODAY.getFullYear();
+  const months = Array.from({length:12}, (_, m) => {
+    const len = new Date(y, m + 1, 0).getDate();
+    const pins = marks.filter(k => k.d.getFullYear() === y && k.d.getMonth() === m).map(k =>
+      `<span class="pin" style="left:${(k.d.getDate() - .5) / len * 100}%">
+        <span class="pin__n">${marks.indexOf(k) + 1}</span></span>`).join("");
+    const now = TODAY.getMonth() === m
+      ? `<span class="now" style="left:${(TODAY.getDate() - .5) / len * 100}%"></span>` : "";
+    return `<div class="mon"><span class="mon__l">${MON[m]}</span>
+      <span class="mon__axis"></span>${now}${pins}</div>`;
+  }).join("");
+  return `${head}<div class="prose">${prose}</div>
+    <div class="ribbon"><div class="ribbon__t">${y} at a glance</div>
+      <div class="ribbon__scroll"><div class="months">${months}</div></div>
+      <div class="keys">${marks.map((m, i) =>
+        `<div><b>${m.d.getFullYear() === y ? i + 1 : "&middot;"}</b><time>${fmt(m.d)}${
+          m.d.getFullYear() === y ? "" : " " + String(m.d.getFullYear()).slice(2)
+        }</time><span>${esc(m.t)}</span></div>`).join("")}</div>
+    </div>`;
+}
+
+/* ---------- C · the date beside the section it belongs to ---------- */
+function gutterStudy(){
+  const byHeading = [marks[1], marks[2], marks[4]];
+  const body = prose.split("<h2>").filter(Boolean).map((chunk, i) => {
+    const m = byHeading[i];
+    return `<div class="anchored">${m
+      ? `<span class="gutter-date">${fmt(m.d)}<small>${esc(m.t.split(" — ")[0])}</small></span>` : ""}
+      <h2>${chunk}</div>`;
+  }).join("");
+  return `${head}<div class="prose">${body}</div>`;
+}
+
+/* ---------- D · four quarters under the text ---------- */
+function boardStudy(){
+  const qOf = d => Math.floor(d.getMonth() / 3);
+  const nowQ = qOf(TODAY), y = TODAY.getFullYear();
+  const cols = [0,1,2,3].map(off => {
+    const q = (nowQ + off) % 4, yy = y + Math.floor((nowQ + off) / 4);
+    const items = marks.filter(m => qOf(m.d) === q && m.d.getFullYear() === yy);
+    return `<div class="q ${off === 0 ? "q--now" : ""}">
+      <div class="q__t">Q${q + 1} ${String(yy).slice(2)}</div>
+      ${items.length ? items.map(m =>
+        `<div class="q__i"><time>${fmt(m.d)}</time>${esc(m.t)}</div>`).join("")
+        : `<div class="q__i" style="color:var(--faint)">—</div>`}</div>`;
+  }).join("");
+  return `${head}<div class="prose">${prose}</div>
+    <div class="board"><div class="board__t">The year ahead</div>
+      <div class="quarters">${cols}</div></div>`;
+}
+
+/* ---------- E · a full month under the text ---------- */
+let calOffset = 0;
+function monthStudy(){
+  const ref = new Date(TODAY.getFullYear(), TODAY.getMonth() + calOffset, 1);
+  const y = ref.getFullYear(), mo = ref.getMonth();
+  const lead = (ref.getDay() + 6) % 7;
+  const start = new Date(y, mo, 1 - lead);
+  let cells = "";
+  for(let i = 0; i < 35; i++){
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    const out = d.getMonth() !== mo;
+    const mine = marks.filter(m => iso(m.d) === iso(d));
+    cells += `<div class="cal__d ${out ? "cal__d--out" : ""} ${iso(d) === iso(TODAY) ? "cal__d--today" : ""}">
+      <div class="cal__n">${d.getDate()}</div>
+      ${mine.map(m => `<div class="ev">${esc(m.t)}</div>`).join("")}</div>`;
+  }
+  return `${head}<div class="prose">${prose}</div>
+    <div class="cal">
+      <div class="cal__head"><span class="cal__m">${MON[mo]} ${y}</span>
+        <span class="cal__nav"><button data-cal="-1" aria-label="Previous month">&larr;</button>
+          <button data-cal="1" aria-label="Next month">&rarr;</button></span></div>
+      <div class="cal__g">${["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d =>
+        `<div class="cal__dow">${d}</div>`).join("")}${cells}</div>
+    </div>`;
+}
+
+const STUDIES = [
+  {id:"margin", label:"Side pane", build:marginStudy,
+   note:"<b>A small month in the margin, plus what is next.</b> Costs the page nothing — the prose keeps its measure and its position — and it is glanceable without being consulted. It cannot show much: no room for labels, so a marked day only tells you that something is that day. Below 1240px there is no margin and it folds under the text, which is the weakest of the five."},
+  {id:"ribbon", label:"Ribbon below", build:ribbonStudy,
+   note:"<b>The whole year as one line under the text.</b> The only study that shows the shape of the year — the clustering in the next two months, and the empty spring after it. Captions cannot sit on the axis: two dates a fortnight apart write over each other, and nudging them apart just moves the collision. So the pins are numbered and the list carries the words, which costs a glance."},
+  {id:"gutter", label:"Dates in the gutter", build:gutterStudy,
+   note:"<b>No calendar at all; each section carries its own date.</b> The most in keeping with the design, and the only one where the date is attached to the thing it is about rather than to a grid. It cannot answer “what is happening in March” — the document order is the only order."},
+  {id:"board", label:"Quarters below", build:boardStudy,
+   note:"<b>Four columns under the text, this quarter tinted.</b> The right grain for a project measured in essays rather than appointments: enough structure to see load, not so much that an empty week looks like a failure. Scales past a year by scrolling one more column in."},
+  {id:"month", label:"Month below", build:monthStudy,
+   note:"<b>A conventional month, with room for the text of each entry.</b> The only one that can hold a label legibly, and the only one you could schedule against. It is also the heaviest — a 5×7 grid of mostly-empty cells under a page of prose, which reads as an app bolted to a document."},
+];
+
+let current = "margin";
+
+function render(){
+  $("#opts").innerHTML = STUDIES.map(s =>
+    `<button class="opt" data-study="${s.id}" aria-current="${s.id === current}">${s.label}</button>`).join("");
+  const s = STUDIES.find(x => x.id === current);
+  $("#sheet").innerHTML = s.build();
+  $("#verdict").innerHTML = s.note;
+}
+
+document.addEventListener("click", e => {
+  const o = e.target.closest("[data-study]");
+  if(o){ current = o.dataset.study; calOffset = 0; return render(); }
+  const c = e.target.closest("[data-cal]");
+  if(c){ calOffset += Number(c.dataset.cal); return render(); }
+});
+
+render();
+</script>
