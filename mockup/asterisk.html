@@ -1707,7 +1707,7 @@ function viewDraft(){
   return `<div class="pagehead">
     <h1 class="pagetitle" contenteditable="true" data-edit="idea.title" data-ph="Name it">${esc(i.title)}</h1>
     <p class="pagedeck" contenteditable="true" data-edit="idea.deck"
-       data-ph="A line to say what it is about">${esc(i.deck || "")}</p>
+       data-ph="Subtitle">${esc(i.deck || "")}</p>
   </div>
   <div class="rich">${tools()}<div class="prose" contenteditable="true" data-edit="draft" data-rich="1"
     data-ph="Start anywhere. The first paragraph is always wrong.">${data.drafts[i.id] || ""}</div></div>
