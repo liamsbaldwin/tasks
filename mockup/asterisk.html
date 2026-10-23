@@ -73,23 +73,25 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 }
 .toggle svg{width:25px; height:25px; overflow:visible}
 /* Rects rather than lines: a line's box has no height, and the rotation origin does not
-   resolve reliably against it, which left the cross squashed instead of square. Each
-   bar turns about its own middle, given in the icon's units rather than as the centre
-   of its box, which engines do not all resolve alike: on a Mac the arms crossed
-   off-centre. Translate stays first in the list so the bars slide straight in. */
+   resolve reliably against it, which left the cross squashed instead of square. No
+   transform-origin at all, either: Safari scales an SVG transform-origin by the page
+   zoom (12.5px becomes 10px at 80%) while leaving the geometry alone, so the bars
+   turned about the wrong points and the cross came out lopsided. Instead each bar is
+   carried to the icon's origin, turned there, and carried back — the centre is in the
+   transform itself. Closed and open use the same list, so the bars slide straight in. */
 .toggle rect{
   fill:currentColor;
-  transform-box:view-box;
+  transform-box:view-box; transform-origin:0 0;
   transition:transform .3s var(--ease), opacity .16s ease;
 }
+.toggle .bar-t{transform:translate(12.5px,6px) rotate(0) scaleX(1) translate(-12.5px,-6px)}
+.toggle .bar-m{transform:translate(12.5px,12.5px) scaleX(1) translate(-12.5px,-12.5px)}
+.toggle .bar-b{transform:translate(12.5px,19px) rotate(0) scaleX(1) translate(-12.5px,-19px)}
 /* A bar turned 45° keeps its length but loses a third of its footprint (21 ÷ √2), so
    the cross would come out smaller than the bars it replaced. Lengthen the arms. */
-.toggle .bar-t{transform-origin:12.5px 6px}
-.toggle .bar-m{transform-origin:12.5px 12.5px}
-.toggle .bar-b{transform-origin:12.5px 19px}
-.is-open .toggle .bar-t{transform:translateY(6.5px) rotate(45deg) scaleX(1.3)}
-.is-open .toggle .bar-b{transform:translateY(-6.5px) rotate(-45deg) scaleX(1.3)}
-.is-open .toggle .bar-m{opacity:0; transform:scaleX(.3)}
+.is-open .toggle .bar-t{transform:translate(12.5px,12.5px) rotate(45deg) scaleX(1.3) translate(-12.5px,-6px)}
+.is-open .toggle .bar-b{transform:translate(12.5px,12.5px) rotate(-45deg) scaleX(1.3) translate(-12.5px,-19px)}
+.is-open .toggle .bar-m{opacity:0; transform:translate(12.5px,12.5px) scaleX(.3) translate(-12.5px,-12.5px)}
 
 @media (prefers-reduced-motion:reduce){
   .menu,.menu__item,.menu__foot,.toggle rect{transition-duration:.001s!important}
