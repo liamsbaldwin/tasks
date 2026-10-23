@@ -2547,7 +2547,10 @@ function layoutFootnotes(){
   const refs = [...prose.querySelectorAll(".fnref")];
   const store = (data.notes[openIdea] ||= {});
   const live = new Set();
-  refs.forEach((r, i) => { r.textContent = String(i + 1); live.add(r.dataset.fn); });
+  refs.forEach((r, i) => {
+    r.textContent = String(i + 1); live.add(r.dataset.fn);
+    r.contentEditable = "false";            // markers saved before this was set
+  });
   for(const id of Object.keys(store)) if(!live.has(id)) delete store[id];
 
   /*
@@ -2741,6 +2744,19 @@ document.addEventListener("keydown", e => {
 document.addEventListener("mousedown", e => {
   if(e.target.closest(".tools button")) e.preventDefault();      // keep the caret
 });
+/*
+ * A footnote marker is one sealed unit, not a run of text. Left editable, the caret
+ * could sit inside it, and Safari carries the last thing typed into's style forward,
+ * so the prose after a footnote came out small and blue. Sealed, there is no inside
+ * to be in; and once it is placed, the caret is put after it by hand.
+ */
+function leaveMarker(ref){
+  if(!ref) return;
+  let after = ref.nextSibling;
+  if(!after || after.nodeType !== 3) after = ref.parentNode.insertBefore(document.createTextNode("\u200b"), after);
+  document.getSelection().collapse(after, after.nodeValue.startsWith("\u200b") ? 1 : 0);
+}
+
 /* One place a tool runs, whether it was clicked or typed. */
 function runTool(cmd, host){
   const inside = tag => !!document.getSelection().anchorNode?.parentElement?.closest(tag);
@@ -2751,7 +2767,9 @@ function runTool(cmd, host){
   else if(cmd === "footnote"){
     const id = "f" + Date.now();
     (data.notes[openIdea] ||= {})[id] = "";
-    document.execCommand("insertHTML", false, `<sup class="fnref" data-fn="${id}">0</sup>&#8203;`);
+    document.execCommand("insertHTML", false,
+      `<sup class="fnref" data-fn="${id}" contenteditable="false">0</sup>&#8203;`);
+    leaveMarker(document.querySelector(`.fnref[data-fn="${id}"]`));
     if(host) applyEdit(host);
     layoutFootnotes();
     setTimeout(() => $(`.fn[data-fn="${id}"] .fn__b`)?.focus(), 0);
