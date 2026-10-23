@@ -233,6 +233,8 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 .cell[data-l="3"]{background:rgba(45,144,207,.74)}
 .cell[data-l="4"]{background:var(--blue)}
 .cell--none{background:none}
+/* Today: a ring rather than a fill, so it cannot be mistaken for a day's work. */
+.cell--today{box-shadow:0 0 0 1px var(--blue)}
 /* Baseline, not centre: the plus at the end of this row is a character, and a
    character belongs on the same baseline as the words beside it. The swatches are
    not characters, so they keep to the middle. */
@@ -1506,7 +1508,67 @@ seed.days = seedDays();
 })();
 
 const STORE = "marginalia.quarterly.v2";
+const V0 = "marginalia.v2";                 // where the first Marginalia kept its notebook
+
+/* An empty notebook. This is what a browser that has never seen either version gets:
+   the sample above is a sample, and only appears with ?demo on the address. */
+const blank = () => ({ ideas: [], readings: [], drafts: {}, roadmap: "",
+  log: [], credited: {}, notes: {}, days: {}, done: {novideo: true} });
+
+/**
+ * The notebook from v0, if this browser has one.
+ *
+ * Same page, same origin, different key: the first version stored {version, payload}
+ * under marginalia.v2, where an idea had a blurb and an essay.deck and a reading had a
+ * summary. It knew nothing of footnotes, the calendar or the log. Read it once, write
+ * it under the new key, and leave the old key exactly where it is — it is the only copy
+ * of the old notebook, and nothing here should be the thing that loses it.
+ */
+function fromV0(){
+  let p;
+  try{
+    const raw = localStorage.getItem(V0);
+    if(!raw) return null;
+    p = JSON.parse(raw)?.payload;
+  }catch{ return null; }
+  if(!p || !Array.isArray(p.ideas) || !Array.isArray(p.readings)) return null;
+
+  // A summary was plain text; a note is a document. Blank lines become paragraphs.
+  const asDoc = t => {
+    const s = String(t || "").trim();
+    if(!s) return "";
+    if(/^\s*<(p|h[1-6]|ul|ol|blockquote|div)\b/i.test(s)) return s;   // already a document
+    return s.split(/\n\s*\n/).map(para => `<p>${esc(para.trim()).replace(/\n/g, "<br>")}</p>`).join("");
+  };
+
+  const out = blank();
+  out.ideas = p.ideas.filter(i => i && i.id).map(i => ({
+    id: i.id, title: i.title || "", stage: STAGES[i.stage] ? i.stage : "reading",
+    dek: i.blurb || i.dek || "", deck: (i.essay && i.essay.deck) || i.deck || "",
+  }));
+  out.readings = p.readings.filter(r => r && r.id).map(r => {
+    const { summary, h, ...rest } = r;                    // h was a thumbnail's height
+    return { ...rest, ideas: Array.isArray(r.ideas) ? r.ideas : [],
+             status: r.status || "queued", kind: r.kind || "paper",
+             note: asDoc(r.note || summary) };
+  });
+  out.drafts = (p.drafts && typeof p.drafts === "object") ? { ...p.drafts } : {};
+  out.roadmap = typeof p.roadmap === "string" ? p.roadmap : "";
+  out.done.fromv0 = true;
+
+  /* Credit what is already long enough, but log nothing: v0 kept no record of when any
+     of it was written, and a year's work all dated today would be a lie the tracker
+     would then repeat every year. The log starts here. */
+  const when = new Date().toISOString().slice(0, 10);   // today(), which is not defined yet
+  for(const r of out.readings) if(words(r.note) >= READING_WORDS) out.credited["reading:" + r.id] = when;
+  for(const [id, html] of Object.entries(out.drafts))
+    if(words(html) >= ESSAY_WORDS) out.credited["essay:" + id] = when;
+  return out;
+}
+
+const DEMO = /(^|[?&])demo(=|&|$)/.test(location.search);
 let data = load();
+if(data.done.fromv0) try{ localStorage.setItem(STORE, JSON.stringify(data)); }catch{}
 
 function load(){
   try{
@@ -1522,7 +1584,7 @@ function load(){
       }
     }
   }catch{ /* private window, or nothing stored yet */ }
-  return structuredClone(seed);
+  return fromV0() || (DEMO ? structuredClone(seed) : blank());
 }
 
 let saveTimer = null;
@@ -1578,7 +1640,11 @@ function renderMenu(){
 
 /* ---------- views ---------- */
 function viewContents(){
-  return `<div class="pagehead"><h1 class="pagetitle">Contents</h1></div>
+  return `<div class="pagehead"><div class="headrow">
+    <h1 class="pagetitle">Contents</h1>
+    <button class="plus" id="newidea" aria-label="Start an idea">+</button>
+  </div></div>
+  ${data.ideas.length ? "" : `<p class="empty">No ideas yet. The + starts one.</p>`}
   <div class="list">${data.ideas.map(i => `
     <button class="row" data-idea="${i.id}">
       <span class="row__t">${esc(ideaName(i))}</span>
@@ -1676,9 +1742,10 @@ function heatmap(year){
 
   const level = n => !n ? 0 : n >= 4 ? 4 : n;
   const rows = Array.from({length: 7}, (_, r) => weeks.map(w => w[r]));
+  const now = today();
   const cells = rows.flat().map(c =>
-    `<span class="cell" data-l="${level(counts[c.d] || 0)}" title="${c.d}${
-      counts[c.d] ? ` — ${counts[c.d]} logged` : ""}"></span>`).join("");
+    `<span class="cell ${c.d === now ? "cell--today" : ""}" data-l="${level(counts[c.d] || 0)}"
+      title="${c.d}${counts[c.d] ? ` — ${counts[c.d]} logged` : ""}"></span>`).join("");
 
   const DAYS = ["Mon","","Wed","","Fri","",""];
   return `<div class="heat__grid" style="--n:${n}">
@@ -1739,6 +1806,11 @@ function filedMenu(r){
 
 function viewDraft(){
   const i = data.ideas.find(x => x.id === openIdea) || data.ideas[0];
+  if(!i) return `<div class="pagehead"><div class="headrow">
+      <h1 class="pagetitle">Draft</h1>
+      <button class="plus" id="newidea" aria-label="Start an idea">+</button>
+    </div></div>
+    <p class="empty">Nothing to write on yet. The + starts an idea.</p>`;
   openIdea = i.id;
   return `<div class="pagehead">
     <h1 class="pagetitle" contenteditable="true" data-edit="idea.title" data-ph="Title">${esc(i.title)}</h1>
@@ -2329,6 +2401,14 @@ document.addEventListener("click", e => {
     return render();
   }
   if(e.target.closest("#plus")){ capture = !capture; return render(); }
+  if(e.target.closest("#newidea")){
+    const id = "i" + Date.now().toString(36);
+    data.ideas.push({id, title:"", stage:"reading", dek:"", deck:""});
+    openIdea = id; view = "draft"; openSource = null;
+    save(); render();
+    $(".pagetitle[contenteditable]")?.focus();     // straight into naming it
+    return;
+  }
   const calNav = e.target.closest("[data-cal]");
   if(calNav){ calOffset += Number(calNav.dataset.cal); calSel = null; return renderPane(); }
   const pickDay = e.target.closest("[data-day]");
