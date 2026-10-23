@@ -8,6 +8,7 @@
  */
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { FAVICON } from "../src/favicon.js";
 
 const SRC = fileURLToPath(new URL("../mockup/asterisk.html", import.meta.url));
 const DIR = fileURLToPath(new URL("../worker/public/", import.meta.url));
@@ -22,6 +23,7 @@ const page = `<!doctype html>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="robots" content="noindex, nofollow">
 <title>Marginalia</title>
+${FAVICON}
 </head>
 <body>${body}</body>
 </html>

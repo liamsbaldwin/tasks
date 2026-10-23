@@ -73,14 +73,20 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 }
 .toggle svg{width:25px; height:25px; overflow:visible}
 /* Rects rather than lines: a line's box has no height, and the rotation origin does not
-   resolve reliably against it, which left the cross squashed instead of square. */
+   resolve reliably against it, which left the cross squashed instead of square. Each
+   bar turns about its own middle, given in the icon's units rather than as the centre
+   of its box, which engines do not all resolve alike: on a Mac the arms crossed
+   off-centre. Translate stays first in the list so the bars slide straight in. */
 .toggle rect{
   fill:currentColor;
-  transform-box:fill-box; transform-origin:center;
+  transform-box:view-box;
   transition:transform .3s var(--ease), opacity .16s ease;
 }
 /* A bar turned 45° keeps its length but loses a third of its footprint (21 ÷ √2), so
    the cross would come out smaller than the bars it replaced. Lengthen the arms. */
+.toggle .bar-t{transform-origin:12.5px 6px}
+.toggle .bar-m{transform-origin:12.5px 12.5px}
+.toggle .bar-b{transform-origin:12.5px 19px}
 .is-open .toggle .bar-t{transform:translateY(6.5px) rotate(45deg) scaleX(1.3)}
 .is-open .toggle .bar-b{transform:translateY(-6.5px) rotate(-45deg) scaleX(1.3)}
 .is-open .toggle .bar-m{opacity:0; transform:scaleX(.3)}
@@ -234,9 +240,22 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 .cell[data-l="4"]{background:var(--blue)}
 .cell--none{background:none}
 /* Today: a ring rather than a fill, so it cannot be mistaken for a day's work. Half a
-   pixel of full-strength blue — on a phone that is a fine, definite line, and on a
-   one-to-one screen the renderer softens it to about the weight it had before. */
-.cell--today{box-shadow:0 0 0 .5px var(--blue)}
+   pixel of full-strength blue, drawn as a one-pixel border on a box twice the cell's size
+   and scaled down by half. A half-pixel shadow spread breaks up in Safari on a cell of
+   fractional size (stubs on the sides, nothing top and bottom), and a half-pixel border
+   is rounded up to a whole pixel in Chrome; a scaled border is the same everywhere. */
+.cell--today{position:relative}
+.cell--today::after{
+  content:""; position:absolute; left:0; top:0; width:200%; height:200%;
+  border:1px solid var(--blue); border-radius:4px;
+  transform:scale(.5); transform-origin:0 0; pointer-events:none;
+}
+/* A one-to-one screen has no half pixel to draw, and the scaled border smears across
+   two; a whole pixel at half strength is the same weight, and sharp. */
+@media (max-resolution:1.5dppx){
+  .cell--today::after{display:none}
+  .cell--today{box-shadow:0 0 0 1px rgba(45,144,207,.5)}
+}
 /* Baseline, not centre: the plus at the end of this row is a character, and a
    character belongs on the same baseline as the words beside it. The swatches are
    not characters, so they keep to the middle. */
@@ -2490,14 +2509,14 @@ function renderPane(){
 /* Eight buttons for what gets used; everything else is a markdown shortcut. */
 function tools(){
   return `<div class="tools">
-    <button data-cmd="h2" title="Heading — ⌘H, or type &quot;# &quot;"><span class="h">H</span></button>
+    <button data-cmd="h2" title="Heading — ⌥⌘2, or type &quot;# &quot;"><span class="h">H</span></button>
     <button data-cmd="bold" title="Bold — ⌘B"><b>B</b></button>
     <button data-cmd="italic" title="Italic — ⌘I"><i>I</i></button>
-    <button data-cmd="insertUnorderedList" title="Bullets — ⌘L, or type &quot;- &quot;">•</button>
-    <button data-cmd="insertOrderedList" title="Numbered — ⌘N, or type &quot;1. &quot;">1.</button>
-    <button data-cmd="quote" title="Quote — ⌘Q, or type &quot;&gt; &quot;"><span class="q">&ldquo;</span></button>
-    <button data-cmd="math" title="Maths — ⌘M, or type $x^2$">&Sigma;</button>
-    <button data-cmd="footnote" title="Footnote — ⌘F">&dagger;</button>
+    <button data-cmd="insertUnorderedList" title="Bullets — ⇧⌘8, or type &quot;- &quot;">•</button>
+    <button data-cmd="insertOrderedList" title="Numbered — ⇧⌘7, or type &quot;1. &quot;">1.</button>
+    <button data-cmd="quote" title="Quote — ⇧⌘9, or type &quot;&gt; &quot;"><span class="q">&ldquo;</span></button>
+    <button data-cmd="math" title="Maths — ⇧⌘E, or type $x^2$">&Sigma;</button>
+    <button data-cmd="footnote" title="Footnote — ⌥⌘F">&dagger;</button>
     <span id="saved" class="saved">Saved</span>
   </div>`;
 }
@@ -2534,7 +2553,14 @@ function layoutFootnotes(){
   const refs = [...prose.querySelectorAll(".fnref")];
   const store = (data.notes[openIdea] ||= {});
   const live = new Set();
-  refs.forEach((r, i) => { r.textContent = String(i + 1); live.add(r.dataset.fn); });
+  refs.forEach((r, i) => {
+    // Words typed into a marker before it was sealed go back into the sentence,
+    // rather than being written over by the renumbering.
+    const stray = r.textContent.replace(/^\d+/, "");
+    if(stray.replace(/\u200b/g, "")) r.after(document.createTextNode(stray));
+    r.textContent = String(i + 1); live.add(r.dataset.fn);
+    r.contentEditable = "false";            // markers saved before this was set
+  });
   for(const id of Object.keys(store)) if(!live.has(id)) delete store[id];
 
   /*
@@ -2692,13 +2718,21 @@ const spell = (e, on) => {
 document.addEventListener("focusin",  e => spell(e, true));
 document.addEventListener("focusout", e => spell(e, false));
 
-/* A letter each, so the toolbar is a reminder rather than the only way in. Shift is
-   allowed through as well as ignored: a few of these letters are spoken for by the
-   browser or the window manager — ⌘N and ⌘L always, ⌘H, ⌘M and ⌘Q on a Mac — and
-   where the plain form never reaches the page, the shifted one does. */
+/* A chord each, so the toolbar is a reminder rather than the only way in. A letter
+   each was the first try, and half of them never reached the page: ⌘N, ⌘L, ⌘H, ⌘M and
+   ⌘Q belong to the browser or to macOS, shifted or not, and ⌘F is Find. These are the
+   chords Google Docs uses where it has one, which no browser keeps for itself. Matched
+   on the physical key, since Shift and Option change what e.key reports. */
 const KEYTOOL = {
-  h: "h2", b: "bold", i: "italic", l: "insertUnorderedList",
-  n: "insertOrderedList", q: "quote", m: "math", f: "footnote",
+  "KeyB":        "bold",
+  "KeyI":        "italic",
+  "alt+Digit2":  "h2",
+  "alt+Digit3":  "h3",
+  "alt+KeyF":    "footnote",
+  "shift+Digit8": "insertUnorderedList",
+  "shift+Digit7": "insertOrderedList",
+  "shift+Digit9": "quote",
+  "shift+KeyE":  "math",
 };
 
 document.addEventListener("keydown", e => {
@@ -2710,8 +2744,8 @@ document.addEventListener("keydown", e => {
     applyEdit(host);
     return;
   }
-  if(!(e.metaKey || e.ctrlKey) || e.altKey) return;
-  const cmd = KEYTOOL[e.key.toLowerCase()];
+  if(!(e.metaKey || e.ctrlKey)) return;
+  const cmd = KEYTOOL[(e.altKey ? "alt+" : "") + (e.shiftKey ? "shift+" : "") + e.code];
   if(!cmd) return;
   e.preventDefault();
   runTool(cmd, host);
@@ -2720,6 +2754,19 @@ document.addEventListener("keydown", e => {
 document.addEventListener("mousedown", e => {
   if(e.target.closest(".tools button")) e.preventDefault();      // keep the caret
 });
+/*
+ * A footnote marker is one sealed unit, not a run of text. Left editable, the caret
+ * could sit inside it, and Safari carries the last thing typed into's style forward,
+ * so the prose after a footnote came out small and blue. Sealed, there is no inside
+ * to be in; and once it is placed, the caret is put after it by hand.
+ */
+function leaveMarker(ref){
+  if(!ref) return;
+  let after = ref.nextSibling;
+  if(!after || after.nodeType !== 3) after = ref.parentNode.insertBefore(document.createTextNode("\u200b"), after);
+  document.getSelection().collapse(after, after.nodeValue.startsWith("\u200b") ? 1 : 0);
+}
+
 /* One place a tool runs, whether it was clicked or typed. */
 function runTool(cmd, host){
   const inside = tag => !!document.getSelection().anchorNode?.parentElement?.closest(tag);
@@ -2730,7 +2777,13 @@ function runTool(cmd, host){
   else if(cmd === "footnote"){
     const id = "f" + Date.now();
     (data.notes[openIdea] ||= {})[id] = "";
-    document.execCommand("insertHTML", false, `<sup class="fnref" data-fn="${id}">0</sup>&#8203;`);
+    document.execCommand("insertHTML", false,
+      `<sup class="fnref" data-fn="${id}">0</sup>&#8203;`);
+    // Sealed after it is in, not in the HTML: Chrome will not put a non-editable
+    // element inside the line being typed, and hoists it out under the paragraph.
+    const ref = document.querySelector(`.fnref[data-fn="${id}"]`);
+    if(ref) ref.contentEditable = "false";
+    leaveMarker(ref);
     if(host) applyEdit(host);
     layoutFootnotes();
     setTimeout(() => $(`.fn[data-fn="${id}"] .fn__b`)?.focus(), 0);
