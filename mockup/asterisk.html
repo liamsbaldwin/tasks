@@ -377,14 +377,15 @@ h1[contenteditable].is-empty::before,.pagedeck[contenteditable].is-empty::before
 .saved{margin-left:8px; font-size:13px; color:var(--blue); opacity:0; transition:opacity .25s ease}
 .saved.on{opacity:1}
 
-/* The draft's tally: a line of text a little way below the end of the draft, not a
-   panel across the foot of the window. The stage sits on it because this is the only
-   place an essay's stage can be moved on. */
+/* The draft's tally: the same three things it always was — stage, progress, count —
+   a little way below the end of the draft rather than pinned across the foot of the
+   window, and with no rule above it. */
 .tally{
-  margin-top:56px; display:flex; gap:9px; align-items:baseline;
+  margin-top:56px; display:flex; gap:16px; align-items:center;
   font-size:14px; color:var(--faint); font-variant-numeric:tabular-nums;
 }
-.tally__sep{color:#D6D0C0}
+.tick{flex:1; height:3px; background:var(--paper-2)}
+.tick span{display:block; height:100%; background:var(--blue)}
 .stagebtn{color:var(--blue); white-space:nowrap}
 .stagebtn:hover{text-decoration:underline; text-underline-offset:3px}
 .foot{margin-top:40px; padding-top:14px; border-top:1px solid var(--rule); display:flex; justify-content:space-between; gap:14px; font-size:14px; color:var(--faint)}
@@ -1711,15 +1712,16 @@ function viewDraft(){
   ${tally(i)}`;
 }
 
-/* Under the draft rather than across the window: how long it is, and what stage it is
-   at. Rendered with the page, so it scrolls away with the text. */
+/* Under the draft rather than across the window, and rendered with the page, so it
+   scrolls away with the text instead of sitting over it. */
 function tally(i){
   const w = words(data.drafts[i.id] || "");
   return `<p class="tally">
+    <button class="stagebtn" data-stage title="Click to move it on">${STAGES[i.stage]}</button>
+    <span class="tick" title="Against the ${ESSAY_WORDS.toLocaleString()} words an essay is counted at"
+      ><span id="tickfill" style="width:${Math.min(100, w / ESSAY_WORDS * 100)}%"></span></span>
     <span><span id="wordnow">${w.toLocaleString()}</span> <span id="wordlabel">${
       w === 1 ? "word" : "words"}</span></span>
-    <span class="tally__sep">&middot;</span>
-    <button class="stagebtn" data-stage title="Click to move it on">${STAGES[i.stage]}</button>
   </p>`;
 }
 
@@ -1967,9 +1969,10 @@ document.addEventListener("input", e => {
   if(el.dataset.edit === "draft"){
     relayout();
     const w = words(el.innerHTML);
-    const n = $("#wordnow"), l = $("#wordlabel");
+    const n = $("#wordnow"), f = $("#tickfill"), l = $("#wordlabel");
     if(n) n.textContent = w.toLocaleString();
     if(l) l.textContent = w === 1 ? "word" : "words";
+    if(f) f.style.width = Math.min(100, w / ESSAY_WORDS * 100) + "%";
   }
 });
 
