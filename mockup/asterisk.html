@@ -97,20 +97,28 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
    read at a glance. Still centred on the same axis as every other page. */
 .page--prog .page__in{max-width:52rem}
 /* The roadmap is the one page with a working column beside the text, so the pair is
-   centred rather than the prose alone: the text sits left of centre and the pane takes
-   the room that was margin.
+   what gets centred, not the prose alone.
+
+   It is centred on the page, like the single column every other page centres, and not
+   in the room beside the menu — but never so far left that the open menu covers it.
+   That is the max() below: the page's own centring margin, or the menu's width,
+   whichever is larger. Wide screens get the first, 1240–1500 or so the second.
 
    Two flex columns rather than a grid, deliberately. A grid sizes its rows to the
    tallest thing in them, so a pane that spans both rows lends its height to the text's
    rows: open a day, turn the month over, and the prose slides down by however much the
    calendar grew. Flex columns do not talk to each other, so the text sits still. */
-.page--road{padding-left:calc(var(--rail) + 14px)}
+.page--road{
+  --pair:calc(69rem + 44px);                   /* 36rem of text, the gap, 33rem of pane */
+  padding-left:max(calc(var(--rail) + 14px), calc((100% - var(--pair)) / 2));
+  padding-right:var(--gutter-r);
+}
 .page--road .page__in{
-  max-width:80rem; margin-inline:0;            /* left-aligned, so wide screens do not drift right */
+  max-width:var(--pair); margin-inline:0;
   display:flex; align-items:flex-start; gap:0 44px;
 }
 .road__col{flex:0 1 36rem; min-width:0}
-.page--road .rmpane{flex:1 1 0; min-width:0; max-width:30rem; position:static; width:auto; margin:0}
+.page--road .rmpane{flex:1 1 0; min-width:0; max-width:33rem; position:static; width:auto; margin:0}
 
 .pagehead{margin-bottom:38px}
 .headrow{display:flex; align-items:flex-start; justify-content:space-between; gap:24px; flex-wrap:wrap}
@@ -219,10 +227,10 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 /* The rule for what counts is worth one glyph at the end of the legend, and nothing
    more until it is asked for. */
 .info{
-  margin-left:auto; width:17px; height:17px; flex:none; color:var(--faint);
+  margin-left:auto; width:14px; height:14px; flex:none; color:var(--faint);
   display:grid; place-items:center; transition:color .12s ease;
 }
-.info svg{display:block; width:17px; height:17px}
+.info svg{display:block; width:14px; height:14px}
 .info:hover, .info[aria-expanded="true"]{color:var(--blue)}
 /* The note belongs to the tracker, so it runs the tracker's width. */
 .counts{margin-top:14px; font-size:13px; color:var(--faint); line-height:1.55}
@@ -264,43 +272,43 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 .pane__t{font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); margin-bottom:12px}
 .week{
   display:grid; grid-template-columns:repeat(7,1fr); gap:1px;
-  background:var(--rule); border:1px solid var(--rule); margin-bottom:28px;
+  background:var(--rule); border:1px solid var(--rule); margin-bottom:31px;
 }
-.wk{display:flex; flex-direction:column; background:var(--paper); min-height:112px}
+.wk{display:flex; flex-direction:column; background:var(--paper); min-height:123px}
 /* Cells sit on the grid's rule colour, so a translucent wash set as the background
    replaces the paper and takes its tint from the lines — which is how a 5% blue ends up
    reading as grey. Lay the wash over paper instead. */
 .wk--today{background:linear-gradient(var(--blue-breath), var(--blue-breath)) var(--paper)}
 .wk__d{
-  font-size:11px; color:var(--faint); padding:6px 8px 0; white-space:nowrap;
+  font-size:12px; color:var(--faint); padding:7px 9px 0; white-space:nowrap;
   font-variant-numeric:tabular-nums; text-align:right;
 }
 .wk--today .wk__d{color:var(--blue)}
 .wk__b{
-  flex:1; font-size:12.5px; line-height:1.4; padding:5px 8px 9px; outline:none;
+  flex:1; font-size:13.5px; line-height:1.4; padding:6px 9px 10px; outline:none;
   color:var(--ink-2); overflow-wrap:anywhere;
   white-space:pre-wrap;        /* one entry per line, and the lines survive a round trip */
 }
 
 .cal__head{display:flex; align-items:baseline; gap:10px; margin-bottom:10px}
-.cal__m{font-family:var(--display); font-size:22px; color:var(--blue)}
+.cal__m{font-family:var(--display); font-size:24px; color:var(--blue)}
 .cal__nav{margin-left:auto; display:flex; gap:2px}
 .cal__nav button{width:24px; height:24px; border-radius:3px; color:var(--faint); font-size:14px}
 .cal__nav button:hover{background:var(--blue-wash); color:var(--blue)}
 /* Every week row is exactly as tall as every other, whatever is written in it: a row
    that sizes to its fullest day makes the month jump about as you turn it over. */
 .cal__g{display:grid; grid-template-columns:repeat(7,1fr); gap:1px; background:var(--rule);
-  border:1px solid var(--rule); grid-template-rows:auto; grid-auto-rows:70px}
-.cal__g > *{background:var(--paper); padding:5px 5px 6px}
-.cal__dow{min-height:0; font-size:10px; letter-spacing:.08em; text-transform:uppercase;
-  color:var(--faint); text-align:right; padding:0 5px 5px}
+  border:1px solid var(--rule); grid-template-rows:auto; grid-auto-rows:78px}
+.cal__g > *{background:var(--paper); padding:6px 6px 7px}
+.cal__dow{min-height:0; font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--faint); text-align:right; padding:0 6px 6px}
 .cal__d{display:flex; flex-direction:column; cursor:pointer; overflow:hidden}
-.cal__n{font-size:12.5px; line-height:1.15; color:var(--ink-2); text-align:right;
+.cal__n{font-size:13.5px; line-height:1.15; color:var(--ink-2); text-align:right;
   font-variant-numeric:tabular-nums}
 /* What is written on the day, one line each and clipped to the cell: the full text is
    in the title, in the week strip, and on the line under the month. */
 .cal__e{
-  display:block; font-style:normal; font-size:10px; line-height:1.3; margin-top:2px;
+  display:block; font-style:normal; font-size:11px; line-height:1.3; margin-top:2px;
   color:var(--blue); text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
 .cal__e--more{color:var(--faint)}
@@ -316,16 +324,16 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 .pick{margin-top:12px; display:grid; grid-template-columns:4.2rem 1fr; gap:8px; align-items:baseline}
 /* Kept in the layout when no day is picked: the line is the same height either way. */
 .pick--off{visibility:hidden}
-.pick time{font-size:12px; color:var(--blue); font-variant-numeric:tabular-nums}
+.pick time{font-size:13px; color:var(--blue); font-variant-numeric:tabular-nums}
 .pick__b{
-  font-size:13px; line-height:1.4; outline:none; color:var(--ink-2);
+  font-size:14px; line-height:1.4; outline:none; color:var(--ink-2);
   border-bottom:1px solid var(--rule); min-height:1.4em; white-space:pre-wrap;
 }
 .pick__b:focus{border-bottom-color:var(--blue)}
 
 
 @media (max-width:1240px){
-  .page--road{padding-left:var(--gutter)}
+  .page--road{padding-left:var(--gutter); padding-right:var(--gutter-r)}
   .page--road .page__in{display:block; max-width:var(--column)}
   .road__col{flex:none}
   .page--road .rmpane{
@@ -1645,9 +1653,9 @@ function heatmap(year){
    happens to put it, which is rarely the middle. */
 function infoGlyph(){
   return `<svg viewBox="0 0 17 17" aria-hidden="true" fill="none">
-    <circle cx="8.5" cy="8.5" r="7.6" stroke="currentColor" stroke-width=".9" stroke-opacity=".4"/>
-    <circle cx="8.5" cy="4.9" r="1" fill="currentColor"/>
-    <path d="M8.5 7.4v4.9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+    <circle cx="8.5" cy="8.5" r="7.6" stroke="currentColor" stroke-width="1.1" stroke-opacity=".4"/>
+    <circle cx="8.5" cy="4.9" r="1.2" fill="currentColor"/>
+    <path d="M8.5 7.4v4.9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
   </svg>`;
 }
 
