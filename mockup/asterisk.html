@@ -2503,14 +2503,14 @@ function renderPane(){
 /* Eight buttons for what gets used; everything else is a markdown shortcut. */
 function tools(){
   return `<div class="tools">
-    <button data-cmd="h2" title="Heading — ⌘H, or type &quot;# &quot;"><span class="h">H</span></button>
+    <button data-cmd="h2" title="Heading — ⌥⌘2, or type &quot;# &quot;"><span class="h">H</span></button>
     <button data-cmd="bold" title="Bold — ⌘B"><b>B</b></button>
     <button data-cmd="italic" title="Italic — ⌘I"><i>I</i></button>
-    <button data-cmd="insertUnorderedList" title="Bullets — ⌘L, or type &quot;- &quot;">•</button>
-    <button data-cmd="insertOrderedList" title="Numbered — ⌘N, or type &quot;1. &quot;">1.</button>
-    <button data-cmd="quote" title="Quote — ⌘Q, or type &quot;&gt; &quot;"><span class="q">&ldquo;</span></button>
-    <button data-cmd="math" title="Maths — ⌘M, or type $x^2$">&Sigma;</button>
-    <button data-cmd="footnote" title="Footnote — ⌘F">&dagger;</button>
+    <button data-cmd="insertUnorderedList" title="Bullets — ⇧⌘8, or type &quot;- &quot;">•</button>
+    <button data-cmd="insertOrderedList" title="Numbered — ⇧⌘7, or type &quot;1. &quot;">1.</button>
+    <button data-cmd="quote" title="Quote — ⇧⌘9, or type &quot;&gt; &quot;"><span class="q">&ldquo;</span></button>
+    <button data-cmd="math" title="Maths — ⇧⌘E, or type $x^2$">&Sigma;</button>
+    <button data-cmd="footnote" title="Footnote — ⌥⌘F">&dagger;</button>
     <span id="saved" class="saved">Saved</span>
   </div>`;
 }
@@ -2705,13 +2705,21 @@ const spell = (e, on) => {
 document.addEventListener("focusin",  e => spell(e, true));
 document.addEventListener("focusout", e => spell(e, false));
 
-/* A letter each, so the toolbar is a reminder rather than the only way in. Shift is
-   allowed through as well as ignored: a few of these letters are spoken for by the
-   browser or the window manager — ⌘N and ⌘L always, ⌘H, ⌘M and ⌘Q on a Mac — and
-   where the plain form never reaches the page, the shifted one does. */
+/* A chord each, so the toolbar is a reminder rather than the only way in. A letter
+   each was the first try, and half of them never reached the page: ⌘N, ⌘L, ⌘H, ⌘M and
+   ⌘Q belong to the browser or to macOS, shifted or not, and ⌘F is Find. These are the
+   chords Google Docs uses where it has one, which no browser keeps for itself. Matched
+   on the physical key, since Shift and Option change what e.key reports. */
 const KEYTOOL = {
-  h: "h2", b: "bold", i: "italic", l: "insertUnorderedList",
-  n: "insertOrderedList", q: "quote", m: "math", f: "footnote",
+  "KeyB":        "bold",
+  "KeyI":        "italic",
+  "alt+Digit2":  "h2",
+  "alt+Digit3":  "h3",
+  "alt+KeyF":    "footnote",
+  "shift+Digit8": "insertUnorderedList",
+  "shift+Digit7": "insertOrderedList",
+  "shift+Digit9": "quote",
+  "shift+KeyE":  "math",
 };
 
 document.addEventListener("keydown", e => {
@@ -2723,8 +2731,8 @@ document.addEventListener("keydown", e => {
     applyEdit(host);
     return;
   }
-  if(!(e.metaKey || e.ctrlKey) || e.altKey) return;
-  const cmd = KEYTOOL[e.key.toLowerCase()];
+  if(!(e.metaKey || e.ctrlKey)) return;
+  const cmd = KEYTOOL[(e.altKey ? "alt+" : "") + (e.shiftKey ? "shift+" : "") + e.code];
   if(!cmd) return;
   e.preventDefault();
   runTool(cmd, host);
