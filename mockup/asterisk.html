@@ -110,7 +110,18 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
    calendar grew. Flex columns do not talk to each other, so the text sits still. */
 .page--road{
   --pair:calc(69rem + 44px);                   /* 36rem of text, the gap, 33rem of pane */
-  padding-left:max(calc(var(--rail) + 14px), calc((100% - var(--pair)) / 2));
+  --nudge:40px;                                /* a shade right of the axis, by eye */
+  /* Centred, nudged right, held back by the room actually left, and floored at the
+     menu. The min() is the furthest right the pair can start without running off the
+     edge, so a narrow window spends what it has and a wide one takes the whole nudge;
+     the outer max() keeps the text clear of the open menu when there is no room at all. */
+  padding-left:max(
+    calc(var(--rail) + 14px),
+    min(
+      calc(100% - var(--pair) - var(--gutter-r)),
+      calc(max(calc(var(--rail) + 14px), calc((100% - var(--pair)) / 2)) + var(--nudge))
+    )
+  );
   padding-right:var(--gutter-r);
 }
 .page--road .page__in{
