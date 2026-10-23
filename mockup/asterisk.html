@@ -233,8 +233,9 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 .cell[data-l="3"]{background:rgba(45,144,207,.74)}
 .cell[data-l="4"]{background:var(--blue)}
 .cell--none{background:none}
-/* Today: a ring rather than a fill, so it cannot be mistaken for a day's work. */
-.cell--today{box-shadow:0 0 0 1px var(--blue)}
+/* Today: a ring rather than a fill, so it cannot be mistaken for a day's work — and a
+   pale one, since at three device pixels a solid blue reads as a marker pen. */
+.cell--today{box-shadow:0 0 0 1px rgba(45,144,207,.42)}
 /* Baseline, not centre: the plus at the end of this row is a character, and a
    character belongs on the same baseline as the words beside it. The swatches are
    not characters, so they keep to the middle. */
