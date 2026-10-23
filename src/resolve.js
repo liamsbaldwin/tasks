@@ -513,6 +513,30 @@ export async function fromOpenLibrary(isbn, fetchImpl) {
 }
 
 /**
+ * Where an open copy of a *paper* (not a book — this is for the first-page cover
+ * thumbnail, not the citation) is likely to sit, if anywhere. Never trusted blindly:
+ * the caller still has to check the bytes it gets back are actually a PDF, since a
+ * paywalled URL answers with a login page, not a 404.
+ *
+ * arXiv is free to fetch directly, no lookup needed. Everything else goes through
+ * Unpaywall — the standard DOI-keyed index of legally open copies (publisher page,
+ * repository, author's site) — which costs one more request but covers far more than
+ * arXiv alone.
+ */
+export async function openAccessPdfUrl(ids, doi, fetchImpl) {
+  if (ids?.arxiv) return `https://arxiv.org/pdf/${ids.arxiv}`;
+  if (!doi || !fetchImpl) return null;
+  try {
+    const j = await getJson(
+      `https://api.unpaywall.org/v2/${encodeURIComponent(doi)}?email=notebook@marginalia.app`,
+      fetchImpl);
+    return j?.best_oa_location?.url_for_pdf || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * A talk has no DOI and no cover, but oEmbed gives its title, its channel and a
  * thumbnail — which is the closest thing a video has to a jacket.
  */
@@ -557,8 +581,39 @@ export async function fromPubmed(pmid, fetchImpl, db = "pubmed") {
 }
 
 /**
- * Publisher landing pages carry Google Scholar's citation_* meta tags. When a URL is
- * reachable this is often better than anything in the PDF itself.
+ * The structured-data block most blog, newsroom and publishing CMSs emit (WordPress'
+ * Yoast SEO, Substack, Medium, Ghost...) — and the one place a general web article
+ * reliably states its own author and date, since no <meta> tag convention agrees on
+ * that the way citation_* does for academic landing pages.
+ */
+function parseJsonLd(html) {
+  const blocks = html.matchAll(/<script[^>]+type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
+  for (const [, raw] of blocks) {
+    let data;
+    try { data = JSON.parse(raw); } catch { continue; }
+    for (const item of Array.isArray(data) ? data : (data["@graph"] || [data])) {
+      if (!/article|blogposting|newsarticle|report/i.test(String(item?.["@type"] || ""))) continue;
+      const authors = [].concat(item.author || [])
+        .map(a => typeof a === "string" ? a : a?.name)
+        .filter(Boolean);
+      return {
+        title: item.headline || item.name || null,
+        authors,
+        datePublished: item.datePublished || item.dateCreated || null,
+        publisher: typeof item.publisher === "string" ? item.publisher : item.publisher?.name || null,
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Publisher landing pages carry Google Scholar's citation_* meta tags, which is the
+ * strongest signal when present. A blog post or news article has no reason to carry
+ * those, so the fallbacks below exist for it specifically: JSON-LD first (most
+ * reliable), then OpenGraph and a plain <meta name="author">, then the <title> tag as
+ * the last resort for a title alone. Nothing here is CORS-restricted or paywalled the
+ * way the PDF itself might be — a server-side fetch of the HTML is enough.
  */
 export function parseCitationMeta(html) {
   const meta = {};
@@ -572,19 +627,38 @@ export function parseCitationMeta(html) {
     else if (!meta[k]) meta[k] = content.trim();
   }
   const decode = s => String(s || "").replace(/&amp;/g, "&").replace(/&#(\d+);/g, (_, d) => String.fromCharCode(d)).replace(/&quot;/g, '"');
-  const title = decode(meta.citation_title || meta["dc.title"] || meta["og:title"]);
+  const ld = parseJsonLd(html);
+  const titleTag = (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1];
+
+  const title = decode(meta.citation_title || meta["dc.title"] || ld?.title || meta["og:title"] || titleTag);
   if (!title) return null;
-  const authors = (meta.authors || []).map(decode).flatMap(a =>
+
+  let authors = (meta.authors || []).map(decode).flatMap(a =>
     a.includes(",") && a.split(",").length === 2 ? [a.split(",").map(s => s.trim()).reverse().join(" ")] : [a]
   );
-  return {
-    title: cleanTitle(title),
-    authors,
-    year: Number(String(meta.citation_publication_date || meta.citation_date || "").match(/\d{4}/)?.[0]) || null,
-    venue: decode(meta.citation_journal_title || meta.citation_inbook_title || meta["og:site_name"] || ""),
-    kind: meta.citation_isbn ? "book" : "paper",
-    doi: meta.citation_doi || null,
-  };
+  if (!authors.length && ld?.authors?.length) authors = ld.authors.map(decode);
+  if (!authors.length && meta.author) authors = [decode(meta.author)];
+  // article:author is a byline on most CMSs, but on some (Facebook's own convention) it
+  // is a profile URL instead — a URL is never a name, so only trust it when it is not one.
+  if (!authors.length && meta["article:author"] && !/^https?:\/\//i.test(meta["article:author"])) {
+    authors = [decode(meta["article:author"])];
+  }
+
+  const year = Number(String(
+    meta.citation_publication_date || meta.citation_date || ld?.datePublished || meta["article:published_time"] || ""
+  ).match(/\d{4}/)?.[0]) || null;
+
+  const venue = decode(
+    meta.citation_journal_title || meta.citation_inbook_title || ld?.publisher || meta["og:site_name"] || ""
+  );
+
+  // Only call it a paper when something here actually said so; everything else a web
+  // page could be is closer to an essay than to "Paper" with no venue or DOI to show.
+  const kind = meta.citation_isbn ? "book"
+    : (meta.citation_journal_title || meta.citation_doi) ? "paper"
+    : "essay";
+
+  return { title: cleanTitle(title), authors, year, venue, kind, doi: meta.citation_doi || null };
 }
 
 /* ------------------------------------------------------------------ the ladder */
