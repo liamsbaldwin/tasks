@@ -90,7 +90,7 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 
 /* ============ the page ============ */
 .page{padding-left:var(--gutter); padding-right:var(--gutter-r)}
-.page__in{max-width:var(--column); margin-inline:auto; padding-block:78px 90px}
+.page__in{max-width:var(--column); margin-inline:auto; padding-block:78px 90px; position:relative}
 .page--draft .page__in{padding-bottom:116px}
 /* Progress is a chart, not prose: it gets the wider measure so a year of days can be
    read at a glance. Still centred on the same axis as every other page. */
@@ -114,6 +114,7 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 /* ============ lists ============ */
 .list{display:flex; flex-direction:column}
 .row{display:block; width:100%; text-align:left; padding:17px 0; border-top:1px solid var(--rule); position:relative}
+.row:first-child{border-top:0; padding-top:0}
 .row:last-child{border-bottom:1px solid var(--rule)}
 .row:hover .row__t, .row:hover .src__t{color:var(--blue)}
 .row__t{font-family:var(--display); font-size:27px; line-height:1.16; letter-spacing:-.008em; display:block; transition:color .12s ease}
@@ -159,6 +160,8 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 }
 .warn a{color:var(--blue)}
 .pasted{margin-top:8px; font-size:14px; color:var(--faint); word-break:break-all}
+.pasted a{color:var(--faint); text-decoration-color:var(--rule)}
+.pasted a:hover{color:var(--blue)}
 
 /* ============ progress ============ */
 .figs{display:flex; gap:0; border:1px solid var(--rule); border-radius:3px; overflow:hidden; flex:none}
@@ -197,7 +200,14 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 .cell--none{background:none}
 .legend{display:flex; align-items:center; gap:4px; margin-top:14px; font-size:11px; color:var(--faint)}
 .legend .cell{width:11px; height:11px}
-.note{font-size:14.5px; color:var(--faint); line-height:1.5; margin-top:20px}
+.rule{margin-top:16px; font-size:13px; color:var(--faint)}
+.rule summary{
+  cursor:pointer; list-style:none; display:inline-block; color:var(--faint);
+  border-bottom:1px dotted var(--rule); padding-bottom:1px;
+}
+.rule summary::-webkit-details-marker{display:none}
+.rule summary:hover{color:var(--blue); border-bottom-color:var(--blue)}
+.rule p{margin-top:9px; line-height:1.55; max-width:52ch}
 
 
 /* ============ writing ============ */
@@ -211,6 +221,24 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 .prose ul,.prose ol{margin:0 0 1.05em; padding-left:1.4em}
 .prose li{margin:.18em 0}
 .prose a{color:var(--blue)}
+/* Footnotes live in the margin beside the line that raised them, and fold under the
+   text when there is no margin to put them in. */
+.fnref{
+  font-size:.62em; vertical-align:super; line-height:0; color:var(--blue);
+  cursor:pointer; padding:0 1px; font-variant-numeric:tabular-nums;
+}
+.margin{position:absolute; left:100%; top:78px; width:14rem; margin-left:32px}
+.fn{
+  position:absolute; width:14rem; font-size:13.5px; line-height:1.5; color:var(--ink-2);
+  transition:top .16s var(--ease);
+}
+.fn__n{color:var(--blue); margin-right:6px; font-variant-numeric:tabular-nums}
+.fn__b{outline:none}
+.fn__b.is-empty::before{content:attr(data-ph); color:var(--faint); font-style:italic}
+.margin--inline{
+  position:static; width:auto; margin:40px 0 0; padding-top:14px; border-top:1px solid var(--rule);
+}
+.margin--inline .fn{position:static; width:auto; margin-bottom:11px}
 [contenteditable]{outline:none}
 [contenteditable].is-empty::before{content:attr(data-ph); color:var(--faint); font-style:italic}
 h1[contenteditable].is-empty::before,.pagedeck[contenteditable].is-empty::before{color:rgba(45,144,207,.42); font-style:normal}
@@ -1261,12 +1289,17 @@ const seed = {
 <h2>4 · Still to write</h2>
 <p>A paragraph on Soviet <i>nepreryvka</i>, the continuous work week of 1929, which staggered rest days across a five-day cycle so factories never stopped. It failed for the same reason in a sharper form: families stopped sharing days off. Same mechanism, better documented, and it took four years rather than twelve.</p>`,
     legibility:`<h2>1 · The forest that was counted to death</h2>
-<p>In the late eighteenth century, Prussian and Saxon foresters set out to solve a problem that sounds purely administrative: nobody knew how much timber the crown owned. What followed is the cleanest example I know of a measurement project that changed the thing it measured.</p>
+<p>In the late eighteenth century, Prussian and Saxon foresters set out to solve a problem that sounds purely administrative: nobody knew how much timber the crown owned. What followed is the cleanest example I know of a measurement project that changed the thing it measured.<sup class="fnref" data-fn="f1">1</sup></p>
 <blockquote>Scientific forestry produced a forest that was easier to count and, within a century, one that was dying.</blockquote>
 <p>The order of operations matters. The foresters did not set out to simplify the forest. They set out to <i>see</i> it — and seeing required a unit, and the unit required that everything which was not that unit stop mattering.</p>
 <h2>2 · What legibility actually buys</h2>
 <p>It would be easy, and wrong, to write this as a story about bureaucratic vandalism. Legibility is the precondition for almost everything I would not want to live without: public health statistics, land title that survives the death of the person who remembers the boundary, a currency.</p>
 <p>So the question is not whether to measure. It is what the measurement is allowed to overwrite once it exists, and who gets to say.</p>`,
+  },
+  notes: {
+    legibility: {
+      f1: `Lowood's <i>The Calculating Forester</i> (1990) is where the Prussian yield tables come from. The <i>Forstwissenschaft</i> literature is only patchily translated and I have not checked the tables against the originals — worth doing before this goes out.`,
+    },
   },
   roadmap:`<h2>What the whole thing is for</h2>
 <p>Four essays and a video apiece, on the same underlying argument: that the instruments we use to see a system are never neutral observers of it. Legibility is the clearest case; the calendar piece is the cheapest to finish; the scaling piece is the one most likely to be wrong.</p>
@@ -1289,7 +1322,6 @@ function seedLog(){
   };
   const days = [2, 3, 9, 16, 17, 31, 44, 58, 59, 72, 95, 96, 120, 141, 168, 201, 232];
   days.forEach((n, i) => out.push({d: back(n), kind: i % 5 === 0 ? "essay" : "reading"}));
-  out.push({d: back(12), kind:"video"}, {d: back(103), kind:"video"});
   return out.filter(e => e.d.startsWith(String(new Date().getFullYear())));
 }
 seed.log = seedLog();
@@ -1317,7 +1349,7 @@ function load(){
     if(raw){
       const d = JSON.parse(raw);
       if(d && Array.isArray(d.ideas) && Array.isArray(d.readings)){
-        d.log ||= []; d.credited ||= {};
+        d.log ||= []; d.credited ||= {}; d.notes ||= {};
         return d;
       }
     }
@@ -1431,9 +1463,10 @@ function viewProgress(){
   <div class="wide">
     <div class="card__t">${mine.length} logged in ${year}</div>
     ${heatmap(year)}
-    <p class="note">A reading counts once its notes pass ${READING_WORDS} words, an essay once its
-      draft passes ${ESSAY_WORDS.toLocaleString()}. Filing a source or moving an idea's stage credits
-      nothing. Videos are the one you mark by hand.</p>
+    <details class="rule"><summary>What counts</summary>
+      <p>A reading counts once its notes pass ${READING_WORDS} words, an essay once its draft passes
+        ${ESSAY_WORDS.toLocaleString()}. Filing a source or moving an idea's stage credits nothing.
+        Videos are the one you mark by hand.</p></details>
   </div>`;
 }
 
@@ -1499,21 +1532,21 @@ function viewSource(){
     <h1 class="pagetitle" contenteditable="true" data-edit="reading.title" data-ph="Title">${esc(r.title || "")}</h1>
     <p class="byline" contenteditable="true" data-edit="reading.authorline" data-ph="Author">${esc(r.authors.join(", "))}</p>
     <p class="pagedeck" contenteditable="true" data-edit="reading.venueline"
-       data-ph="Where, and when">${esc([r.venue, r.year].filter(Boolean).join(", "))}</p>
+       data-ph="Journal, year">${esc([r.venue, r.year].filter(Boolean).join(", "))}</p>
   </div>
-  ${r.needsReview ? `<p class="warn">${r.offline
-      ? "This page has no outbound network, so it could not look anything up."
-      : "Looked it up and could not identify it."}
-    Every field above is editable — fill it in and this goes away.${
-      sourceLink(r) ? ` <a href="${esc(sourceLink(r))}" target="_blank" rel="noopener">Open ${
-        r.doi ? "the DOI" : "the link"}</a> to read it off the page.` : ""}</p>
-    ${r.doi || r.arxiv || r.jstor || r.pasted ? `<p class="pasted">${esc(
-      r.doi ? "DOI " + r.doi : r.arxiv ? "arXiv " + r.arxiv
-      : r.jstor ? "JSTOR " + r.jstor : r.pasted)}</p>` : ""}` : ""}
+  ${r.needsReview ? `<p class="warn">${r.offline ? "Not looked up." : "Not identified."}</p>
+    ${r.doi || r.arxiv || r.jstor || r.pasted ? `<p class="pasted">${
+      sourceLink(r) ? `<a href="${esc(sourceLink(r))}" target="_blank" rel="noopener">${esc(
+        r.doi ? "DOI " + r.doi : r.arxiv ? "arXiv " + r.arxiv
+        : r.jstor ? "JSTOR " + r.jstor : r.pasted)}</a>`
+      : esc(r.pasted)}</p>` : ""}` : ""}
   <div class="rich">${tools()}<div class="prose" contenteditable="true" data-edit="reading.note" data-rich="1"
     data-ph="What is the argument, and where does it fail?">${r.note}</div></div>
-  <div class="foot"><span>${KIND[r.kind] || "Source"}</span><span>${r.ideas.map(id =>
-    esc(data.ideas.find(i => i.id === id)?.title || id)).join(" · ")}</span></div>`;
+  <div class="foot">
+    <button class="stagebtn" data-rstatus title="Click to move it on">${
+      r.status === "read" ? "Read" : r.status === "reading" ? "Reading" : "Queued"}</button>
+    <span>${KIND[r.kind] || "Source"} · ${r.ideas.map(id =>
+      esc(data.ideas.find(i => i.id === id)?.title || id)).join(" · ")}</span></div>`;
 }
 
 function viewDraft(){
@@ -1525,7 +1558,8 @@ function viewDraft(){
        data-ph="A line to say what it is about">${esc(i.deck || "")}</p>
   </div>
   <div class="rich">${tools()}<div class="prose" contenteditable="true" data-edit="draft" data-rich="1"
-    data-ph="Start anywhere. The first paragraph is always wrong.">${data.drafts[i.id] || ""}</div></div>`;
+    data-ph="Start anywhere. The first paragraph is always wrong.">${data.drafts[i.id] || ""}</div></div>
+  <div class="margin" id="margin"></div>`;
 }
 
 function draftFoot(){
@@ -1556,6 +1590,7 @@ function tools(){
     <button data-cmd="insertOrderedList" title="Numbered — or type &quot;1. &quot;">1.</button>
     <button data-cmd="quote" title="Quote — or type &quot;&gt; &quot;"><span class="q">&ldquo;</span></button>
     <button data-cmd="math" title="Maths — or type $x^2$">&Sigma;</button>
+    <button data-cmd="footnote" title="Footnote">&dagger;</button>
     <span id="saved" class="saved">Saved</span>
   </div>`;
 }
@@ -1575,9 +1610,62 @@ function render(){
   document.querySelector(".draftfoot")?.remove();
   if(view === "draft") page.insertAdjacentHTML("afterend", draftFoot());
   document.querySelectorAll("[contenteditable]").forEach(markEmpty);
+  if(view === "draft") layoutFootnotes();
   if(capture && view === "sources" && !openSource) $("#capture")?.focus();
   window.scrollTo(0, 0);
 }
+
+/* ---------- footnotes ---------- */
+/*
+ * Numbering and pruning both come from the text itself: the markers in the draft are
+ * the record of which notes exist, so deleting one in the prose deletes the note.
+ */
+function layoutFootnotes(){
+  const margin = $("#margin");
+  const prose = document.querySelector('[data-edit="draft"]');
+  if(!margin || !prose) return;
+
+  const refs = [...prose.querySelectorAll(".fnref")];
+  const store = (data.notes[openIdea] ||= {});
+  const live = new Set();
+  refs.forEach((r, i) => { r.textContent = String(i + 1); live.add(r.dataset.fn); });
+  for(const id of Object.keys(store)) if(!live.has(id)) delete store[id];
+
+  /*
+   * Rebuild only when the set of markers changes. Typing in the draft fires input,
+   * which relayouts; replacing the margin's HTML on every keystroke destroyed the note
+   * being written and took the caret with it.
+   */
+  const sig = refs.map(r => r.dataset.fn).join(",");
+  if(sig !== fnSig || margin.children.length !== refs.length){
+    const had = document.activeElement?.closest?.(".fn")?.dataset.fn;
+    margin.innerHTML = refs.map((r, i) => `<aside class="fn" data-fn="${r.dataset.fn}">
+        <span class="fn__n">${i + 1}</span><span class="fn__b" contenteditable="true"
+          data-edit="footnote" data-fn="${r.dataset.fn}" data-rich="1"
+          data-ph="The note">${store[r.dataset.fn] || ""}</span></aside>`).join("");
+    margin.querySelectorAll("[contenteditable]").forEach(markEmpty);
+    if(had) $(`.fn[data-fn="${had}"] .fn__b`)?.focus();
+  } else {
+    [...margin.children].forEach((el, i) => el.querySelector(".fn__n").textContent = String(i + 1));
+  }
+  fnSig = sig;
+
+  // No room beside the text: fold them under it instead.
+  const inline = !window.matchMedia("(min-width: 1240px)").matches;
+  margin.classList.toggle("margin--inline", inline);
+  if(inline){ [...margin.children].forEach(el => el.style.top = ""); return; }
+
+  const base = margin.getBoundingClientRect().top;
+  let floor = 0;
+  [...margin.children].forEach((el, i) => {
+    const top = Math.max(refs[i].getBoundingClientRect().top - base, floor);
+    el.style.top = top + "px";
+    floor = top + el.offsetHeight + 16;
+  });
+}
+let fnSig = "", fnTimer = null;
+const relayout = () => { clearTimeout(fnTimer); fnTimer = setTimeout(layoutFootnotes, 120); };
+window.addEventListener("resize", relayout);
 
 /* ---------- writing ---------- */
 const markEmpty = el => el.classList.toggle("is-empty", !el.textContent.trim() && !el.querySelector("li,img"));
@@ -1585,6 +1673,7 @@ const markEmpty = el => el.classList.toggle("is-empty", !el.textContent.trim() &
 function applyEdit(el){
   const [kind, field] = el.dataset.edit.split(".");
   const value = el.dataset.rich === "1" ? el.innerHTML : el.textContent.trim();
+  if(kind === "footnote"){ (data.notes[openIdea] ||= {})[el.dataset.fn] = value; save(); return; }
   if(kind === "draft") data.drafts[openIdea] = value;
   else if(kind === "roadmap") data.roadmap = value;
   else if(kind === "idea"){
@@ -1613,6 +1702,7 @@ document.addEventListener("input", e => {
   markEmpty(el);
   applyEdit(el);
   if(el.dataset.edit === "draft"){
+    relayout();
     const w = words(el.innerHTML);
     const n = $("#wordnow"), f = $("#tickfill"), l = $("#wordlabel");
     if(n) n.textContent = w.toLocaleString();
@@ -1684,6 +1774,16 @@ document.addEventListener("click", e => {
   else if(cmd === "h2")    document.execCommand("formatBlock", false, inside("h2") ? "p" : "h2");
   else if(cmd === "h3")    document.execCommand("formatBlock", false, inside("h3") ? "p" : "h3");
   else if(cmd === "math")  document.execCommand("insertText", false, "$x$");
+  else if(cmd === "footnote"){
+    const id = "f" + Date.now();
+    (data.notes[openIdea] ||= {})[id] = "";
+    document.execCommand("insertHTML", false, `<sup class="fnref" data-fn="${id}">0</sup>&#8203;`);
+    const host = b.closest(".rich")?.querySelector("[data-edit]");
+    if(host) applyEdit(host);
+    layoutFootnotes();
+    setTimeout(() => $(`.fn[data-fn="${id}"] .fn__b`)?.focus(), 0);
+    return;
+  }
   else                     document.execCommand(cmd);
   const host = b.closest(".rich")?.querySelector("[data-edit]");
   if(host){ markEmpty(host); applyEdit(host); }
@@ -1896,6 +1996,12 @@ document.addEventListener("click", e => {
     return render();
   }
   if(e.target.closest("#plus")){ capture = !capture; return render(); }
+  if(e.target.closest("[data-rstatus]")){
+    const order = ["queued", "reading", "read"];
+    const r = data.readings.find(x => x.id === openSource);
+    if(r){ r.status = order[(order.indexOf(r.status) + 1) % order.length]; save(); render(); }
+    return;
+  }
   if(e.target.closest("[data-stage]")){
     const order = Object.keys(STAGES);
     const i = data.ideas.find(x => x.id === openIdea);
