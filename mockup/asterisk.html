@@ -1580,7 +1580,7 @@ function viewSources(){
       <button class="del" data-del="${r.id}" aria-label="Delete ${esc(r.title || "this source")}">×</button>
       <button style="display:block;width:100%;text-align:left" data-src="${r.id}">
         <span class="src__t">${esc(r.title || r.doi || r.pasted || "Untitled")}</span>
-        <span class="src__b">${r.authors.length ? r.authors.map(esc).join(" & ") : "No author yet"} · ${esc(r.venue || "")}</span>
+        <span class="src__b">${r.authors.length ? r.authors.map(esc).join(" & ") : "na"} · ${esc(r.venue || "")}</span>
         <span class="row__m"><b>${r.needsReview ? "Needs checking"
           : r.status === "read" ? "Read" : r.status === "reading" ? "Reading" : "Queued"}</b>
           <span>${KIND[r.kind] || "Source"}</span><span>${r.year || ""}</span></span>
@@ -2306,13 +2306,26 @@ document.addEventListener("click", e => {
   if(e.target.closest("[data-rstatus]")){
     const order = ["queued", "reading", "read"];
     const r = data.readings.find(x => x.id === openSource);
-    if(r){ r.status = order[(order.indexOf(r.status) + 1) % order.length]; save(); render(); }
+    if(r){
+      r.status = order[(order.indexOf(r.status) + 1) % order.length];
+      // Change the word, not the page: a render would rebuild the note you are
+      // reading and send you back to the top of it.
+      document.querySelectorAll("[data-rstatus]").forEach(b => b.textContent =
+        r.status === "read" ? "Read" : r.status === "reading" ? "Reading" : "Queued");
+      save();
+    }
     return;
   }
   if(e.target.closest("[data-stage]")){
     const order = Object.keys(STAGES);
     const i = data.ideas.find(x => x.id === openIdea);
-    if(i){ i.stage = order[(order.indexOf(i.stage) + 1) % order.length]; save(); render(); }
+    if(i){
+      i.stage = order[(order.indexOf(i.stage) + 1) % order.length];
+      // The word is the only thing on this page that shows the stage, so change the
+      // word. A render would rebuild the draft and send the page back to the top.
+      document.querySelectorAll("[data-stage]").forEach(b => b.textContent = STAGES[i.stage]);
+      save();
+    }
     return;
   }
   const del = e.target.closest("[data-del]");
