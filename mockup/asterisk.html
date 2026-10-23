@@ -73,19 +73,22 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 }
 .toggle svg{width:25px; height:25px; overflow:visible}
 /* Rects rather than lines: a line's box has no height, and the rotation origin does not
-   resolve reliably against it, which left the cross squashed instead of square. The
-   origin is the icon's own centre, in its own units, rather than each bar's box, which
-   engines do not all resolve alike: on a Mac the arms crossed off-centre. Each bar is
-   moved to the middle first, then turned about it. */
+   resolve reliably against it, which left the cross squashed instead of square. Each
+   bar turns about its own middle, given in the icon's units rather than as the centre
+   of its box, which engines do not all resolve alike: on a Mac the arms crossed
+   off-centre. Translate stays first in the list so the bars slide straight in. */
 .toggle rect{
   fill:currentColor;
-  transform-box:view-box; transform-origin:12.5px 12.5px;
+  transform-box:view-box;
   transition:transform .3s var(--ease), opacity .16s ease;
 }
 /* A bar turned 45° keeps its length but loses a third of its footprint (21 ÷ √2), so
    the cross would come out smaller than the bars it replaced. Lengthen the arms. */
-.is-open .toggle .bar-t{transform:rotate(45deg) scaleX(1.3) translateY(6.5px)}
-.is-open .toggle .bar-b{transform:rotate(-45deg) scaleX(1.3) translateY(-6.5px)}
+.toggle .bar-t{transform-origin:12.5px 6px}
+.toggle .bar-m{transform-origin:12.5px 12.5px}
+.toggle .bar-b{transform-origin:12.5px 19px}
+.is-open .toggle .bar-t{transform:translateY(6.5px) rotate(45deg) scaleX(1.3)}
+.is-open .toggle .bar-b{transform:translateY(-6.5px) rotate(-45deg) scaleX(1.3)}
 .is-open .toggle .bar-m{opacity:0; transform:scaleX(.3)}
 
 @media (prefers-reduced-motion:reduce){
