@@ -431,3 +431,37 @@ test("offline, nothing resolves but nothing is fabricated either", async () => {
 });
 
 const provenance = (m) => m.provenance.join(" | ");
+
+/* ------------------------------------------------------------ general web pages */
+
+test("reads a blog post's author and date from its JSON-LD", () => {
+  const html = `<html><head><title>Ignored | Site</title>
+    <meta property="og:site_name" content="Site">
+    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[
+      {"@type":"WebSite","name":"Site"},
+      {"@type":"BlogPosting","headline":"On Maps","author":{"@type":"Person","name":"Ada Lane"},
+       "datePublished":"2024-03-02","publisher":{"name":"The Quarterly"}}]}</script></head></html>`;
+  const meta = R.parseCitationMeta(html);
+  assert.equal(meta.title, "On Maps");
+  assert.deepEqual(meta.authors, ["Ada Lane"]);
+  assert.equal(meta.year, 2024);
+  assert.equal(meta.venue, "The Quarterly");
+  assert.equal(meta.kind, "essay");
+});
+
+test("falls back to meta author and the title tag, and never takes a profile URL for a name", () => {
+  const plain = R.parseCitationMeta(`<title>A Note</title><meta name="author" content="Sam Reed">`);
+  assert.equal(plain.title, "A Note");
+  assert.deepEqual(plain.authors, ["Sam Reed"]);
+  const fb = R.parseCitationMeta(`<title>A Note</title><meta property="article:author" content="https://facebook.com/x">`);
+  assert.deepEqual(fb.authors, []);
+});
+
+test("an open copy: arXiv directly, otherwise Unpaywall by DOI, and nothing on failure", async () => {
+  assert.equal(await R.openAccessPdfUrl({ arxiv: "2101.00001" }, null, null), "https://arxiv.org/pdf/2101.00001");
+  const ok = async () => ({ ok: true, status: 200, json: async () => ({ best_oa_location: { url_for_pdf: "https://x.org/a.pdf" } }), text: async () => "" });
+  assert.equal(await R.openAccessPdfUrl({}, "10.1/x", ok), "https://x.org/a.pdf");
+  const down = async () => { throw new TypeError("offline"); };
+  assert.equal(await R.openAccessPdfUrl({}, "10.1/x", down), null);
+  assert.equal(await R.openAccessPdfUrl({}, null, ok), null);
+});

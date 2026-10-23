@@ -1053,6 +1053,30 @@ async function fromOpenLibrary(isbn, fetchImpl) {
 }
 
 /**
+ * Where an open copy of a *paper* (not a book — this is for the first-page cover
+ * thumbnail, not the citation) is likely to sit, if anywhere. Never trusted blindly:
+ * the caller still has to check the bytes it gets back are actually a PDF, since a
+ * paywalled URL answers with a login page, not a 404.
+ *
+ * arXiv is free to fetch directly, no lookup needed. Everything else goes through
+ * Unpaywall — the standard DOI-keyed index of legally open copies (publisher page,
+ * repository, author's site) — which costs one more request but covers far more than
+ * arXiv alone.
+ */
+async function openAccessPdfUrl(ids, doi, fetchImpl) {
+  if (ids?.arxiv) return `https://arxiv.org/pdf/${ids.arxiv}`;
+  if (!doi || !fetchImpl) return null;
+  try {
+    const j = await getJson(
+      `https://api.unpaywall.org/v2/${encodeURIComponent(doi)}?email=notebook@marginalia.app`,
+      fetchImpl);
+    return j?.best_oa_location?.url_for_pdf || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * A talk has no DOI and no cover, but oEmbed gives its title, its channel and a
  * thumbnail — which is the closest thing a video has to a jacket.
  */
@@ -1097,8 +1121,39 @@ async function fromPubmed(pmid, fetchImpl, db = "pubmed") {
 }
 
 /**
- * Publisher landing pages carry Google Scholar's citation_* meta tags. When a URL is
- * reachable this is often better than anything in the PDF itself.
+ * The structured-data block most blog, newsroom and publishing CMSs emit (WordPress'
+ * Yoast SEO, Substack, Medium, Ghost...) — and the one place a general web article
+ * reliably states its own author and date, since no <meta> tag convention agrees on
+ * that the way citation_* does for academic landing pages.
+ */
+function parseJsonLd(html) {
+  const blocks = html.matchAll(/<script[^>]+type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
+  for (const [, raw] of blocks) {
+    let data;
+    try { data = JSON.parse(raw); } catch { continue; }
+    for (const item of Array.isArray(data) ? data : (data["@graph"] || [data])) {
+      if (!/article|blogposting|newsarticle|report/i.test(String(item?.["@type"] || ""))) continue;
+      const authors = [].concat(item.author || [])
+        .map(a => typeof a === "string" ? a : a?.name)
+        .filter(Boolean);
+      return {
+        title: item.headline || item.name || null,
+        authors,
+        datePublished: item.datePublished || item.dateCreated || null,
+        publisher: typeof item.publisher === "string" ? item.publisher : item.publisher?.name || null,
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Publisher landing pages carry Google Scholar's citation_* meta tags, which is the
+ * strongest signal when present. A blog post or news article has no reason to carry
+ * those, so the fallbacks below exist for it specifically: JSON-LD first (most
+ * reliable), then OpenGraph and a plain <meta name="author">, then the <title> tag as
+ * the last resort for a title alone. Nothing here is CORS-restricted or paywalled the
+ * way the PDF itself might be — a server-side fetch of the HTML is enough.
  */
 function parseCitationMeta(html) {
   const meta = {};
@@ -1112,19 +1167,38 @@ function parseCitationMeta(html) {
     else if (!meta[k]) meta[k] = content.trim();
   }
   const decode = s => String(s || "").replace(/&amp;/g, "&").replace(/&#(\d+);/g, (_, d) => String.fromCharCode(d)).replace(/&quot;/g, '"');
-  const title = decode(meta.citation_title || meta["dc.title"] || meta["og:title"]);
+  const ld = parseJsonLd(html);
+  const titleTag = (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1];
+
+  const title = decode(meta.citation_title || meta["dc.title"] || ld?.title || meta["og:title"] || titleTag);
   if (!title) return null;
-  const authors = (meta.authors || []).map(decode).flatMap(a =>
+
+  let authors = (meta.authors || []).map(decode).flatMap(a =>
     a.includes(",") && a.split(",").length === 2 ? [a.split(",").map(s => s.trim()).reverse().join(" ")] : [a]
   );
-  return {
-    title: cleanTitle(title),
-    authors,
-    year: Number(String(meta.citation_publication_date || meta.citation_date || "").match(/\d{4}/)?.[0]) || null,
-    venue: decode(meta.citation_journal_title || meta.citation_inbook_title || meta["og:site_name"] || ""),
-    kind: meta.citation_isbn ? "book" : "paper",
-    doi: meta.citation_doi || null,
-  };
+  if (!authors.length && ld?.authors?.length) authors = ld.authors.map(decode);
+  if (!authors.length && meta.author) authors = [decode(meta.author)];
+  // article:author is a byline on most CMSs, but on some (Facebook's own convention) it
+  // is a profile URL instead — a URL is never a name, so only trust it when it is not one.
+  if (!authors.length && meta["article:author"] && !/^https?:\/\//i.test(meta["article:author"])) {
+    authors = [decode(meta["article:author"])];
+  }
+
+  const year = Number(String(
+    meta.citation_publication_date || meta.citation_date || ld?.datePublished || meta["article:published_time"] || ""
+  ).match(/\d{4}/)?.[0]) || null;
+
+  const venue = decode(
+    meta.citation_journal_title || meta.citation_inbook_title || ld?.publisher || meta["og:site_name"] || ""
+  );
+
+  // Only call it a paper when something here actually said so; everything else a web
+  // page could be is closer to an essay than to "Paper" with no venue or DOI to show.
+  const kind = meta.citation_isbn ? "book"
+    : (meta.citation_journal_title || meta.citation_doi) ? "paper"
+    : "essay";
+
+  return { title: cleanTitle(title), authors, year, venue, kind, doi: meta.citation_doi || null };
 }
 
 /* ------------------------------------------------------------------ the ladder */
@@ -2343,10 +2417,12 @@ function viewSource(){
     <p class="pagedeck" contenteditable="true" data-edit="reading.venueline"
        data-ph="Journal, year">${esc([r.venue, r.year].filter(Boolean).join(", "))}</p>
   </div>
-  ${r.needsReview ? `<p class="warn">${r.offline ? "Not looked up." : "Not identified."}</p>
+  ${r.needsReview ? `<p class="warn">${r.offline ? "Not looked up."
+    : doiDisproven(r) ? `This looked like DOI ${esc(r.doi)}, but the registry has no record of it.`
+    : "Not identified."}</p>
     ${r.doi || r.arxiv || r.jstor || r.pasted ? `<p class="pasted">${
       sourceLink(r) ? `<a href="${esc(sourceLink(r))}" target="_blank" rel="noopener">${esc(
-        r.doi ? "DOI " + r.doi : r.arxiv ? "arXiv " + r.arxiv
+        doiDisproven(r) ? r.url : r.doi ? "DOI " + r.doi : r.arxiv ? "arXiv " + r.arxiv
         : r.jstor ? "JSTOR " + r.jstor : r.pasted)}</a>`
       : esc(r.pasted)}</p>` : ""}` : ""}
   <div class="rich">${tools()}<div class="prose" contenteditable="true" data-edit="reading.note" data-rich="1"
@@ -2710,6 +2786,39 @@ function autoformat(host){
   applyEdit(host);
 }
 
+/*
+ * Pasting brings only words. A plain field takes plain text on one line; a rich one keeps bold,
+ * italic, links and line breaks and nothing else — not the source page's fonts,
+ * colours, spans and scripts, which otherwise came in whole and stayed.
+ */
+const PASTE_KEEP = new Set(["B","STRONG","I","EM","A","BR"]);
+const PASTE_BLOCK = /^(P|DIV|LI|H[1-6]|BLOCKQUOTE|TR|PRE)$/;
+function cleanPaste(html){
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const walk = node => [...node.childNodes].map(n => {
+    if(n.nodeType === 3) return esc(n.nodeValue.replace(/\s+/g, " "));
+    if(n.nodeType !== 1 || /^(SCRIPT|STYLE|TEMPLATE|NOSCRIPT|IFRAME|OBJECT|HEAD|META|LINK)$/.test(n.tagName)) return "";
+    const inner = walk(n);
+    if(n.tagName === "BR") return "<br>";
+    if(n.tagName === "A"){
+      const href = n.getAttribute("href") || "";
+      return /^(https?:|mailto:)/i.test(href) ? `<a href="${esc(href)}">${inner}</a>` : inner;
+    }
+    if(PASTE_KEEP.has(n.tagName)){ const t = n.tagName.toLowerCase(); return `<${t}>${inner}</${t}>`; }
+    return PASTE_BLOCK.test(n.tagName) ? inner + "<br>" : inner;
+  }).join("");
+  return walk(doc.body).replace(/(<br>\s*)+$/, "");
+}
+document.addEventListener("paste", e => {
+  const el = e.target.closest?.("[contenteditable]");
+  if(!el || !e.clipboardData) return;
+  const html = e.clipboardData.getData("text/html");
+  const text = e.clipboardData.getData("text/plain");
+  e.preventDefault();
+  if(el.dataset.rich === "1" && html) document.execCommand("insertHTML", false, cleanPaste(html));
+  else document.execCommand("insertText", false, el.dataset.rich === "1" ? text : text.replace(/\s*\n\s*/g, " "));
+});
+
 /* Red underlines are for writing, not for reading: a field is spell-checked while the
    caret is in it and left alone the rest of the time. */
 document.documentElement.spellcheck = false;
@@ -2874,7 +2983,11 @@ const lookupsHint = () => liveFailed
 
 async function appFetch(url, onStep){
   if(liveFailed) throw new TypeError("no network");
-  try{ return await fetch(url); }
+  // With a server behind the page, lookups go through it: Crossref, arXiv, Open Library
+  // and every publisher's PDF refuse a browser that asks them directly (CORS), so asked
+  // directly they all failed and the page decided it had no network. api() carries the
+  // key, without which the proxy answers 401.
+  try{ return await (SYNC.on ? api("/api/fetch?url=" + encodeURIComponent(url)) : fetch(url)); }
   catch(err){
     liveFailed = true;
     onStep?.("no network here — add it by hand instead");
@@ -2883,24 +2996,43 @@ async function appFetch(url, onStep){
   }
 }
 
+/* pdf.js 4 calls Promise.withResolvers, which Safari only has from 17.4; before that
+   every dropped PDF failed to open. The page gets it here, and the worker — a separate
+   global — gets the same lines at the top of its own source. */
+function withResolvers(){
+  if(Promise.withResolvers) return;
+  Promise.withResolvers = function(){
+    let resolve, reject;
+    const promise = new this((a, b) => { resolve = a; reject = b; });
+    return { promise, resolve, reject };
+  };
+}
+withResolvers();
+const WITH_RESOLVERS = `(${withResolvers})();`;
+
 let pdfjs = null, pdfjsFailed = null;
 async function loadPdfjs(){
   if(pdfjs || pdfjsFailed) return pdfjs;
-  const blobUrl = id => {
+  const blobUrl = (id, prefix = "") => {
     const el = document.getElementById(id);
     if(!el) throw new Error("pdf.js was not built into this page");
-    return URL.createObjectURL(new Blob([el.textContent], {type:"text/javascript"}));
+    return URL.createObjectURL(new Blob([prefix + el.textContent], {type:"text/javascript"}));
   };
   try{
     const lib = await import(blobUrl("pdfjs-lib"));
-    lib.GlobalWorkerOptions.workerSrc = blobUrl("pdfjs-worker");
+    lib.GlobalWorkerOptions.workerSrc = blobUrl("pdfjs-worker", WITH_RESOLVERS + "\n");
     pdfjs = lib;
   }catch(e){ pdfjsFailed = e; }
   return pdfjs;
 }
 
+/* A link can carry a confident-looking DOI (JSTOR's stable id, NBER's paper number) that
+   the registry turns out not to know. That DOI is a dead link; the page that was pasted
+   still works, and is where the real citation is. */
+const doiDisproven = r => r.confidence === "failed" && !!r.doi && !!r.url;
 const sourceLink = r =>
-    r.doi   ? "https://doi.org/" + r.doi
+    doiDisproven(r) ? r.url
+  : r.doi   ? "https://doi.org/" + r.doi
   : r.arxiv ? "https://arxiv.org/abs/" + r.arxiv
   : r.jstor ? "https://www.jstor.org/stable/" + r.jstor
   : r.url   || null;
@@ -2947,6 +3079,7 @@ async function addSource(input, fileName, realFile){
     status: "queued",
     note: "",
     needsReview: !!meta.needsReview || !meta.title,
+    confidence: meta.confidence || null,
     url: meta.url || (typeof input === "string" && /^https?:/i.test(input) ? input : null),
   };
   data.readings.unshift(r);
