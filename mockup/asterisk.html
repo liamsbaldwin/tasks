@@ -391,20 +391,17 @@ h1[contenteditable].is-empty::before,.pagedeck[contenteditable].is-empty::before
 .tick span{display:block; height:100%; background:var(--blue)}
 .stagebtn{color:var(--blue); white-space:nowrap}
 .stagebtn:hover{text-decoration:underline; text-underline-offset:3px}
-.foot{
-  margin-top:40px; padding-top:14px; border-top:1px solid var(--rule);
-  font-size:14px; color:var(--faint);
+.foot{margin-top:40px; padding-top:14px; border-top:1px solid var(--rule); display:flex; justify-content:space-between; gap:14px; font-size:14px; color:var(--faint)}
+/* What it is and what it is filed under are both controls now, but they stay the grey
+   they always were — the line still reads as a line, and only the pointer says
+   otherwise. The idea is a real select, so a long list scrolls itself. */
+.meta{font:inherit; color:inherit; cursor:pointer}
+.meta:hover{color:var(--blue)}
+select.meta{
+  appearance:none; -webkit-appearance:none; background:none; border:0; padding:0;
+  max-width:22ch; text-overflow:ellipsis;
 }
-.foot__row{display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 16px}
-.foot__row + .foot__row{margin-top:12px}
-/* What it is, and what it is for. Every project is offered: the ones the reading is
-   filed under are lit, the rest wait quietly to be clicked. */
-.foot__l{font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:#A3A098}
-.tags{display:flex; flex-wrap:wrap; gap:4px 16px}
-.tag{color:#A3A098; white-space:nowrap}
-.tag:hover{color:var(--blue)}
-.tag--on{color:var(--blue)}
-.tag--on:hover{text-decoration:line-through; text-decoration-thickness:1px}
+select.meta option{color:var(--ink); background:var(--paper)}
 .back{font-family:var(--display); font-size:17px; color:var(--blue); display:inline-block; margin-bottom:26px}
 .empty{color:var(--faint); font-style:italic}
 
@@ -1697,19 +1694,20 @@ function viewSource(){
   <div class="rich">${tools()}<div class="prose" contenteditable="true" data-edit="reading.note" data-rich="1"
     data-ph="Notes">${r.note}</div></div>
   <div class="foot">
-    <div class="foot__row">
-      <button class="stagebtn" data-rstatus title="Click to move it on">${
-        r.status === "read" ? "Read" : r.status === "reading" ? "Reading" : "Queued"}</button>
-      <button class="stagebtn" data-kind title="Click to change what it is">${
-        KIND[r.kind] || "Source"}</button>
-    </div>
-    <div class="foot__row"><span class="foot__l">Filed under</span>
-    <span class="tags">${data.ideas.map(i => {
-      const on = r.ideas.includes(i.id);
-      return `<button class="tag ${on ? "tag--on" : ""}" data-tag="${i.id}"
-        title="${on ? "Click to take it off" : "Click to file it under"} ${esc(i.title)}"
-        >${esc(i.title)}</button>`;
-    }).join("")}</span></div></div>`;
+    <button class="stagebtn" data-rstatus title="Click to move it on">${
+      r.status === "read" ? "Read" : r.status === "reading" ? "Reading" : "Queued"}</button>
+    <span><button class="meta" data-kind title="Click to change what it is">${
+      KIND[r.kind] || "Source"}</button> &middot;
+    ${(() => {
+      // A reading filed under more than one project shows the first; the data still
+      // holds the rest until the select is actually used.
+      const filed = data.ideas.find(i => r.ideas.includes(i.id))?.id || "";
+      return `<select class="meta" data-idea title="File it under a project">
+      <option value=""${filed ? "" : " selected"}>Unfiled</option>
+      ${data.ideas.map(i => `<option value="${i.id}"${
+        i.id === filed ? " selected" : ""}>${esc(i.title)}</option>`).join("")}
+    </select>`;
+    })()}</span></div>`;
 }
 
 function viewDraft(){
@@ -2065,6 +2063,15 @@ document.addEventListener("keydown", e => {
   runTool(cmd, host);
 });
 
+/* Filing a reading: the select already shows what was chosen, so there is nothing to
+   redraw — store it and save. */
+document.addEventListener("change", e => {
+  const sel = e.target.closest("[data-idea]");
+  if(!sel) return;
+  const r = data.readings.find(x => x.id === openSource);
+  if(r){ r.ideas = sel.value ? [sel.value] : []; save(); }
+});
+
 document.addEventListener("mousedown", e => {
   if(e.target.closest(".tools button")) e.preventDefault();      // keep the caret
 });
@@ -2331,22 +2338,6 @@ document.addEventListener("click", e => {
     if(r){
       r.kind = order[(order.indexOf(r.kind) + 1) % order.length];
       document.querySelectorAll("[data-kind]").forEach(b => b.textContent = KIND[r.kind]);
-      save();
-    }
-    return;
-  }
-  /* Filing is a toggle, one per idea, and it changes nothing but the word's colour —
-     so a reading can be filed under three projects without the page moving. */
-  const tag = e.target.closest("[data-tag]");
-  if(tag){
-    const r = data.readings.find(x => x.id === openSource);
-    const idea = data.ideas.find(i => i.id === tag.dataset.tag);
-    if(r && idea){
-      const at = r.ideas.indexOf(idea.id);
-      const on = at === -1;
-      if(on) r.ideas.push(idea.id); else r.ideas.splice(at, 1);
-      tag.classList.toggle("tag--on", on);
-      tag.title = `${on ? "Click to take it off" : "Click to file it under"} ${idea.title}`;
       save();
     }
     return;
