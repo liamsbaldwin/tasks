@@ -110,7 +110,7 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
   display:flex; align-items:flex-start; gap:0 44px;
 }
 .road__col{flex:0 1 36rem; min-width:0}
-.page--road .rmpane{flex:1 1 0; min-width:0; position:static; width:auto; margin:0}
+.page--road .rmpane{flex:1 1 0; min-width:0; max-width:30rem; position:static; width:auto; margin:0}
 
 .pagehead{margin-bottom:38px}
 .headrow{display:flex; align-items:flex-start; justify-content:space-between; gap:24px; flex-wrap:wrap}
@@ -264,53 +264,62 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 .pane__t{font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); margin-bottom:12px}
 .week{
   display:grid; grid-template-columns:repeat(7,1fr); gap:1px;
-  background:var(--rule); border:1px solid var(--rule); margin-bottom:34px;
+  background:var(--rule); border:1px solid var(--rule); margin-bottom:28px;
 }
-.wk{display:flex; flex-direction:column; background:var(--paper); min-height:176px}
+.wk{display:flex; flex-direction:column; background:var(--paper); min-height:112px}
 /* Cells sit on the grid's rule colour, so a translucent wash set as the background
    replaces the paper and takes its tint from the lines — which is how a 5% blue ends up
    reading as grey. Lay the wash over paper instead. */
 .wk--today{background:linear-gradient(var(--blue-breath), var(--blue-breath)) var(--paper)}
 .wk__d{
-  font-size:11.5px; color:var(--faint); padding:7px 9px 0; white-space:nowrap;
+  font-size:11px; color:var(--faint); padding:6px 8px 0; white-space:nowrap;
   font-variant-numeric:tabular-nums; text-align:right;
 }
 .wk--today .wk__d{color:var(--blue)}
 .wk__b{
-  flex:1; font-size:13.5px; line-height:1.4; padding:6px 9px 10px; outline:none;
+  flex:1; font-size:12.5px; line-height:1.4; padding:5px 8px 9px; outline:none;
   color:var(--ink-2); overflow-wrap:anywhere;
+  white-space:pre-wrap;        /* one entry per line, and the lines survive a round trip */
 }
 
 .cal__head{display:flex; align-items:baseline; gap:10px; margin-bottom:10px}
-.cal__m{font-family:var(--display); font-size:26px; color:var(--blue)}
+.cal__m{font-family:var(--display); font-size:22px; color:var(--blue)}
 .cal__nav{margin-left:auto; display:flex; gap:2px}
 .cal__nav button{width:24px; height:24px; border-radius:3px; color:var(--faint); font-size:14px}
 .cal__nav button:hover{background:var(--blue-wash); color:var(--blue)}
+/* Every week row is exactly as tall as every other, whatever is written in it: a row
+   that sizes to its fullest day makes the month jump about as you turn it over. */
 .cal__g{display:grid; grid-template-columns:repeat(7,1fr); gap:1px; background:var(--rule);
-  border:1px solid var(--rule)}
-.cal__g > *{background:var(--paper); min-height:88px; padding:6px 8px}
-.cal__dow{min-height:0; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase;
-  color:var(--faint); text-align:right; padding-bottom:6px}
-.cal__d{text-align:right; font-size:14px; color:var(--ink-2); font-variant-numeric:tabular-nums;
-  cursor:pointer; position:relative}
-.cal__d:hover{background:linear-gradient(var(--blue-wash), var(--blue-wash)) var(--paper)}
-/* Fade the number, not the cell: opacity on the cell makes its paper translucent and
-   the grid lines show through, which reads as a block of grey. */
-.cal__d--out span{color:#C2BCAB}
-.cal__d--today{background:linear-gradient(var(--blue-breath), var(--blue-breath)) var(--paper)}
-.cal__d--today span{color:var(--blue)}
-.cal__d--sel{outline:1.5px solid var(--blue); outline-offset:-1.5px}
-.cal__mark{
-  position:absolute; left:8px; right:8px; bottom:8px; height:2.5px; background:var(--blue);
-  border-radius:1px;
+  border:1px solid var(--rule); grid-template-rows:auto; grid-auto-rows:70px}
+.cal__g > *{background:var(--paper); padding:5px 5px 6px}
+.cal__dow{min-height:0; font-size:10px; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--faint); text-align:right; padding:0 5px 5px}
+.cal__d{display:flex; flex-direction:column; cursor:pointer; overflow:hidden}
+.cal__n{font-size:12.5px; line-height:1.15; color:var(--ink-2); text-align:right;
+  font-variant-numeric:tabular-nums}
+/* What is written on the day, one line each and clipped to the cell: the full text is
+   in the title, in the week strip, and on the line under the month. */
+.cal__e{
+  display:block; font-style:normal; font-size:10px; line-height:1.3; margin-top:2px;
+  color:var(--blue); text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
+.cal__e--more{color:var(--faint)}
+.cal__d:hover{background:linear-gradient(var(--blue-wash), var(--blue-wash)) var(--paper)}
+/* Fade the writing, not the cell: opacity on the cell makes its paper translucent and
+   the grid lines show through, which reads as a block of grey. */
+.cal__d--out .cal__n{color:#C2BCAB}
+.cal__d--out .cal__e{color:#B9CEDC}
+.cal__d--out .cal__e--more{color:#C2BCAB}
+.cal__d--today{background:linear-gradient(var(--blue-breath), var(--blue-breath)) var(--paper)}
+.cal__d--today .cal__n{color:var(--blue)}
+.cal__d--sel{outline:1.5px solid var(--blue); outline-offset:-1.5px}
 .pick{margin-top:12px; display:grid; grid-template-columns:4.2rem 1fr; gap:8px; align-items:baseline}
 /* Kept in the layout when no day is picked: the line is the same height either way. */
 .pick--off{visibility:hidden}
 .pick time{font-size:12px; color:var(--blue); font-variant-numeric:tabular-nums}
 .pick__b{
-  font-size:13.5px; line-height:1.4; outline:none; color:var(--ink-2);
-  border-bottom:1px solid var(--rule); min-height:1.4em;
+  font-size:13px; line-height:1.4; outline:none; color:var(--ink-2);
+  border-bottom:1px solid var(--rule); min-height:1.4em; white-space:pre-wrap;
 }
 .pick__b:focus{border-bottom-color:var(--blue)}
 
@@ -320,9 +329,9 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
   .page--road .page__in{display:block; max-width:var(--column)}
   .road__col{flex:none}
   .page--road .rmpane{
-    margin:46px 0 0; padding-top:22px; border-top:1px solid var(--rule);
+    margin:46px 0 0; padding-top:22px; border-top:1px solid var(--rule); max-width:none;
   }
-  .wk{min-height:120px}
+  .wk{min-height:104px}
 }
 [contenteditable]{outline:none}
 [contenteditable].is-empty::before{content:attr(data-ph); color:var(--faint); font-style:italic}
@@ -1413,6 +1422,23 @@ function seedLog(){
 }
 seed.log = seedLog();
 
+/* A few days with something written on them, so the month shows what a month with work
+   in it looks like — including one day carrying more than a cell can hold. Local dates,
+   to match the calendar, and relative to today so they never go stale. */
+function seedDays(){
+  const on = n => {
+    const d = new Date(); d.setDate(d.getDate() + n);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  };
+  return {
+    [on(-2)]: "Finished Zerubavel",
+    [on(0)]:  "Edit \u00a74 of Ten Days\nSend it to M.",
+    [on(2)]:  "Record the intro\nDohrn-van Rossum, ch. 3\nCall with the editor",
+    [on(6)]:  "Legibility \u2014 who gets to object",
+  };
+}
+seed.days = seedDays();
+
 /* Anything the sample notebook already has written is credited in the past, or the
    first load would stamp a year of old work onto today. */
 (function creditSeed(){
@@ -1693,6 +1719,12 @@ const todayD = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
 
 function pane(){ return weekStrip() + monthCal(); }
 
+/* A day is a short list, written one entry per line. Keeping it as text rather than an
+   array means the week strip stays what it is — somewhere to type — and the month can
+   still show the lines separately. */
+const entriesOn = key => (data.days[key] || "").split("\n").map(l => l.trim()).filter(Boolean);
+const CELL_LINES = 2;             // what fits in a cell before the rest becomes "+n"
+
 /* This week in words: seven rows, each one a line you can type straight into. */
 function weekStrip(){
   const t = todayD();
@@ -1724,8 +1756,7 @@ function monthCal(){
     const key = isoOf(d);
     cells += `<div class="cal__d ${d.getMonth() !== mo ? "cal__d--out" : ""} ${
       key === isoOf(t) ? "cal__d--today" : ""} ${key === calSel ? "cal__d--sel" : ""}"
-      data-day="${key}" title="${data.days[key] ? esc(data.days[key]) : key}">
-      <span>${d.getDate()}</span>${data.days[key] ? `<i class="cal__mark"></i>` : ""}</div>`;
+      data-day="${key}" title="${cellTitle(key)}">${cellInner(key, d.getDate())}</div>`;
   }
 
   return `<div class="cal__head"><span class="cal__m">${MONTHS[mo].slice(0,3)} ${y}</span>
@@ -1734,6 +1765,18 @@ function monthCal(){
     <div class="cal__g">${DOW.map(d => `<div class="cal__dow">${d[0]}</div>`).join("")}${cells}</div>
     ${pickRow()}`;
 }
+
+/* A cell shows the day, then as many of its entries as fit, then how many it could not
+   show. Shared with the edit handler, which redraws one cell as you type into it. */
+function cellInner(key, n){
+  const list = entriesOn(key);
+  const shown = list.slice(0, CELL_LINES);
+  const rest = list.length - shown.length;
+  return `<span class="cal__n">${n}</span>${
+    shown.map(e => `<em class="cal__e">${esc(e)}</em>`).join("")}${
+    rest ? `<em class="cal__e cal__e--more">+${rest}</em>` : ""}`;
+}
+const cellTitle = key => entriesOn(key).join(" · ") || key;
 
 /* The line under the month. It is in the layout whether or not a day is picked — hidden
    rather than absent — because a row that comes and goes is a row that moves the page. */
@@ -1847,7 +1890,11 @@ const markEmpty = el => el.classList.toggle("is-empty", !el.textContent.trim() &
 
 function applyEdit(el){
   const [kind, field] = el.dataset.edit.split(".");
-  const value = el.dataset.rich === "1" ? el.innerHTML : el.textContent.trim();
+  // innerText for a day, not textContent: the entries are separate lines, and
+  // textContent runs them together into one.
+  const value = el.dataset.rich === "1" ? el.innerHTML
+    : kind === "day" ? (el.innerText ?? el.textContent).replace(/\n{2,}/g, "\n").trim()
+    : el.textContent.trim();
   if(kind === "day"){
     const key = el.dataset.date;
     if(value) data.days[key] = value; else delete data.days[key];
@@ -1858,10 +1905,8 @@ function applyEdit(el){
      */
     const cell = document.querySelector(`.cal__d[data-day="${key}"]`);
     if(cell){
-      const mark = cell.querySelector(".cal__mark");
-      if(value && !mark) cell.insertAdjacentHTML("beforeend", '<i class="cal__mark"></i>');
-      if(!value && mark) mark.remove();
-      cell.title = value || key;
+      cell.innerHTML = cellInner(key, Number(key.slice(8)));
+      cell.title = cellTitle(key);
     }
     document.querySelectorAll(`[data-edit="day"][data-date="${key}"]`).forEach(other => {
       if(other === el) return;
