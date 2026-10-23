@@ -240,10 +240,12 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
    on whole pixels and stay crisp. It loses its upright when the note is open, so the
    plus becomes a minus. */
 .info{
-  /* Pinned square on both axes and told not to flex: nothing in a row beside it can
-     stretch it into an oval. */
-  margin-left:auto; width:11px; height:11px; aspect-ratio:1; flex:0 0 auto;
-  align-self:center; padding:0; border:0; line-height:0; color:var(--faint);
+  /* Square on both axes and told not to flex, so nothing in the row can stretch it.
+     Centring it on the line box puts its middle on the baseline, which reads low
+     beside a word with no descender: lift it by half a cap height to sit on "More". */
+  margin-left:auto; width:9px; height:9px; aspect-ratio:1; flex:0 0 auto;
+  align-self:center; position:relative; top:-.33em;
+  padding:0; border:0; line-height:0; color:inherit;
   display:grid; place-items:center; transition:color .12s ease;
 }
 .info svg{display:block; width:100%; height:100%}
@@ -1669,10 +1671,10 @@ function heatmap(year){
    so it is the same mark on every screen instead of whatever the renderer makes of a
    sub-pixel curve. */
 function infoGlyph(){
-  return `<svg viewBox="0 0 11 11" aria-hidden="true" fill="none"
+  return `<svg viewBox="0 0 9 9" aria-hidden="true" fill="none"
       preserveAspectRatio="xMidYMid meet" shape-rendering="crispEdges">
-    <path d="M.5 5.5h10" stroke="currentColor" stroke-width="1"/>
-    <path class="info__v" d="M5.5.5v10" stroke="currentColor" stroke-width="1"/>
+    <path d="M.5 4.5h8" stroke="currentColor" stroke-width="1"/>
+    <path class="info__v" d="M4.5.5v8" stroke="currentColor" stroke-width="1"/>
   </svg>`;
 }
 
@@ -1705,7 +1707,7 @@ function viewDraft(){
   const i = data.ideas.find(x => x.id === openIdea) || data.ideas[0];
   openIdea = i.id;
   return `<div class="pagehead">
-    <h1 class="pagetitle" contenteditable="true" data-edit="idea.title" data-ph="Name it">${esc(i.title)}</h1>
+    <h1 class="pagetitle" contenteditable="true" data-edit="idea.title" data-ph="Title">${esc(i.title)}</h1>
     <p class="pagedeck" contenteditable="true" data-edit="idea.deck"
        data-ph="Subtitle">${esc(i.deck || "")}</p>
   </div>
@@ -1827,15 +1829,14 @@ function renderPane(){
 /* Eight buttons for what gets used; everything else is a markdown shortcut. */
 function tools(){
   return `<div class="tools">
-    <button data-cmd="h2" title="Heading — or type &quot;# &quot;"><span class="h">H</span></button>
-    <button data-cmd="h3" title="Sub-heading — or type &quot;## &quot;"><span class="h" style="font-size:13px">H</span></button>
+    <button data-cmd="h2" title="Heading — ⌘H, or type &quot;# &quot;"><span class="h">H</span></button>
     <button data-cmd="bold" title="Bold — ⌘B"><b>B</b></button>
     <button data-cmd="italic" title="Italic — ⌘I"><i>I</i></button>
-    <button data-cmd="insertUnorderedList" title="Bullets — or type &quot;- &quot;">•</button>
-    <button data-cmd="insertOrderedList" title="Numbered — or type &quot;1. &quot;">1.</button>
-    <button data-cmd="quote" title="Quote — or type &quot;&gt; &quot;"><span class="q">&ldquo;</span></button>
-    <button data-cmd="math" title="Maths — or type $x^2$">&Sigma;</button>
-    <button data-cmd="footnote" title="Footnote">&dagger;</button>
+    <button data-cmd="insertUnorderedList" title="Bullets — ⌘L, or type &quot;- &quot;">•</button>
+    <button data-cmd="insertOrderedList" title="Numbered — ⌘N, or type &quot;1. &quot;">1.</button>
+    <button data-cmd="quote" title="Quote — ⌘Q, or type &quot;&gt; &quot;"><span class="q">&ldquo;</span></button>
+    <button data-cmd="math" title="Maths — ⌘M, or type $x^2$">&Sigma;</button>
+    <button data-cmd="footnote" title="Footnote — ⌘F">&dagger;</button>
     <span id="saved" class="saved">Saved</span>
   </div>`;
 }
@@ -2020,6 +2021,15 @@ function autoformat(host){
   applyEdit(host);
 }
 
+/* A letter each, so the toolbar is a reminder rather than the only way in. Shift is
+   allowed through as well as ignored: a few of these letters are spoken for by the
+   browser or the window manager — ⌘N and ⌘L always, ⌘H, ⌘M and ⌘Q on a Mac — and
+   where the plain form never reaches the page, the shifted one does. */
+const KEYTOOL = {
+  h: "h2", b: "bold", i: "italic", l: "insertUnorderedList",
+  n: "insertOrderedList", q: "quote", m: "math", f: "footnote",
+};
+
 document.addEventListener("keydown", e => {
   const host = e.target.closest?.('[data-rich="1"]');
   if(!host) return;
@@ -2027,16 +2037,20 @@ document.addEventListener("keydown", e => {
     e.preventDefault();
     document.execCommand(e.shiftKey ? "outdent" : "indent");
     applyEdit(host);
+    return;
   }
+  if(!(e.metaKey || e.ctrlKey) || e.altKey) return;
+  const cmd = KEYTOOL[e.key.toLowerCase()];
+  if(!cmd) return;
+  e.preventDefault();
+  runTool(cmd, host);
 });
 
 document.addEventListener("mousedown", e => {
   if(e.target.closest(".tools button")) e.preventDefault();      // keep the caret
 });
-document.addEventListener("click", e => {
-  const b = e.target.closest(".tools button");
-  if(!b) return;
-  const cmd = b.dataset.cmd;
+/* One place a tool runs, whether it was clicked or typed. */
+function runTool(cmd, host){
   const inside = tag => !!document.getSelection().anchorNode?.parentElement?.closest(tag);
   if(cmd === "quote")      document.execCommand("formatBlock", false, inside("blockquote") ? "p" : "blockquote");
   else if(cmd === "h2")    document.execCommand("formatBlock", false, inside("h2") ? "p" : "h2");
@@ -2046,15 +2060,19 @@ document.addEventListener("click", e => {
     const id = "f" + Date.now();
     (data.notes[openIdea] ||= {})[id] = "";
     document.execCommand("insertHTML", false, `<sup class="fnref" data-fn="${id}">0</sup>&#8203;`);
-    const host = b.closest(".rich")?.querySelector("[data-edit]");
     if(host) applyEdit(host);
     layoutFootnotes();
     setTimeout(() => $(`.fn[data-fn="${id}"] .fn__b`)?.focus(), 0);
     return;
   }
   else                     document.execCommand(cmd);
-  const host = b.closest(".rich")?.querySelector("[data-edit]");
   if(host){ markEmpty(host); applyEdit(host); }
+}
+
+document.addEventListener("click", e => {
+  const b = e.target.closest(".tools button");
+  if(!b || !b.dataset.cmd) return;
+  runTool(b.dataset.cmd, b.closest(".rich")?.querySelector("[data-edit]"));
 });
 
 /* Maths and markdown links settle when the caret leaves, so nothing moves as you type. */
