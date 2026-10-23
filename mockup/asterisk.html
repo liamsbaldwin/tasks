@@ -1579,7 +1579,7 @@ function viewSources(){
     <div class="row">
       <button class="del" data-del="${r.id}" aria-label="Delete ${esc(r.title || "this source")}">×</button>
       <button style="display:block;width:100%;text-align:left" data-src="${r.id}">
-        <span class="src__t">${esc(r.title || r.doi || r.pasted || "Untitled — open it and fill it in")}</span>
+        <span class="src__t">${esc(r.title || r.doi || r.pasted || "Untitled")}</span>
         <span class="src__b">${r.authors.length ? r.authors.map(esc).join(" & ") : "No author yet"} · ${esc(r.venue || "")}</span>
         <span class="row__m"><b>${r.needsReview ? "Needs checking"
           : r.status === "read" ? "Read" : r.status === "reading" ? "Reading" : "Queued"}</b>
