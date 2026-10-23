@@ -186,6 +186,7 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 }
 .capture__in::placeholder{color:var(--faint)}
 .capture__hint{font-size:14px; color:var(--faint); margin-top:7px}
+.capture__hint:empty{display:none}      /* nothing to say when the lookups work */
 .drop{outline:2px dashed var(--blue); outline-offset:10px}
 .steps{font-size:14px; color:var(--faint); margin-top:7px; display:flex; flex-direction:column; gap:1px}
 .warn{
@@ -394,14 +395,27 @@ h1[contenteditable].is-empty::before,.pagedeck[contenteditable].is-empty::before
 .foot{margin-top:40px; padding-top:14px; border-top:1px solid var(--rule); display:flex; justify-content:space-between; gap:14px; font-size:14px; color:var(--faint)}
 /* What it is and what it is filed under are both controls now, but they stay the grey
    they always were — the line still reads as a line, and only the pointer says
-   otherwise. The idea is a real select, so a long list scrolls itself. */
+   otherwise. */
 .meta{font:inherit; color:inherit; cursor:pointer}
 .meta:hover{color:var(--blue)}
-select.meta{
-  appearance:none; -webkit-appearance:none; background:none; border:0; padding:0;
-  max-width:22ch; text-overflow:ellipsis;
+/* The filing list, written rather than borrowed: a native select is as wide as its
+   longest option whatever is chosen, which left a hole in the line, and its menu opens
+   over the word you just clicked. This one is as wide as the word, opens above the
+   line so the word stays in view, and scrolls once the list is long.
+   Its own class, not .menu — that one is the navigation. */
+.filed{position:relative; display:inline-block}
+.filemenu{
+  position:absolute; bottom:calc(100% + 9px); right:0; z-index:30;
+  min-width:13rem; max-width:24rem; max-height:15.5rem; overflow:auto;
+  background:var(--paper); border:1px solid var(--rule);
+  box-shadow:0 6px 22px rgba(60,54,40,.09); padding:4px 0; text-align:left;
 }
-select.meta option{color:var(--ink); background:var(--paper)}
+.filemenu__i{
+  display:block; width:100%; text-align:left; padding:6px 14px;
+  font:inherit; color:var(--ink-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.filemenu__i:hover{background:var(--blue-wash); color:var(--blue)}
+.filemenu__i--on{color:var(--blue)}
 .back{font-family:var(--display); font-size:17px; color:var(--blue); display:inline-block; margin-bottom:26px}
 .empty{color:var(--faint); font-style:italic}
 
@@ -1581,7 +1595,7 @@ function viewSources(){
   </div>
   <div class="capture ${capture ? "capture--on" : ""}" id="capturebox"><div class="capture__clip">
     <input class="capture__in" id="capture" autocomplete="off" spellcheck="false"
-      placeholder="Paste a link, DOI, arXiv ID or ISBN — or drop a PDF anywhere">
+      placeholder="Paste a link or drop a PDF">
     <p class="capture__hint" id="hint">${lookupsHint()}</p>
     <div class="steps" id="steps"></div>
   </div></div>
@@ -1698,16 +1712,21 @@ function viewSource(){
       r.status === "read" ? "Read" : r.status === "reading" ? "Reading" : "Queued"}</button>
     <span><button class="meta" data-kind title="Click to change what it is">${
       KIND[r.kind] || "Source"}</button> &middot;
-    ${(() => {
-      // A reading filed under more than one project shows the first; the data still
-      // holds the rest until the select is actually used.
-      const filed = data.ideas.find(i => r.ideas.includes(i.id))?.id || "";
-      return `<select class="meta" data-idea title="File it under a project">
-      <option value=""${filed ? "" : " selected"}>Unfiled</option>
-      ${data.ideas.map(i => `<option value="${i.id}"${
-        i.id === filed ? " selected" : ""}>${esc(i.title)}</option>`).join("")}
-    </select>`;
-    })()}</span></div>`;
+    ${filedMenu(r)}</span></div>`;
+}
+
+/* The project a reading is filed under, and the list to change it. A reading filed
+   under more than one shows the first; the data keeps the rest until this is used. */
+function filedMenu(r){
+  const filed = data.ideas.find(i => r.ideas.includes(i.id));
+  const row = (id, title) => `<button class="filemenu__i ${
+    (filed?.id || "") === id ? "filemenu__i--on" : ""}" data-fileto="${id}">${esc(title)}</button>`;
+  return `<span class="filed">
+    <button class="meta" id="filed" data-file title="File it under a project"
+      >${esc(filed ? filed.title : "Unfiled")}</button>
+    <div class="filemenu" id="filemenu" hidden>
+      ${data.ideas.map(i => row(i.id, i.title)).join("")}${row("", "Unfiled")}
+    </div></span>`;
 }
 
 function viewDraft(){
@@ -1741,7 +1760,7 @@ function viewRoadmap(){
   return `<div class="road__col">
     <div class="pagehead"><h1 class="pagetitle">Roadmap</h1></div>
     <div class="rich">${tools()}<div class="prose" contenteditable="true" data-edit="roadmap" data-rich="1"
-      data-ph="What is the whole project for? What ships first, and what is it waiting on?">${data.roadmap}</div></div>
+      data-ph="The plan">${data.roadmap}</div></div>
   </div>
   <aside class="rmpane" id="rmpane">${pane()}</aside>`;
 }
@@ -1785,7 +1804,10 @@ function monthCal(){
   const y = ref.getFullYear(), mo = ref.getMonth();
   const lead = (ref.getDay() + 6) % 7;
   const start = new Date(y, mo, 1 - lead);
-  const WEEKS = 6;            // every month gets six rows, so none is taller than another
+  // As many rows as the month needs: a trailing row with nothing of this month in it
+  // is a row of grey numbers and no use. The prose does not move when the count
+  // changes — the pane is its own column.
+  const WEEKS = Math.ceil((lead + new Date(y, mo + 1, 0).getDate()) / 7);
 
   let cells = "";
   for(let i = 0; i < WEEKS * 7; i++){
@@ -2063,15 +2085,6 @@ document.addEventListener("keydown", e => {
   runTool(cmd, host);
 });
 
-/* Filing a reading: the select already shows what was chosen, so there is nothing to
-   redraw — store it and save. */
-document.addEventListener("change", e => {
-  const sel = e.target.closest("[data-idea]");
-  if(!sel) return;
-  const r = data.readings.find(x => x.id === openSource);
-  if(r){ r.ideas = sel.value ? [sel.value] : []; save(); }
-});
-
 document.addEventListener("mousedown", e => {
   if(e.target.closest(".tools button")) e.preventDefault();      // keep the caret
 });
@@ -2170,7 +2183,7 @@ document.addEventListener("click", e => {
 let liveFailed = false;
 const lookupsHint = () => liveFailed
   ? "This page cannot look anything up — it has no outbound network. Add it anyway and fill in the fields by hand."
-  : "Or type a title and fill in the rest by hand.";
+  : "";
 
 async function appFetch(url, onStep){
   if(liveFailed) throw new TypeError("no network");
@@ -2332,6 +2345,27 @@ document.addEventListener("click", e => {
     p.hidden = open;
     return;
   }
+  if(e.target.closest("[data-file]")){
+    const m = $("#filemenu");
+    if(m) m.hidden = !m.hidden;
+    return;
+  }
+  const to = e.target.closest("[data-fileto]");
+  if(to){
+    const r = data.readings.find(x => x.id === openSource);
+    if(r){
+      const id = to.dataset.fileto;
+      r.ideas = id ? [id] : [];
+      // The word and the ticked row are the only things that change; redrawing the
+      // page would send you back to the top of the note.
+      $("#filed").textContent = id ? data.ideas.find(i => i.id === id).title : "Unfiled";
+      document.querySelectorAll("[data-fileto]").forEach(b =>
+        b.classList.toggle("filemenu__i--on", b.dataset.fileto === id));
+      save();
+    }
+    $("#filemenu")?.setAttribute("hidden", "");
+    return;
+  }
   if(e.target.closest("[data-kind]")){
     const order = Object.keys(KIND);
     const r = data.readings.find(x => x.id === openSource);
@@ -2379,8 +2413,15 @@ document.addEventListener("click", e => {
   if(idea){ view = "draft"; openIdea = idea.dataset.idea; openSource = null; return render(); }
 });
 
+/* The filing list shuts when you look away from it. */
+const shutFiled = () => $("#filemenu")?.setAttribute("hidden", "");
+document.addEventListener("click", e => { if(!e.target.closest(".filed")) shutFiled(); });
+
 document.addEventListener("keydown", e => {
-  if(e.key === "Escape" && document.documentElement.classList.contains("is-open")) setMenu(false);
+  if(e.key !== "Escape") return;
+  const m = $("#filemenu");
+  if(m && !m.hidden){ m.hidden = true; return; }          // the nearer thing first
+  if(document.documentElement.classList.contains("is-open")) setMenu(false);
 });
 
 render();
