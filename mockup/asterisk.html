@@ -200,14 +200,16 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 .cell--none{background:none}
 .legend{display:flex; align-items:center; gap:4px; margin-top:14px; font-size:11px; color:var(--faint)}
 .legend .cell{width:11px; height:11px}
-.rule{margin-top:16px; font-size:13px; color:var(--faint)}
-.rule summary{
-  cursor:pointer; list-style:none; display:inline-block; color:var(--faint);
-  border-bottom:1px dotted var(--rule); padding-bottom:1px;
+/* The rule for what counts is worth one glyph at the end of the legend, and nothing
+   more until it is asked for. */
+.info{
+  margin-left:auto; width:16px; height:16px; border-radius:50%; flex:none;
+  border:1px solid var(--rule); color:var(--faint);
+  font-family:var(--display); font-size:10.5px; line-height:1;
+  display:grid; place-items:center; transition:color .12s ease, border-color .12s ease;
 }
-.rule summary::-webkit-details-marker{display:none}
-.rule summary:hover{color:var(--blue); border-bottom-color:var(--blue)}
-.rule p{margin-top:9px; line-height:1.55; max-width:52ch}
+.info:hover, .info[aria-expanded="true"]{color:var(--blue); border-color:var(--blue)}
+.counts{margin-top:14px; font-size:13px; color:var(--faint); line-height:1.55; max-width:56ch}
 
 
 /* ============ writing ============ */
@@ -1309,6 +1311,7 @@ const seed = {
 <p>Whether the scaling piece is an essay or a footnote in someone else's.</p>`,
   log: [],
   credited: {},
+  done: {novideo: true},
 };
 
 /* The sample notebook needs a sample year behind it, or the calendar reads as a bug
@@ -1349,7 +1352,10 @@ function load(){
     if(raw){
       const d = JSON.parse(raw);
       if(d && Array.isArray(d.ideas) && Array.isArray(d.readings)){
-        d.log ||= []; d.credited ||= {}; d.notes ||= {};
+        d.log ||= []; d.credited ||= {}; d.notes ||= {}; d.done ||= {};
+        /* Videos were seeded before anything could mark one, so a notebook saved then
+           still carries that count. Drop them once, and leave everything else alone. */
+        if(!d.done.novideo){ d.log = d.log.filter(e => e.kind !== "video"); d.done.novideo = true; }
         return d;
       }
     }
@@ -1463,10 +1469,9 @@ function viewProgress(){
   <div class="wide">
     <div class="card__t">${mine.length} logged in ${year}</div>
     ${heatmap(year)}
-    <details class="rule"><summary>What counts</summary>
-      <p>A reading counts once its notes pass ${READING_WORDS} words, an essay once its draft passes
-        ${ESSAY_WORDS.toLocaleString()}. Filing a source or moving an idea's stage credits nothing.
-        Videos are the one you mark by hand.</p></details>
+    <p class="counts" id="counts" hidden>A reading counts once its notes pass ${READING_WORDS} words,
+      an essay once its draft passes ${ESSAY_WORDS.toLocaleString()}. Filing a source or moving an
+      idea's stage credits nothing. Videos are the one you mark by hand.</p>
   </div>`;
 }
 
@@ -1521,7 +1526,9 @@ function heatmap(year){
   </div>
   <div class="legend">Less<span class="cell" data-l="0"></span><span class="cell" data-l="1"></span>
     <span class="cell" data-l="2"></span><span class="cell" data-l="3"></span>
-    <span class="cell" data-l="4"></span>More</div>`;
+    <span class="cell" data-l="4"></span>More
+    <button class="info" id="info" aria-expanded="false" aria-controls="counts"
+      aria-label="What counts">i</button></div>`;
 }
 
 function viewSource(){
@@ -1996,6 +2003,13 @@ document.addEventListener("click", e => {
     return render();
   }
   if(e.target.closest("#plus")){ capture = !capture; return render(); }
+  if(e.target.closest("#info")){
+    const b = $("#info"), p = $("#counts");
+    const open = b.getAttribute("aria-expanded") === "true";
+    b.setAttribute("aria-expanded", String(!open));
+    p.hidden = open;
+    return;
+  }
   if(e.target.closest("[data-rstatus]")){
     const order = ["queued", "reading", "read"];
     const r = data.readings.find(x => x.id === openSource);
