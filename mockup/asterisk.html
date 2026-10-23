@@ -236,15 +236,20 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 .legend{display:flex; align-items:center; gap:4px; margin-top:14px; font-size:11px; color:var(--faint)}
 .legend .cell{width:11px; height:11px}
 /* The rule for what counts is worth one glyph at the end of the legend, and nothing
-   more until it is asked for. */
+   more until it is asked for. A plus rather than a circled i: at twelve pixels a ring
+   is a grey smudge and the i's dot merges into its stem, while two straight rules land
+   on whole pixels and stay crisp. It loses its upright when the note is open, so the
+   plus becomes a minus. */
 .info{
   /* Pinned square on both axes and told not to flex: nothing in a row beside it can
      stretch it into an oval. */
-  margin-left:auto; width:12px; height:12px; aspect-ratio:1; flex:0 0 auto;
+  margin-left:auto; width:11px; height:11px; aspect-ratio:1; flex:0 0 auto;
   align-self:center; padding:0; border:0; line-height:0; color:var(--faint);
   display:grid; place-items:center; transition:color .12s ease;
 }
 .info svg{display:block; width:100%; height:100%}
+.info__v{transition:opacity .13s ease}
+.info[aria-expanded="true"] .info__v{opacity:0}
 .info:hover, .info[aria-expanded="true"]{color:var(--blue)}
 /* The note belongs to the tracker, so it runs the tracker's width. */
 .counts{margin-top:14px; font-size:13px; color:var(--faint); line-height:1.55}
@@ -1663,13 +1668,14 @@ function heatmap(year){
       aria-label="What counts">${infoGlyph()}</button></div>`;
 }
 
-/* Drawn rather than set: a letter inside a 17px ring sits wherever the loaded serif
-   happens to put it, which is rarely the middle. */
+/* Drawn rather than set, and drawn as two rules on half-pixel centres with crispEdges,
+   so it is the same mark on every screen instead of whatever the renderer makes of a
+   sub-pixel curve. */
 function infoGlyph(){
-  return `<svg viewBox="0 0 17 17" aria-hidden="true" fill="none" preserveAspectRatio="xMidYMid meet">
-    <circle cx="8.5" cy="8.5" r="7.5" stroke="currentColor" stroke-width="1.25" stroke-opacity=".45"/>
-    <circle cx="8.5" cy="4.85" r="1.35" fill="currentColor"/>
-    <path d="M8.5 7.5v4.8" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>
+  return `<svg viewBox="0 0 11 11" aria-hidden="true" fill="none"
+      preserveAspectRatio="xMidYMid meet" shape-rendering="crispEdges">
+    <path d="M.5 5.5h10" stroke="currentColor" stroke-width="1"/>
+    <path class="info__v" d="M5.5.5v10" stroke="currentColor" stroke-width="1"/>
   </svg>`;
 }
 
