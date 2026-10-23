@@ -241,6 +241,60 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
   position:static; width:auto; margin:40px 0 0; padding-top:14px; border-top:1px solid var(--rule);
 }
 .margin--inline .fn{position:static; width:auto; margin-bottom:11px}
+
+/* The roadmap's pane: this week in words, the month for everything else. Wider than the
+   footnote margin, and it folds under the text when the window cannot spare the room. */
+.rmpane{position:absolute; left:100%; top:78px; width:21rem; margin-left:26px}
+.pane__t{font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); margin-bottom:10px}
+.week{display:grid; gap:1px; background:var(--rule); border:1px solid var(--rule); margin-bottom:30px}
+.wk{display:grid; grid-template-columns:3.1rem 1fr; background:var(--paper); min-height:30px}
+.wk--today{background:var(--blue-wash)}
+.wk__d{
+  font-size:11px; color:var(--faint); padding:7px 0 7px 8px; white-space:nowrap;
+  font-variant-numeric:tabular-nums;
+}
+.wk--today .wk__d{color:var(--blue)}
+.wk__b{font-size:13.5px; line-height:1.35; padding:6px 9px 7px 2px; outline:none; color:var(--ink-2)}
+.wk__b.is-empty::before{content:"—"; color:var(--rule)}
+
+.cal__head{display:flex; align-items:baseline; gap:10px; margin-bottom:10px}
+.cal__m{font-family:var(--display); font-size:21px; color:var(--blue)}
+.cal__nav{margin-left:auto; display:flex; gap:2px}
+.cal__nav button{width:24px; height:24px; border-radius:3px; color:var(--faint); font-size:14px}
+.cal__nav button:hover{background:var(--blue-wash); color:var(--blue)}
+.cal__g{display:grid; grid-template-columns:repeat(7,1fr); gap:1px; background:var(--rule);
+  border:1px solid var(--rule)}
+.cal__g > *{background:var(--paper); min-height:34px; padding:3px 4px}
+.cal__dow{min-height:0; font-size:9px; letter-spacing:.07em; text-transform:uppercase;
+  color:var(--faint); text-align:right; padding-bottom:4px}
+.cal__d{text-align:right; font-size:11.5px; color:var(--ink-2); font-variant-numeric:tabular-nums;
+  cursor:pointer; position:relative}
+.cal__d:hover{background:var(--blue-wash)}
+/* Fade the number, not the cell: opacity on the cell makes its paper translucent and
+   the grid lines show through, which reads as a block of grey. */
+.cal__d--out span{color:#C2BCAB}
+.cal__d--today{background:var(--blue-wash)}
+.cal__d--today span{color:var(--blue)}
+.cal__d--sel{outline:1.5px solid var(--blue); outline-offset:-1.5px}
+.cal__mark{
+  position:absolute; left:4px; right:4px; bottom:4px; height:2px; background:var(--blue);
+  border-radius:1px;
+}
+.pick{margin-top:12px; display:grid; grid-template-columns:4.2rem 1fr; gap:8px; align-items:baseline}
+.pick time{font-size:12px; color:var(--blue); font-variant-numeric:tabular-nums}
+.pick__b{
+  font-size:13.5px; line-height:1.4; outline:none; color:var(--ink-2);
+  border-bottom:1px solid var(--rule); min-height:1.4em;
+}
+.pick__b:focus{border-bottom-color:var(--blue)}
+.pick__b.is-empty::before{content:attr(data-ph); color:var(--faint); font-style:italic}
+
+@media (max-width:1400px){
+  .rmpane{
+    position:static; width:auto; margin:46px 0 0; padding-top:22px;
+    border-top:1px solid var(--rule); max-width:26rem;
+  }
+}
 [contenteditable]{outline:none}
 [contenteditable].is-empty::before{content:attr(data-ph); color:var(--faint); font-style:italic}
 h1[contenteditable].is-empty::before,.pagedeck[contenteditable].is-empty::before{color:rgba(45,144,207,.42); font-style:normal}
@@ -1311,6 +1365,7 @@ const seed = {
 <p>Whether the scaling piece is an essay or a footnote in someone else's.</p>`,
   log: [],
   credited: {},
+  days: {},
   done: {novideo: true},
 };
 
@@ -1352,7 +1407,7 @@ function load(){
     if(raw){
       const d = JSON.parse(raw);
       if(d && Array.isArray(d.ideas) && Array.isArray(d.readings)){
-        d.log ||= []; d.credited ||= {}; d.notes ||= {}; d.done ||= {};
+        d.log ||= []; d.credited ||= {}; d.notes ||= {}; d.days ||= {}; d.done ||= {};
         /* Videos were seeded before anything could mark one, so a notebook saved then
            still carries that count. Drop them once, and leave everything else alone. */
         if(!d.done.novideo){ d.log = d.log.filter(e => e.kind !== "video"); d.done.novideo = true; }
@@ -1583,7 +1638,70 @@ function draftFoot(){
 function viewRoadmap(){
   return `<div class="pagehead"><h1 class="pagetitle">Roadmap</h1></div>
   <div class="rich">${tools()}<div class="prose" contenteditable="true" data-edit="roadmap" data-rich="1"
-    data-ph="What is the whole project for? What ships first, and what is it waiting on?">${data.roadmap}</div></div>`;
+    data-ph="What is the whole project for? What ships first, and what is it waiting on?">${data.roadmap}</div></div>
+  <aside class="rmpane" id="rmpane">${pane()}</aside>`;
+}
+
+const DOW = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const MONTHS = ["January","February","March","April","May","June",
+                "July","August","September","October","November","December"];
+let calOffset = 0, calSel = null;
+
+const isoOf = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const todayD = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
+
+function pane(){ return weekStrip() + monthCal(); }
+
+/* This week in words: seven rows, each one a line you can type straight into. */
+function weekStrip(){
+  const t = todayD();
+  const mon = new Date(t); mon.setDate(t.getDate() - ((t.getDay() + 6) % 7));
+  const rows = DOW.map((name, i) => {
+    const d = new Date(mon); d.setDate(mon.getDate() + i);
+    const key = isoOf(d);
+    return `<div class="wk ${key === isoOf(t) ? "wk--today" : ""}">
+      <span class="wk__d">${name} ${d.getDate()}</span>
+      <span class="wk__b" contenteditable="true" data-edit="day" data-date="${key}"
+        >${esc(data.days[key] || "")}</span></div>`;
+  }).join("");
+  return `<div class="pane__t">This week</div><div class="week">${rows}</div>`;
+}
+
+/* ...and the month for anything further out. Cells are too narrow for the text, so they
+   carry a mark and the day you pick opens a line of its own underneath. */
+function monthCal(){
+  const t = todayD();
+  const ref = new Date(t.getFullYear(), t.getMonth() + calOffset, 1);
+  const y = ref.getFullYear(), mo = ref.getMonth();
+  const lead = (ref.getDay() + 6) % 7;
+  const start = new Date(y, mo, 1 - lead);
+  const weeks = Math.ceil((lead + new Date(y, mo + 1, 0).getDate()) / 7);
+
+  let cells = "";
+  for(let i = 0; i < weeks * 7; i++){
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    const key = isoOf(d);
+    cells += `<div class="cal__d ${d.getMonth() !== mo ? "cal__d--out" : ""} ${
+      key === isoOf(t) ? "cal__d--today" : ""} ${key === calSel ? "cal__d--sel" : ""}"
+      data-day="${key}" title="${data.days[key] ? esc(data.days[key]) : key}">
+      <span>${d.getDate()}</span>${data.days[key] ? `<i class="cal__mark"></i>` : ""}</div>`;
+  }
+
+  const sel = calSel ? new Date(calSel + "T00:00:00") : null;
+  return `<div class="cal__head"><span class="cal__m">${MONTHS[mo].slice(0,3)} ${y}</span>
+      <span class="cal__nav"><button data-cal="-1" aria-label="Previous month">&larr;</button>
+        <button data-cal="1" aria-label="Next month">&rarr;</button></span></div>
+    <div class="cal__g">${DOW.map(d => `<div class="cal__dow">${d[0]}</div>`).join("")}${cells}</div>
+    ${sel ? `<div class="pick"><time>${sel.getDate()} ${MONTHS[sel.getMonth()].slice(0,3)}</time>
+      <span class="pick__b" contenteditable="true" data-edit="day" data-date="${calSel}"
+        data-ph="What happens">${esc(data.days[calSel] || "")}</span></div>` : ""}`;
+}
+
+function renderPane(){
+  const el = $("#rmpane");
+  if(!el) return;
+  el.innerHTML = pane();
+  el.querySelectorAll("[contenteditable]").forEach(markEmpty);
 }
 
 /* Eight buttons for what gets used; everything else is a markdown shortcut. */
@@ -1680,6 +1798,28 @@ const markEmpty = el => el.classList.toggle("is-empty", !el.textContent.trim() &
 function applyEdit(el){
   const [kind, field] = el.dataset.edit.split(".");
   const value = el.dataset.rich === "1" ? el.innerHTML : el.textContent.trim();
+  if(kind === "day"){
+    const key = el.dataset.date;
+    if(value) data.days[key] = value; else delete data.days[key];
+    /*
+     * Never rebuild the pane from inside an edit. The week strip and the month can show
+     * the same day at once, so the other one is nudged in place; redrawing instead
+     * destroys the element being typed into and only the first keystroke survives.
+     */
+    const cell = document.querySelector(`.cal__d[data-day="${key}"]`);
+    if(cell){
+      const mark = cell.querySelector(".cal__mark");
+      if(value && !mark) cell.insertAdjacentHTML("beforeend", '<i class="cal__mark"></i>');
+      if(!value && mark) mark.remove();
+      cell.title = value || key;
+    }
+    document.querySelectorAll(`[data-edit="day"][data-date="${key}"]`).forEach(other => {
+      if(other === el) return;
+      other.textContent = value;
+      markEmpty(other);
+    });
+    save(); return;
+  }
   if(kind === "footnote"){ (data.notes[openIdea] ||= {})[el.dataset.fn] = value; save(); return; }
   if(kind === "draft") data.drafts[openIdea] = value;
   else if(kind === "roadmap") data.roadmap = value;
@@ -2003,6 +2143,15 @@ document.addEventListener("click", e => {
     return render();
   }
   if(e.target.closest("#plus")){ capture = !capture; return render(); }
+  const calNav = e.target.closest("[data-cal]");
+  if(calNav){ calOffset += Number(calNav.dataset.cal); calSel = null; return renderPane(); }
+  const pickDay = e.target.closest("[data-day]");
+  if(pickDay){
+    calSel = calSel === pickDay.dataset.day ? null : pickDay.dataset.day;
+    renderPane();
+    $(".pick__b")?.focus();
+    return;
+  }
   if(e.target.closest("#info")){
     const b = $("#info"), p = $("#counts");
     const open = b.getAttribute("aria-expanded") === "true";
