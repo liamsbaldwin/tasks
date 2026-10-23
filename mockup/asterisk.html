@@ -292,7 +292,7 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 .rmpane{position:absolute; left:100%; top:78px; width:21rem; margin-left:26px}
 .pane__t{font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); margin-bottom:12px}
 .week{
-  display:grid; grid-template-columns:repeat(7,1fr); gap:1px;
+  display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:1px;
   background:var(--rule); border:1px solid var(--rule); margin-bottom:31px;
 }
 .wk{display:flex; flex-direction:column; background:var(--paper); min-height:123px}
@@ -320,6 +320,7 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
    that sizes to its fullest day makes the month jump about as you turn it over. */
 .cal__g{display:grid; grid-template-columns:repeat(7,1fr); gap:1px; background:var(--rule);
   border:1px solid var(--rule); grid-template-rows:auto; grid-auto-rows:78px}
+.cal__g{grid-template-columns:repeat(7,minmax(0,1fr))}
 .cal__g > *{background:var(--paper); padding:6px 6px 7px}
 .cal__dow{min-height:0; font-size:11px; letter-spacing:.08em; text-transform:uppercase;
   color:var(--faint); text-align:right; padding:0 6px 6px}
@@ -333,7 +334,9 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
   color:var(--blue); text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
 .cal__e--more{color:var(--faint)}
-.cal__d:hover{background:linear-gradient(var(--blue-wash), var(--blue-wash)) var(--paper)}
+@media (hover:hover){
+  .cal__d:hover{background:linear-gradient(var(--blue-wash), var(--blue-wash)) var(--paper)}
+}
 /* Fade the writing, not the cell: opacity on the cell makes its paper translucent and
    the grid lines show through, which reads as a block of grey. */
 .cal__d--out .cal__n{color:#C2BCAB}
@@ -361,6 +364,17 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
     margin:46px 0 0; padding-top:22px; border-top:1px solid var(--rule); max-width:none;
   }
   .wk{min-height:104px}
+}
+
+/* A phone gives each day of the week about fifty pixels across, which is not a column
+   you can write a line in — and the names do not shrink, so the seventh day falls off
+   the edge. Across is the wrong way round here: the week goes back to a list, the date
+   at the left and the day's line beside it, each one the width of the screen. */
+@media (max-width:700px){
+  .week{grid-template-columns:minmax(0,1fr); margin-bottom:26px}
+  .wk{flex-direction:row; align-items:baseline; min-height:0}
+  .wk__d{flex:none; width:5.4rem; padding:11px 0 11px 12px; text-align:left}
+  .wk__b{padding:11px 12px 11px 0; min-height:1.4em}
 }
 [contenteditable]{outline:none}
 [contenteditable].is-empty::before{content:attr(data-ph); color:var(--faint); font-style:italic}
