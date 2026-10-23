@@ -13,7 +13,7 @@ import { createServer } from "node:http";
 import { readFile, writeFile, rename } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
-const FILE  = fileURLToPath(new URL("../mockup/marginalia.html", import.meta.url));
+const FILE  = fileURLToPath(new URL("../mockup/asterisk.html", import.meta.url));
 const STATE = process.env.MARGINALIA_STATE
   || fileURLToPath(new URL("../.marginalia-state.json", import.meta.url));
 const PORT  = Number(process.env.PORT) || 4321;

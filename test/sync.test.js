@@ -238,3 +238,90 @@ test("two devices editing at random converge once both have synced", () => {
     }
   }
 });
+
+/* ==================== what the second version added ==================== */
+
+test("footnotes, calendar days and credits merge per record, like everything else", () => {
+  const a = at(100, p => {
+    p.notes = { essay1: { f1: "a note" } };
+    p.days = { "2026-10-23": "Edit §4" };
+    p.credited = { "reading:r1": "2026-05-01" };
+    p.ideas = [idea("essay1", "An essay")];
+    return p;
+  });
+  const b = structuredClone(a);
+  b.days["2026-10-24"] = "Record the intro";              // the phone adds a day
+  const bStamped = stamp(a, b, 200);
+  const aLater = structuredClone(a);
+  aLater.notes.essay1.f2 = "another note";                // the laptop adds a footnote
+  const aStamped = stamp(a, aLater, 300);
+
+  const merged = merge(aStamped, bStamped);
+  assert.deepEqual(merged.notes.essay1, { f1: "a note", f2: "another note" });
+  assert.deepEqual(Object.keys(merged.days).sort(), ["2026-10-23", "2026-10-24"]);
+  assert.equal(merged.credited["reading:r1"], "2026-05-01");
+});
+
+test("the same day written on both devices: the later writing wins", () => {
+  const base = at(100, p => { p.days = { "2026-10-23": "first" }; return p; });
+  const x = stamp(base, { ...structuredClone(base), days: { "2026-10-23": "from the laptop" } }, 200);
+  const y = stamp(base, { ...structuredClone(base), days: { "2026-10-23": "from the phone" } }, 300);
+  assert.equal(merge(x, y).days["2026-10-23"], "from the phone");
+  assert.equal(merge(y, x).days["2026-10-23"], "from the phone");
+});
+
+test("clearing a day removes it rather than leaving a blank", () => {
+  const before = at(100, p => { p.days = { "2026-10-23": "something" }; return p; });
+  const after = stamp(before, { ...structuredClone(before), days: {} }, 200);
+  assert.equal(after.tombs[keyOf.day("2026-10-23")], 200);
+  const merged = merge(after, before);
+  assert.equal("2026-10-23" in merged.days, false);
+});
+
+test("the log is a tally: the bigger count of each day and kind wins", () => {
+  const a = normalise({ log: [{ d: "2026-10-20", kind: "reading" }, { d: "2026-10-20", kind: "reading" }] });
+  const b = normalise({ log: [{ d: "2026-10-20", kind: "reading" }, { d: "2026-10-21", kind: "essay" }] });
+  const m = merge(a, b);
+  assert.equal(m.log.filter(e => e.d === "2026-10-20").length, 2);   // not three, not one
+  assert.equal(m.log.filter(e => e.d === "2026-10-21").length, 1);
+  assert.deepEqual(merge(b, a).log, m.log);                          // and either way round
+});
+
+test("the log survives a round of syncing without growing", () => {
+  const a = normalise({ log: [{ d: "2026-10-20", kind: "reading" }] });
+  assert.deepEqual(merge(merge(a, a), a).log, a.log);
+});
+
+test("junk in the log is dropped, not carried about", () => {
+  const n = normalise({ log: [null, { d: "2026-10-20" }, { kind: "reading" }, { d: "x", kind: "nonsense" },
+                               { d: "2026-10-20", kind: "essay" }] });
+  assert.deepEqual(n.log, [{ d: "2026-10-20", kind: "essay" }]);
+});
+
+test("footnotes do not outlive the essay they belong to", () => {
+  const before = at(100, p => {
+    p.ideas = [idea("a", "A")];
+    p.drafts = { a: "<p>words</p>" };
+    p.notes = { a: { f1: "a note" } };
+    return p;
+  });
+  const after = stamp(before, { ...structuredClone(before), ideas: [] }, 200);
+  const merged = merge(after, before);
+  assert.deepEqual(merged.ideas, []);
+  assert.equal("a" in merged.notes, false);
+  assert.equal("a" in merged.drafts, false);
+});
+
+test("sameContent notices a calendar entry, a footnote or a credit", () => {
+  const base = normalise({ ideas: [idea("a", "A")] });
+  for (const change of [
+    p => { p.days = { "2026-10-23": "x" }; },
+    p => { p.notes = { a: { f1: "x" } }; },
+    p => { p.credited = { "essay:a": "2026-10-23" }; },
+    p => { p.log = [{ d: "2026-10-23", kind: "essay" }]; },
+  ]) {
+    const other = structuredClone(base);
+    change(other);
+    assert.equal(sameContent(base, other), false);
+  }
+});

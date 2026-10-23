@@ -22,11 +22,16 @@ export const keyOf = {
   idea:    id => `idea:${id}`,
   reading: id => `reading:${id}`,
   draft:   id => `draft:${id}`,
+  note:    id => `note:${id}`,          // the footnotes of one essay
+  day:     iso => `day:${iso}`,         // one square of the calendar
+  credit:  k => `credit:${k}`,          // "this reading has been counted"
   roadmap: () => "roadmap",
 };
 
 export function emptyPayload() {
-  return { ideas: [], readings: [], drafts: {}, roadmap: "", mtimes: {}, ctimes: {}, tombs: {} };
+  return { ideas: [], readings: [], drafts: {}, roadmap: "",
+           notes: {}, days: {}, credited: {}, log: [],
+           mtimes: {}, ctimes: {}, tombs: {} };
 }
 
 /**
@@ -51,6 +56,10 @@ export function normalise(p) {
     readings: Array.isArray(p.readings) ? clone(p.readings.filter(x => x && x.id)) : e.readings,
     drafts:   p.drafts   && typeof p.drafts === "object"   ? clone(p.drafts) : e.drafts,
     roadmap:  typeof p.roadmap === "string" ? p.roadmap : e.roadmap,
+    notes:    p.notes    && typeof p.notes    === "object" ? clone(p.notes) : e.notes,
+    days:     p.days     && typeof p.days     === "object" ? clone(p.days)  : e.days,
+    credited: p.credited && typeof p.credited === "object" ? clone(p.credited) : e.credited,
+    log:      Array.isArray(p.log) ? countLog(p.log) : e.log,
     mtimes:   p.mtimes   && typeof p.mtimes === "object"   ? { ...p.mtimes } : e.mtimes,
     ctimes:   p.ctimes   && typeof p.ctimes === "object"   ? { ...p.ctimes } : e.ctimes,
     tombs:    p.tombs    && typeof p.tombs  === "object"   ? { ...p.tombs }  : e.tombs,
@@ -72,10 +81,50 @@ export function normalise(p) {
 const sortKeys = o => Object.fromEntries(Object.entries(o).sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0)));
 function canonical(p) {
   p.drafts = sortKeys(p.drafts);
+  p.notes = sortKeys(p.notes);
+  p.days = sortKeys(p.days);
+  p.credited = sortKeys(p.credited);
+  p.log = countLog(p.log);
   p.mtimes = sortKeys(p.mtimes);
   p.ctimes = sortKeys(p.ctimes);
   p.tombs  = sortKeys(p.tombs);
   return p;
+}
+
+/**
+ * The log is a tally, not a list of things: an entry is a date and a kind, and two of
+ * them on the same day are indistinguishable. So it is neither a record nor a set —
+ * merging takes whichever side counted more of each, which is right whether the other
+ * device has not heard about yesterday's reading yet or has already heard about both.
+ */
+const LOG_KINDS = new Set(["reading", "essay", "video"]);
+function countLog(log) {
+  const counts = new Map();
+  for (const e of log) {
+    if (!e || typeof e.d !== "string" || !LOG_KINDS.has(e.kind)) continue;
+    const k = `${e.d}|${e.kind}`;
+    counts.set(k, (counts.get(k) || 0) + 1);
+  }
+  const out = [];
+  for (const k of [...counts.keys()].sort()) {
+    const [d, kind] = k.split("|");
+    for (let n = 0; n < counts.get(k); n++) out.push({ d, kind });
+  }
+  return out;
+}
+
+function mergeLogs(a, b) {
+  const count = log => {
+    const m = new Map();
+    for (const e of log) m.set(`${e.d}|${e.kind}`, (m.get(`${e.d}|${e.kind}`) || 0) + 1);
+    return m;
+  };
+  const ca = count(a), cb = count(b), out = [];
+  for (const k of [...new Set([...ca.keys(), ...cb.keys()])].sort()) {
+    const [d, kind] = k.split("|");
+    for (let n = 0; n < Math.max(ca.get(k) || 0, cb.get(k) || 0); n++) out.push({ d, kind });
+  }
+  return out;
 }
 
 /** The content of every record, flattened to one map, so two payloads can be compared. */
@@ -84,6 +133,9 @@ function records(p) {
   for (const i of p.ideas)    out.set(keyOf.idea(i.id), i);
   for (const r of p.readings) out.set(keyOf.reading(r.id), r);
   for (const [id, html] of Object.entries(p.drafts)) out.set(keyOf.draft(id), html);
+  for (const [id, notes] of Object.entries(p.notes)) out.set(keyOf.note(id), notes);
+  for (const [iso, text] of Object.entries(p.days)) out.set(keyOf.day(iso), text);
+  for (const [k, when] of Object.entries(p.credited)) out.set(keyOf.credit(k), when);
   out.set(keyOf.roadmap(), p.roadmap);
   return out;
 }
@@ -167,8 +219,12 @@ export function merge(aRaw, bRaw) {
     if (Number.isFinite(ctime)) out.ctimes[key] = ctime;
     if (!live) { delete out.mtimes[key]; continue; }
     if (key === keyOf.roadmap()) out.roadmap = typeof value === "string" ? value : "";
-    else if (key.startsWith("draft:")) out.drafts[key.slice(6)] = value;
+    else if (key.startsWith("draft:"))  out.drafts[key.slice(6)] = value;
+    else if (key.startsWith("note:"))   out.notes[key.slice(5)] = value;
+    else if (key.startsWith("day:"))    out.days[key.slice(4)] = value;
+    else if (key.startsWith("credit:")) out.credited[key.slice(7)] = value;
   }
+  out.log = mergeLogs(a.log, b.log);
 
   // Lists run in creation order, which both devices compute identically — otherwise the
   // same notebook reads in a different order on the phone than on the laptop.
@@ -190,22 +246,26 @@ export function merge(aRaw, bRaw) {
   out.ideas    = listOf("idea", "ideas");
   out.readings = listOf("reading", "readings");
 
-  // A draft belongs to an idea; when the idea goes, so does it.
+  // A draft belongs to an idea; when the idea goes, so do its draft and its footnotes.
   const ids = new Set(out.ideas.map(i => i.id));
-  for (const id of Object.keys(out.drafts)) {
-    if (!ids.has(id)) {
-      delete out.drafts[id];
-      delete out.mtimes[keyOf.draft(id)];
-      delete out.ctimes[keyOf.draft(id)];
+  const orphan = (map, key) => {
+    for (const id of Object.keys(map)) {
+      if (ids.has(id)) continue;
+      delete map[id];
+      delete out.mtimes[key(id)];
+      delete out.ctimes[key(id)];
     }
-  }
+  };
+  orphan(out.drafts, keyOf.draft);
+  orphan(out.notes, keyOf.note);
   return canonical(out);
 }
 
 /** True when the two payloads hold the same notebook, timestamps aside. */
 export function sameContent(a, b) {
   const strip = p => { const n = normalise(p); return JSON.stringify({
-    ideas: n.ideas, readings: n.readings, drafts: n.drafts, roadmap: n.roadmap }); };
+    ideas: n.ideas, readings: n.readings, drafts: n.drafts, roadmap: n.roadmap,
+    notes: n.notes, days: n.days, credited: n.credited, log: n.log }); };
   return strip(a) === strip(b);
 }
 

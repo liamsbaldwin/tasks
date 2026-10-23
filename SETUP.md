@@ -86,6 +86,31 @@ full-screen with no browser chrome, like an app.
 If a browser has no key, the page still loads and works — it just runs on its own local
 copy, and the corner says **No key**.
 
+## Moving up from the first version
+
+Nothing to do: the second version reads what the first one left, both in the browser
+and on the server.
+
+- **In the browser.** The first version kept its notebook under `marginalia.v2`. The
+  second reads that key once, converts it, and writes its own. The old key is never
+  written to or deleted — if the conversion gets anything wrong, the original is still
+  there.
+- **On the server.** The same conversion runs on whatever the server hands back, so the
+  notebook you already have on Cloudflare comes up as it is, converted in flight.
+- **What changes.** An idea's `blurb` becomes its one-line dek and `essay.deck` its
+  subtitle; a reading's plain-text `summary` becomes a note, split into paragraphs at
+  blank lines. The old fields are left on the records rather than deleted, so the copy
+  on the server stays readable by the first version.
+- **What does not come across.** The first version kept no record of when anything was
+  written, so the tracker starts from the day you move. Work already long enough to
+  count is marked as counted, but nothing is back-dated — a year of writing all stamped
+  with today would be a lie the tracker would repeat every year.
+
+The payload grew with the page: footnotes, the calendar and the tracker's log sync too,
+each by the same per-record rule. The log is the exception — it is a tally, so merging
+takes whichever device counted more of each day and kind, which is right whether the
+other device has not heard about yesterday yet or has already heard about both.
+
 ## What the indicator in the corner means
 
 | | |
