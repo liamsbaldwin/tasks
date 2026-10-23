@@ -95,6 +95,17 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 /* Progress is a chart, not prose: it gets the wider measure so a year of days can be
    read at a glance. Still centred on the same axis as every other page. */
 .page--prog .page__in{max-width:52rem}
+/* The roadmap is the one page with a working column beside the text, so the pair is
+   centred rather than the prose alone: the text sits left of centre and the pane takes
+   the room that was margin. */
+.page--road{padding-left:calc(var(--rail) + 26px)}
+.page--road .page__in{
+  max-width:74rem;
+  display:grid; grid-template-columns:minmax(0,42rem) minmax(0,1fr); gap:0 46px;
+}
+.page--road .pagehead{grid-column:1; grid-row:1}
+.page--road .rich{grid-column:1; grid-row:2}
+.page--road .rmpane{grid-column:2; grid-row:1 / span 2; position:static; width:auto; margin:0}
 
 .pagehead{margin-bottom:38px}
 .headrow{display:flex; align-items:flex-start; justify-content:space-between; gap:24px; flex-wrap:wrap}
@@ -246,28 +257,33 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
    footnote margin, and it folds under the text when the window cannot spare the room. */
 .rmpane{position:absolute; left:100%; top:78px; width:21rem; margin-left:26px}
 .pane__t{font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); margin-bottom:10px}
-.week{display:grid; gap:1px; background:var(--rule); border:1px solid var(--rule); margin-bottom:30px}
-.wk{display:grid; grid-template-columns:3.1rem 1fr; background:var(--paper); min-height:30px}
+.week{
+  display:grid; grid-template-columns:repeat(7,1fr); gap:1px;
+  background:var(--rule); border:1px solid var(--rule); margin-bottom:34px;
+}
+.wk{display:flex; flex-direction:column; background:var(--paper); min-height:132px}
 .wk--today{background:var(--blue-wash)}
 .wk__d{
-  font-size:11px; color:var(--faint); padding:7px 0 7px 8px; white-space:nowrap;
-  font-variant-numeric:tabular-nums;
+  font-size:10.5px; color:var(--faint); padding:6px 7px 0; white-space:nowrap;
+  font-variant-numeric:tabular-nums; text-align:right;
 }
 .wk--today .wk__d{color:var(--blue)}
-.wk__b{font-size:13.5px; line-height:1.35; padding:6px 9px 7px 2px; outline:none; color:var(--ink-2)}
-.wk__b.is-empty::before{content:"—"; color:var(--rule)}
+.wk__b{
+  flex:1; font-size:12.5px; line-height:1.35; padding:5px 7px 8px; outline:none;
+  color:var(--ink-2); overflow-wrap:anywhere;
+}
 
 .cal__head{display:flex; align-items:baseline; gap:10px; margin-bottom:10px}
-.cal__m{font-family:var(--display); font-size:21px; color:var(--blue)}
+.cal__m{font-family:var(--display); font-size:23px; color:var(--blue)}
 .cal__nav{margin-left:auto; display:flex; gap:2px}
 .cal__nav button{width:24px; height:24px; border-radius:3px; color:var(--faint); font-size:14px}
 .cal__nav button:hover{background:var(--blue-wash); color:var(--blue)}
 .cal__g{display:grid; grid-template-columns:repeat(7,1fr); gap:1px; background:var(--rule);
   border:1px solid var(--rule)}
-.cal__g > *{background:var(--paper); min-height:34px; padding:3px 4px}
-.cal__dow{min-height:0; font-size:9px; letter-spacing:.07em; text-transform:uppercase;
-  color:var(--faint); text-align:right; padding-bottom:4px}
-.cal__d{text-align:right; font-size:11.5px; color:var(--ink-2); font-variant-numeric:tabular-nums;
+.cal__g > *{background:var(--paper); min-height:64px; padding:4px 6px}
+.cal__dow{min-height:0; font-size:9.5px; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--faint); text-align:right; padding-bottom:5px}
+.cal__d{text-align:right; font-size:12.5px; color:var(--ink-2); font-variant-numeric:tabular-nums;
   cursor:pointer; position:relative}
 .cal__d:hover{background:var(--blue-wash)}
 /* Fade the number, not the cell: opacity on the cell makes its paper translucent and
@@ -277,7 +293,7 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 .cal__d--today span{color:var(--blue)}
 .cal__d--sel{outline:1.5px solid var(--blue); outline-offset:-1.5px}
 .cal__mark{
-  position:absolute; left:4px; right:4px; bottom:4px; height:2px; background:var(--blue);
+  position:absolute; left:6px; right:6px; bottom:6px; height:2px; background:var(--blue);
   border-radius:1px;
 }
 .pick{margin-top:12px; display:grid; grid-template-columns:4.2rem 1fr; gap:8px; align-items:baseline}
@@ -287,13 +303,15 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
   border-bottom:1px solid var(--rule); min-height:1.4em;
 }
 .pick__b:focus{border-bottom-color:var(--blue)}
-.pick__b.is-empty::before{content:attr(data-ph); color:var(--faint); font-style:italic}
 
-@media (max-width:1400px){
-  .rmpane{
-    position:static; width:auto; margin:46px 0 0; padding-top:22px;
-    border-top:1px solid var(--rule); max-width:26rem;
+
+@media (max-width:1240px){
+  .page--road{padding-left:var(--gutter)}
+  .page--road .page__in{display:block; max-width:var(--column)}
+  .page--road .rmpane{
+    margin:46px 0 0; padding-top:22px; border-top:1px solid var(--rule);
   }
+  .wk{min-height:104px}
 }
 [contenteditable]{outline:none}
 [contenteditable].is-empty::before{content:attr(data-ph); color:var(--faint); font-style:italic}
@@ -1694,7 +1712,7 @@ function monthCal(){
     <div class="cal__g">${DOW.map(d => `<div class="cal__dow">${d[0]}</div>`).join("")}${cells}</div>
     ${sel ? `<div class="pick"><time>${sel.getDate()} ${MONTHS[sel.getMonth()].slice(0,3)}</time>
       <span class="pick__b" contenteditable="true" data-edit="day" data-date="${calSel}"
-        data-ph="What happens">${esc(data.days[calSel] || "")}</span></div>` : ""}`;
+        >${esc(data.days[calSel] || "")}</span></div>` : ""}`;
 }
 
 function renderPane(){
@@ -1725,6 +1743,7 @@ function render(){
   const page = $("#page");
   page.classList.toggle("page--draft", view === "draft");
   page.classList.toggle("page--prog", view === "progress");
+  page.classList.toggle("page--road", view === "roadmap");
   $("#view").innerHTML =
       view === "sources" && openSource ? viewSource()
     : view === "sources"  ? viewSources()
