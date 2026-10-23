@@ -235,10 +235,12 @@ h1[contenteditable].is-empty::before,.pagedeck[contenteditable].is-empty::before
 }
 .draftfoot__in{
   max-width:var(--column); margin-inline:auto; display:flex; justify-content:space-between;
-  gap:14px; align-items:center; font-size:14px; color:var(--faint);
+  gap:16px; align-items:center; font-size:14px; color:var(--faint);
   font-variant-numeric:tabular-nums;
 }
-.tick{flex:1; max-width:220px; height:3px; background:var(--paper-2)}
+.stagebtn{color:var(--blue); white-space:nowrap}
+.stagebtn:hover{text-decoration:underline; text-underline-offset:3px}
+.tick{flex:1; height:3px; background:var(--paper-2)}
 .tick span{display:block; height:100%; background:var(--blue)}
 
 .foot{margin-top:40px; padding-top:14px; border-top:1px solid var(--rule); display:flex; justify-content:space-between; gap:14px; font-size:14px; color:var(--faint)}
@@ -1157,6 +1159,17 @@ const KIND = {book:"Book", paper:"Paper", essay:"Essay", talk:"Talk"};
 /* What earns a mark on the calendar. Filing a source is not work; finishing one is. */
 const READING_WORDS = 500, ESSAY_WORDS = 1500;
 
+const WORD_RE = /[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu;
+function words(html){
+  if(!html) return 0;
+  const box = document.createElement("div");
+  box.innerHTML = html;
+  const f = box.querySelectorAll(".math");
+  const n = f.length;
+  f.forEach(x => x.remove());
+  return ((box.textContent || "").match(WORD_RE) || []).length + n;
+}
+
 const seed = {
   ideas: [
     {id:"legibility", title:"The Cost of Legibility", stage:"drafting",
@@ -1213,6 +1226,38 @@ const seed = {
      venue:"Cambridge University Press", ideas:["tendays"], status:"reading", note:""},
   ],
   drafts: {
+    maps:`<h2>1 · The survey that outlived the ground</h2>
+<p>There is a moment in the life of every model when it stops being checked. Not formally — nobody announces it — but the people who used to walk the ground retire, the budget for walking it is reallocated, and the model becomes the only record anyone consults. After that the model is not a description of the territory. It is the territory, for every practical purpose, because every decision that touches the territory is made by reading it.</p>
+<p>The Ordnance Survey called the problem <i>revision</i>, and treated it as the expensive half of mapping. A first survey is a finite job. Keeping it true is an unbounded one, and it is the part that gets cut.</p>
+<h2>2 · Three ways a map stops being checked</h2>
+<p>The first is cost. Ground truth is slow, and its value is invisible until it is missing. A re-survey that finds nothing looks like money wasted; a re-survey that finds something looks like money wasted on a map that was wrong. Both readings argue against doing it again.</p>
+<p>The second is circularity. Once a model is good enough to act on, the actions are taken where the model says to take them, and the evidence that comes back is evidence about the places the model pointed at. A risk score that sends inspectors to certain buildings will be confirmed by what the inspectors find in those buildings. Nothing about that loop is dishonest, and nothing in it can discover that the score was wrong about anywhere else.</p>
+<blockquote>The map is not the territory, but after enough years the territory is surveyed only where the map says to look.</blockquote>
+<p>The third is that the map becomes load-bearing. Other systems are built on top of it — addresses, titles, routes, entitlements — and each of those raises the cost of admitting an error. A wrong boundary on a cadastral map is a nuisance in year one and a legal catastrophe in year forty, because forty years of transactions now depend on it. The rational move, for everyone individually, is to leave it alone.</p>
+<h2>3 · The Argentine land registry</h2>
+<p>The cleanest case I know is not a map at all but a registry. In the 1980s a group of squatters outside Buenos Aires occupied adjacent parcels of equivalent land. Some of the owners accepted the state's compensation and title passed; others litigated for years, and those parcels stayed off the register. The families were comparable at the start and the land was the same land.</p>
+<p>What followed is usually told as a story about property rights — titled families invested more, built better houses, had fewer children, and their children stayed in school longer. That is true, and it is not the part that interests me. The part that interests me is that the register, which began as a description of who was already living where, became the thing that determined who could borrow, who could build, and in the end who stayed. It stopped describing the settlement and started producing it.</p>
+<p>A description that changes its subject is not thereby false. It is something else: an instrument. The failure is not in using it, but in continuing to read it as a description once it has become one.</p>
+<h2>4 · What a live map costs</h2>
+<p>Organisations that keep a model honest all seem to pay in the same currency, which is deliberate, structured disagreement with themselves. They sample where the model is confident, not only where it is uncertain. They keep a channel for reports that contradict the record and give it to someone whose job is not threatened by what comes through it. They re-measure things that have not changed, on the grounds that the only way to know a thing has not changed is to look.</p>
+<p>None of this is clever. All of it is expensive, and all of it looks like waste in any quarter where it finds nothing. That is why it is the first thing cut, and why the question worth asking about any long-lived model is not whether it was accurate when it was built, but who is still paid to find out that it is wrong.</p>
+<h2>5 · The honest version of the claim</h2>
+<p>I want to resist the easy conclusion, which is that models are traps and ground truth is virtue. Ground truth is also a measurement, taken by someone, with instruments and a budget and a theory about what is worth recording. There is no view from nowhere underneath the map — there is only a second map, made differently, which is exactly why it is useful to have one.</p>
+<p>So the claim is narrower than it first appears. Not that the map becomes the territory, which is a slogan, but that the <i>checking</i> stops, which is a decision, made by people, usually for reasons that were defensible at the time and were never revisited. The slogan makes it sound like a law of representation. It is a line in a budget.</p>
+<p>Which means it is reversible. Someone can be paid to walk the ground again. That is the whole of the practical content of this essay, and it is worth more than the epistemology around it.</p>`,
+    tendays:`<h2>1 · The decree</h2>
+<p>On 5 October 1793 the French Republic abolished the week. The new calendar had twelve months of three ten-day <i>décades</i>, with five spare days at the end of the year, and it was not a whim: it was continuous with the metre and the gram, an attempt to put time on a decimal footing alongside everything else being rationalised.</p>
+<p>It lasted twelve years. The metre did not.</p>
+<h2>2 · What actually broke</h2>
+<p>The usual explanation is religion — the ten-day week moved the rest day from one in seven to one in ten, and the Church fought it. That is true and it is not sufficient, because the calendar also failed in places where the Church had already lost.</p>
+<p>The better explanation is coordination. Market days ran on the seven-day cycle, and a market is not a habit but a meeting: it only works if everyone arrives on the same day. Wages were reckoned weekly. Fairs, coach timetables and the rhythms of neighbouring countries all ran on the old count, and a merchant in Lille who went decimal simply stopped meeting the buyers he needed.</p>
+<blockquote>The week is the only major unit of time with no astronomical anchor. It is purely social — which is exactly why it proved unbudgeable.</blockquote>
+<p>Zerubavel's point generalises. The units that nature imposes can be redefined by decree, because nature will keep supplying the referent. The units people merely agree on cannot, because the agreement <i>is</i> the referent, and a decree that changes it unilaterally destroys the only thing that made it useful.</p>
+<h2>3 · Why this is the cheap case</h2>
+<p>I am using the Republican calendar because the counterfactual is unusually clean. The same government, in the same decade, with the same ideology and the same enforcement, succeeded at metrication and failed at the week. The variable that differs is not state capacity or public enthusiasm. It is whether the unit coordinates people with each other or with the world.</p>
+<p>That gives a test worth carrying into other cases: before predicting that a standard will take, ask what it is anchored to. If the answer is a measurement, a determined state can move it. If the answer is everybody else, it cannot — and the harder it pushes, the more expensive it becomes for the first person to comply.</p>
+<h2>4 · Still to write</h2>
+<p>A paragraph on Soviet <i>nepreryvka</i>, the continuous work week of 1929, which staggered rest days across a five-day cycle so factories never stopped. It failed for the same reason in a sharper form: families stopped sharing days off. Same mechanism, better documented, and it took four years rather than twelve.</p>`,
     legibility:`<h2>1 · The forest that was counted to death</h2>
 <p>In the late eighteenth century, Prussian and Saxon foresters set out to solve a problem that sounds purely administrative: nobody knew how much timber the crown owned. What followed is the cleanest example I know of a measurement project that changed the thing it measured.</p>
 <blockquote>Scientific forestry produced a forest that was easier to count and, within a century, one that was dying.</blockquote>
@@ -1246,6 +1291,20 @@ function seedLog(){
   return out.filter(e => e.d.startsWith(String(new Date().getFullYear())));
 }
 seed.log = seedLog();
+
+/* Anything the sample notebook already has written is credited in the past, or the
+   first load would stamp a year of old work onto today. */
+(function creditSeed(){
+  const back = new Date();
+  back.setDate(back.getDate() - 120);
+  const when = back.toISOString().slice(0, 10);
+  for(const [id, html] of Object.entries(seed.drafts)){
+    if(words(html) >= ESSAY_WORDS) seed.credited["essay:" + id] = when;
+  }
+  for(const r of seed.readings){
+    if(words(r.note) >= READING_WORDS) seed.credited["reading:" + r.id] = when;
+  }
+})();
 
 const STORE = "marginalia.quarterly.v2";
 let data = load();
@@ -1305,16 +1364,6 @@ let view = "contents", openSource = null, openIdea = "legibility", capture = fal
 
 const byIdea = id => data.readings.filter(r => r.ideas.includes(id));
 const readN = id => byIdea(id).filter(r => r.status === "read").length;
-const WORD_RE = /[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu;
-function words(html){
-  if(!html) return 0;
-  const box = document.createElement("div");
-  box.innerHTML = html;
-  const f = box.querySelectorAll(".math");
-  const n = f.length;
-  f.forEach(x => x.remove());
-  return ((box.textContent || "").match(WORD_RE) || []).length + n;
-}
 
 /* ---------- menu ---------- */
 const PAGES = [["contents","Contents"], ["sources","Sources"], ["progress","Progress"],
@@ -1472,9 +1521,10 @@ function draftFoot(){
   const i = data.ideas.find(x => x.id === openIdea) || data.ideas[0];
   const w = words(data.drafts[i.id] || "");
   return `<div class="draftfoot"><div class="draftfoot__in">
-    <span>${STAGES[i.stage]}</span>
-    <span class="tick"><span id="tickfill" style="width:${Math.min(100, w / ESSAY_WORDS * 100)}%"></span></span>
-    <span><span id="wordnow">${w.toLocaleString()}</span> words</span>
+    <button class="stagebtn" data-stage title="Click to move it on">${STAGES[i.stage]}</button>
+    <span class="tick" title="Against the ${ESSAY_WORDS.toLocaleString()} words an essay is counted at"
+      ><span id="tickfill" style="width:${Math.min(100, w / ESSAY_WORDS * 100)}%"></span></span>
+    <span><span id="wordnow">${w.toLocaleString()}</span> <span id="wordlabel">${w === 1 ? "word" : "words"}</span></span>
   </div></div>`;
 }
 
@@ -1553,8 +1603,9 @@ document.addEventListener("input", e => {
   applyEdit(el);
   if(el.dataset.edit === "draft"){
     const w = words(el.innerHTML);
-    const n = $("#wordnow"), f = $("#tickfill");
+    const n = $("#wordnow"), f = $("#tickfill"), l = $("#wordlabel");
     if(n) n.textContent = w.toLocaleString();
+    if(l) l.textContent = w === 1 ? "word" : "words";
     if(f) f.style.width = Math.min(100, w / ESSAY_WORDS * 100) + "%";
   }
 });
@@ -1821,6 +1872,12 @@ document.addEventListener("click", e => {
     return render();
   }
   if(e.target.closest("#plus")){ capture = !capture; return render(); }
+  if(e.target.closest("[data-stage]")){
+    const order = Object.keys(STAGES);
+    const i = data.ideas.find(x => x.id === openIdea);
+    if(i){ i.stage = order[(order.indexOf(i.stage) + 1) % order.length]; save(); render(); }
+    return;
+  }
   const del = e.target.closest("[data-del]");
   if(del){
     const i = data.readings.findIndex(r => r.id === del.dataset.del);
