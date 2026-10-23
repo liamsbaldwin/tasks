@@ -234,9 +234,22 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 .cell[data-l="4"]{background:var(--blue)}
 .cell--none{background:none}
 /* Today: a ring rather than a fill, so it cannot be mistaken for a day's work. Half a
-   pixel of full-strength blue — on a phone that is a fine, definite line, and on a
-   one-to-one screen the renderer softens it to about the weight it had before. */
-.cell--today{box-shadow:0 0 0 .5px var(--blue)}
+   pixel of full-strength blue, drawn as a one-pixel border on a box twice the cell's size
+   and scaled down by half. A half-pixel shadow spread breaks up in Safari on a cell of
+   fractional size (stubs on the sides, nothing top and bottom), and a half-pixel border
+   is rounded up to a whole pixel in Chrome; a scaled border is the same everywhere. */
+.cell--today{position:relative}
+.cell--today::after{
+  content:""; position:absolute; left:0; top:0; width:200%; height:200%;
+  border:1px solid var(--blue); border-radius:4px;
+  transform:scale(.5); transform-origin:0 0; pointer-events:none;
+}
+/* A one-to-one screen has no half pixel to draw, and the scaled border smears across
+   two; a whole pixel at half strength is the same weight, and sharp. */
+@media (max-resolution:1.5dppx){
+  .cell--today::after{display:none}
+  .cell--today{box-shadow:0 0 0 1px rgba(45,144,207,.5)}
+}
 /* Baseline, not centre: the plus at the end of this row is a character, and a
    character belongs on the same baseline as the words beside it. The swatches are
    not characters, so they keep to the middle. */
