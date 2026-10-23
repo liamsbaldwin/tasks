@@ -157,6 +157,8 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
   border-left:2px solid #B3402F; padding:2px 0 2px 14px; margin:14px 0 0;
   font-size:15px; color:var(--ink-2);
 }
+.warn a{color:var(--blue)}
+.pasted{margin-top:8px; font-size:14px; color:var(--faint); word-break:break-all}
 
 /* ============ progress ============ */
 .figs{display:flex; gap:0; border:1px solid var(--rule); border-radius:3px; overflow:hidden; flex:none}
@@ -1405,7 +1407,7 @@ function viewSources(){
     <div class="row">
       <button class="del" data-del="${r.id}" aria-label="Delete ${esc(r.title || "this source")}">×</button>
       <button style="display:block;width:100%;text-align:left" data-src="${r.id}">
-        <span class="src__t">${r.title ? esc(r.title) : "<em>Untitled — open it and fill it in</em>"}</span>
+        <span class="src__t">${esc(r.title || r.doi || r.pasted || "Untitled — open it and fill it in")}</span>
         <span class="src__b">${r.authors.length ? r.authors.map(esc).join(" & ") : "No author yet"} · ${esc(r.venue || "")}</span>
         <span class="row__m"><b>${r.needsReview ? "Needs checking"
           : r.status === "read" ? "Read" : r.status === "reading" ? "Reading" : "Queued"}</b>
@@ -1447,11 +1449,14 @@ function heatmap(year){
   const start = new Date(jan1);
   start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7));   // back to Monday
 
+  // The first and last weeks spill into the neighbouring years. Those days are drawn
+  // like any other, so the block is a clean rectangle; they just do not count toward
+  // this year's tally, and the month labels ignore them.
   const weeks = [];
   for(let d = new Date(start); d <= dec31; ){
     const week = [];
     for(let i = 0; i < 7; i++){
-      week.push(d < jan1 || d > dec31 ? null : iso(d));
+      week.push({d: iso(d), inYear: d >= jan1 && d <= dec31});
       d.setUTCDate(d.getUTCDate() + 1);
     }
     weeks.push(week);
@@ -1461,9 +1466,9 @@ function heatmap(year){
   const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   let lastMonth = -1;
   const months = weeks.map(w => {
-    const first = w.find(Boolean);
+    const first = w.find(c => c.inYear);
     if(!first) return "<span></span>";
-    const m = Number(first.slice(5, 7)) - 1;
+    const m = Number(first.d.slice(5, 7)) - 1;
     if(m === lastMonth) return "<span></span>";
     lastMonth = m;
     return `<span>${MONTHS[m]}</span>`;
@@ -1471,10 +1476,9 @@ function heatmap(year){
 
   const level = n => !n ? 0 : n >= 4 ? 4 : n;
   const rows = Array.from({length: 7}, (_, r) => weeks.map(w => w[r]));
-  const cells = rows.flat().map(day => day === null
-    ? `<span class="cell" style="background:none"></span>`
-    : `<span class="cell" data-l="${level(counts[day] || 0)}" title="${day}${
-        counts[day] ? ` — ${counts[day]} logged` : ""}"></span>`).join("");
+  const cells = rows.flat().map(c =>
+    `<span class="cell" data-l="${level(counts[c.d] || 0)}" title="${c.d}${
+      counts[c.d] ? ` — ${counts[c.d]} logged` : ""}"></span>`).join("");
 
   const DAYS = ["Mon","","Wed","","Fri","",""];
   return `<div class="heat__grid" style="--n:${n}">
@@ -1497,8 +1501,15 @@ function viewSource(){
     <p class="pagedeck" contenteditable="true" data-edit="reading.venueline"
        data-ph="Where, and when">${esc([r.venue, r.year].filter(Boolean).join(", "))}</p>
   </div>
-  ${r.needsReview ? `<p class="warn">This one could not be looked up. The fields above are
-    editable — fill in what it is and the warning goes away.</p>` : ""}
+  ${r.needsReview ? `<p class="warn">${r.offline
+      ? "This page has no outbound network, so it could not look anything up."
+      : "Looked it up and could not identify it."}
+    Every field above is editable — fill it in and this goes away.${
+      sourceLink(r) ? ` <a href="${esc(sourceLink(r))}" target="_blank" rel="noopener">Open ${
+        r.doi ? "the DOI" : "the link"}</a> to read it off the page.` : ""}</p>
+    ${r.doi || r.arxiv || r.jstor || r.pasted ? `<p class="pasted">${esc(
+      r.doi ? "DOI " + r.doi : r.arxiv ? "arXiv " + r.arxiv
+      : r.jstor ? "JSTOR " + r.jstor : r.pasted)}</p>` : ""}` : ""}
   <div class="rich">${tools()}<div class="prose" contenteditable="true" data-edit="reading.note" data-rich="1"
     data-ph="What is the argument, and where does it fail?">${r.note}</div></div>
   <div class="foot"><span>${KIND[r.kind] || "Source"}</span><span>${r.ideas.map(id =>
@@ -1776,6 +1787,12 @@ async function loadPdfjs(){
   return pdfjs;
 }
 
+const sourceLink = r =>
+    r.doi   ? "https://doi.org/" + r.doi
+  : r.arxiv ? "https://arxiv.org/abs/" + r.arxiv
+  : r.jstor ? "https://www.jstor.org/stable/" + r.jstor
+  : r.url   || null;
+
 async function addSource(input, fileName, realFile){
   const steps = $("#steps");
   const trail = [];
@@ -1799,19 +1816,26 @@ async function addSource(input, fileName, realFile){
   try{ meta = await resolveSource(payload, deps); }
   catch(err){ meta = {title:null, authors:[], needsReview:true}; }
 
+  // The identifiers come out of the string itself and need no network, so even a
+  // failed lookup produces a record that knows what it is pointing at.
+  const ids = typeof input === "string" ? parseIdentifiers(input) : {};
   const r = {
     id:"n" + Date.now(),
     kind: meta.kind || "paper",
     title: meta.title || (fileName ? fileName.replace(/\.pdf$/i, "") : null),
     authors: meta.authors || [],
     year: meta.year || null,
-    venue: meta.venue || (fileName ? "Local file" : "Pasted link"),
-    doi: meta.doi || null,
+    venue: meta.venue || (fileName ? "Local file" : ""),
+    doi: meta.doi || ids.doi || null,
+    arxiv: ids.arxiv || null,
+    jstor: ids.jstor || null,
+    pasted: typeof input === "string" ? input : null,
+    offline: liveFailed,
     ideas: [data.ideas[0]?.id].filter(Boolean),
     status: "queued",
     note: "",
     needsReview: !!meta.needsReview || !meta.title,
-    url: meta.url || (typeof input === "string" ? input : null),
+    url: meta.url || (typeof input === "string" && /^https?:/i.test(input) ? input : null),
   };
   data.readings.unshift(r);
   save();
