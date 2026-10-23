@@ -2551,6 +2551,10 @@ function layoutFootnotes(){
   const store = (data.notes[openIdea] ||= {});
   const live = new Set();
   refs.forEach((r, i) => {
+    // Words typed into a marker before it was sealed go back into the sentence,
+    // rather than being written over by the renumbering.
+    const stray = r.textContent.replace(/^\d+/, "");
+    if(stray.replace(/\u200b/g, "")) r.after(document.createTextNode(stray));
     r.textContent = String(i + 1); live.add(r.dataset.fn);
     r.contentEditable = "false";            // markers saved before this was set
   });
@@ -2771,8 +2775,12 @@ function runTool(cmd, host){
     const id = "f" + Date.now();
     (data.notes[openIdea] ||= {})[id] = "";
     document.execCommand("insertHTML", false,
-      `<sup class="fnref" data-fn="${id}" contenteditable="false">0</sup>&#8203;`);
-    leaveMarker(document.querySelector(`.fnref[data-fn="${id}"]`));
+      `<sup class="fnref" data-fn="${id}">0</sup>&#8203;`);
+    // Sealed after it is in, not in the HTML: Chrome will not put a non-editable
+    // element inside the line being typed, and hoists it out under the paragraph.
+    const ref = document.querySelector(`.fnref[data-fn="${id}"]`);
+    if(ref) ref.contentEditable = "false";
+    leaveMarker(ref);
     if(host) applyEdit(host);
     layoutFootnotes();
     setTimeout(() => $(`.fn[data-fn="${id}"] .fn__b`)?.focus(), 0);
