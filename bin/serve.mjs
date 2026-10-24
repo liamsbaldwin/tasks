@@ -12,7 +12,7 @@
 import { createServer } from "node:http";
 import { readFile, writeFile, rename } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { FAVICON } from "../src/favicon.js";
+import { FAVICON, ICONS } from "../src/favicon.js";
 
 const FILE  = fileURLToPath(new URL("../mockup/asterisk.html", import.meta.url));
 const STATE = process.env.MARGINALIA_STATE
@@ -82,7 +82,8 @@ async function proxy(req, res, target) {
 createServer(async (req, res) => {
   const url = new URL(req.url, "http://localhost");
 
-  if (url.pathname === "/favicon.ico") { res.writeHead(204).end(); return; }
+  const icon = ICONS[url.pathname.slice(1)];
+  if (icon) { res.writeHead(200, { "content-type": "image/png", "cache-control": "no-store" }).end(icon); return; }
 
   if (url.pathname.startsWith("/api/")) {
     if (!authorised(req)) return send(res, 401, { error: "unauthorised" });
