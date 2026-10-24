@@ -180,9 +180,10 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 .row:first-child .del{top:0}
 .del:hover{color:#B3402F}
 /* An idea takes its draft with it, so its × asks once: the first click arms it, a second
-   within a few seconds deletes, and anything else lets it go. */
+   deletes, and leaving the row lets it go. With no hover, the × stays faintly visible. */
 .row__go{display:block; width:100%; text-align:left; padding-right:28px}
-.del--armed{opacity:1; width:auto; border-radius:0; font-size:14px; color:#B3402F}
+.del--arm{opacity:1; width:auto; border-radius:0; font-size:14px; color:#B3402F}
+@media (hover:none){ .del{opacity:.45} }
 
 /* ============ adding a source ============ */
 .plus{
@@ -3145,6 +3146,14 @@ try{
 }catch{}
 setMenu(startOpen);
 
+// Leaving an idea's row disarms its ×.
+document.addEventListener("mouseout", e => {
+  const row = e.target.closest?.(".row");
+  if(!row || row.contains(e.relatedTarget)) return;
+  const armed = row.querySelector(".del--arm");
+  if(armed){ armed.classList.remove("del--arm"); armed.textContent = "×"; }
+});
+
 document.addEventListener("click", e => {
   const go = e.target.closest("[data-view]");
   if(go){
@@ -3253,10 +3262,8 @@ document.addEventListener("click", e => {
   const delIdea = e.target.closest("[data-delidea]");
   if(delIdea){
     const id = delIdea.dataset.delidea;
-    if(!delIdea.classList.contains("del--armed")){
-      delIdea.classList.add("del--armed"); delIdea.textContent = "Delete?";
-      clearTimeout(delIdea._t);
-      delIdea._t = setTimeout(() => { delIdea.classList.remove("del--armed"); delIdea.textContent = "×"; }, 3000);
+    if(!delIdea.classList.contains("del--arm")){
+      delIdea.classList.add("del--arm"); delIdea.textContent = "Delete?";
       return;
     }
     data.ideas = data.ideas.filter(x => x.id !== id);
