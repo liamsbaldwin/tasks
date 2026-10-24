@@ -8,7 +8,7 @@
  */
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { FAVICON } from "../src/favicon.js";
+import { FAVICON, ICONS } from "../src/favicon.js";
 
 const SRC = fileURLToPath(new URL("../mockup/asterisk.html", import.meta.url));
 const DIR = fileURLToPath(new URL("../worker/public/", import.meta.url));
@@ -31,4 +31,5 @@ ${FAVICON}
 
 await mkdir(DIR, { recursive: true });
 await writeFile(DIR + "index.html", page);
+for (const [name, bytes] of Object.entries(ICONS)) await writeFile(DIR + name, bytes);
 console.log(`wrote worker/public/index.html (${(page.length / 1024 / 1024).toFixed(2)}MB)`);
