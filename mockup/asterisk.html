@@ -177,7 +177,13 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
   opacity:0; transition:opacity .12s ease;
 }
 .row:hover .del, .del:focus-visible{opacity:1}
+.row:first-child .del{top:0}
 .del:hover{color:#B3402F}
+/* An idea takes its draft with it, so its × asks once: the first click arms it, a second
+   deletes, and leaving the row lets it go. With no hover, the × stays faintly visible. */
+.row__go{display:block; width:100%; text-align:left; padding-right:28px}
+.del--arm{opacity:1; width:auto; border-radius:0; font-size:14px; color:#B3402F}
+@media (hover:none){ .del{opacity:.45} }
 
 /* ============ adding a source ============ */
 .plus{
@@ -2297,12 +2303,15 @@ function viewContents(){
   </div></div>
   ${data.ideas.length ? "" : `<p class="empty">No ideas yet. The + starts one.</p>`}
   <div class="list">${data.ideas.map(i => `
-    <button class="row" data-idea="${i.id}">
+    <div class="row">
+      <button class="del" data-delidea="${i.id}" aria-label="Delete ${esc(ideaName(i))}">×</button>
+      <button class="row__go" data-idea="${i.id}">
       <span class="row__t">${esc(ideaName(i))}</span>
       <span class="row__d">${esc(i.dek)}</span>
       <span class="row__m"><b>${STAGES[i.stage]}</b><span>${readN(i.id)}/${byIdea(i.id).length} read</span>
         <span>${words(data.drafts[i.id] || "").toLocaleString()} words</span></span>
-    </button>`).join("")}</div>
+      </button>
+    </div>`).join("")}</div>
   <p class="listfoot">${data.ideas.length} ${data.ideas.length === 1 ? "idea" : "ideas"}</p>`;
 }
 
@@ -3137,6 +3146,14 @@ try{
 }catch{}
 setMenu(startOpen);
 
+// Leaving an idea's row disarms its ×.
+document.addEventListener("mouseout", e => {
+  const row = e.target.closest?.(".row");
+  if(!row || row.contains(e.relatedTarget)) return;
+  const armed = row.querySelector(".del--arm");
+  if(armed){ armed.classList.remove("del--arm"); armed.textContent = "×"; }
+});
+
 document.addEventListener("click", e => {
   const go = e.target.closest("[data-view]");
   if(go){
@@ -3240,6 +3257,20 @@ document.addEventListener("click", e => {
   if(del){
     const i = data.readings.findIndex(r => r.id === del.dataset.del);
     if(i > -1){ data.readings.splice(i, 1); save(); render(); }
+    return;
+  }
+  const delIdea = e.target.closest("[data-delidea]");
+  if(delIdea){
+    const id = delIdea.dataset.delidea;
+    if(!delIdea.classList.contains("del--arm")){
+      delIdea.classList.add("del--arm"); delIdea.textContent = "Delete?";
+      return;
+    }
+    data.ideas = data.ideas.filter(x => x.id !== id);
+    delete data.drafts[id]; delete data.notes[id];
+    for(const r of data.readings) if(r.ideas.includes(id)) r.ideas = r.ideas.filter(x => x !== id);
+    if(openIdea === id) openIdea = data.ideas[0]?.id;
+    save(); render();
     return;
   }
   const src = e.target.closest("[data-src]");
