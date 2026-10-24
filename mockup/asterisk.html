@@ -249,14 +249,14 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 .cell--today{position:relative}
 .cell--today::after{
   content:""; position:absolute; left:0; top:0; width:200%; height:200%;
-  border:1px solid var(--blue); border-radius:4px;
+  border:1px solid rgba(45,144,207,.75); border-radius:4px;
   transform:scale(.5); transform-origin:0 0; pointer-events:none;
 }
 /* A one-to-one screen has no half pixel to draw, and the scaled border smears across
    two; a whole pixel at half strength is the same weight, and sharp. */
 @media (max-resolution:1.5dppx){
   .cell--today::after{display:none}
-  .cell--today{box-shadow:0 0 0 1px rgba(45,144,207,.5)}
+  .cell--today{box-shadow:0 0 0 1px rgba(45,144,207,.38)}
 }
 /* Baseline, not centre: the plus at the end of this row is a character, and a
    character belongs on the same baseline as the words beside it. The swatches are
