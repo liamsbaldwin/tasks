@@ -116,7 +116,9 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
    rows: open a day, turn the month over, and the prose slides down by however much the
    calendar grew. Flex columns do not talk to each other, so the text sits still. */
 .page--road{
-  --pair:calc(62rem + 44px);                   /* 29rem of text, the gap, 33rem of pane */
+  --pair:calc(69rem + 44px);                   /* where the pair is placed: see below */
+  --text:29rem;                                /* the text column, a fifth under the 36rem
+                                                  the placement was worked out for */
   --nudge:40px;                                /* a shade right of the axis, by eye */
   /* Centred, nudged right, held back by the room actually left, and floored at the
      menu. The min() is the furthest right the pair can start without running off the
@@ -132,10 +134,12 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
   padding-right:var(--gutter-r);
 }
 .page--road .page__in{
-  max-width:var(--pair); margin-inline:0;
+  /* Placed as if the text were still 36rem wide, so its left edge stays where it was,
+     and only as wide as the narrower text actually needs: the calendar moves left. */
+  max-width:calc(var(--text) + 44px + 33rem); margin-inline:0;
   display:flex; align-items:flex-start; gap:0 44px;
 }
-.road__col{flex:0 1 29rem; min-width:0}
+.road__col{flex:0 1 var(--text); min-width:0}
 .page--road .rmpane{flex:1 1 0; min-width:0; max-width:33rem; position:static; width:auto; margin:0}
 
 .pagehead{margin-bottom:38px}
