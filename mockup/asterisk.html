@@ -8,6 +8,7 @@
 /* Layout: one centred column of type that never moves, and a blue menu that slides in
    over the margin beside it. Titles and decks carry the colour; the rest is black. */
 :root{
+  --mark:24px;                  /* a row's ×, and the line the page's + centres on */
   --paper:#FAF8F0;          /* sampled from the reference */
   --ink:#000000;
   --ink-2:#2A2A28;
@@ -168,26 +169,85 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 .row__m{display:flex; gap:12px; align-items:baseline; margin-top:8px; font-size:14px; color:var(--faint); font-variant-numeric:tabular-nums; flex-wrap:wrap}
 .row__m b{color:var(--blue); font-weight:400}
 .src__t{font-family:var(--text); font-style:italic; font-size:19px; line-height:1.35; display:block; transition:color .12s ease; padding-right:28px}
+/* After a source's title: the source itself, in a new tab. Shown like the ×. */
+.srcgo{margin-left:6px; font-family:var(--text); font-style:normal; font-size:15px; color:var(--faint); opacity:0; transition:opacity .12s ease}
+.srcgo:hover{color:var(--blue)}
+.row:hover .srcgo{opacity:1}
+/* On a source's own page it shows with the pointer over the title, or the title open for editing. */
+.srcgo--page{display:inline-block; margin-left:12px; font-size:.42em; vertical-align:.35em; text-decoration:none}
+.pagetitle:hover .srcgo--page, .pagetitle:focus-within .srcgo--page{opacity:1}
+.pagetitle__t{outline:none}
 .src__b{display:block; color:var(--ink-2); font-size:15.5px; margin-top:2px; padding-right:28px}
 .listfoot{margin-top:18px; font-size:14.5px; color:var(--faint); font-variant-numeric:tabular-nums}
 
 .del{
-  position:absolute; top:16px; right:0; width:24px; height:24px; border-radius:50%;
+  position:absolute; top:16px; right:0; width:var(--mark); height:var(--mark); border-radius:50%;
   display:grid; place-items:center; color:var(--faint); font-size:17px; line-height:1;
   opacity:0; transition:opacity .12s ease;
 }
-.row:hover .del, .del:focus-visible{opacity:1}
+.row:hover .del, .row:focus-within .del, .del:focus-visible{opacity:1}
 .row:first-child .del{top:0}
 .del:hover{color:#B3402F}
-/* An idea takes its draft with it, so its × asks once: the first click arms it, a second
-   deletes, and leaving the row lets it go. With no hover, the × stays faintly visible. */
+/* A × asks once: the first click arms it, a second deletes, and leaving the row lets it
+   go. It shows only on the row under the pointer, or the one being touched or edited. */
 .row__go{display:block; width:100%; text-align:left; padding-right:28px}
 .del--arm{opacity:1; width:auto; border-radius:0; font-size:14px; color:#B3402F}
-@media (hover:none){ .del{opacity:.45} }
+
+/* ============ notes ============ */
+.tangents{display:flex; flex-direction:column; gap:30px}
+.tangent{position:relative; padding-right:32px}
+/* The title runs inline so the ↗ can follow its last word; the row stops short of the
+   ×'s corner square so a long title never carries the ↗ into it. */
+.tangent__hrow{font-family:var(--display); color:var(--blue); font-size:23px; line-height:1.2; margin-bottom:4px; padding-right:10px; overflow-wrap:anywhere}
+.tangent__h{outline:none}
+.tangent:not(:focus-within):not(.tangent--new) .tangent__hrow:has(.tangent__h.is-empty){display:none}
+.tangent__t{overflow-wrap:anywhere}
+/* On the list a note's footnotes are not laid out under it: each shows over its number. */
+.tangent__fns{display:none}
+.fnpop{
+  position:fixed; z-index:40; width:max-content; max-width:min(22rem, calc(100vw - 32px)); padding:9px 12px;
+  background:var(--paper); border:1px solid var(--rule); box-shadow:0 6px 22px rgba(60,54,40,.09);
+  font-family:var(--text); font-size:13.5px; line-height:1.5; color:var(--ink-2);
+}
+.fnpop--pinned{min-width:12rem}
+.fnpop__n{color:var(--blue); margin-right:6px; font-variant-numeric:tabular-nums}
+.fnpop a{color:var(--blue)}
+.fnpop--pinned{display:flex; align-items:baseline}
+.fnpop__b{outline:none; flex:1; min-width:0; min-height:1.5em}
+.fnpop--pinned .fnpop__n{flex:none; cursor:text}
+.tangent__m{display:flex; gap:10px; margin-top:4px; font-size:13px; color:var(--faint); font-variant-numeric:tabular-nums}
+.tangent__d{font:inherit; color:inherit}
+.tangent__u{opacity:.5; transition:opacity .4s ease}
+.tangent__u.is-fading{opacity:0}
+.tangent .del{top:2px}
+.open{
+  position:absolute; right:0; bottom:-2px; width:24px; height:24px; display:grid; place-items:center;
+  color:var(--faint); font-size:15px; line-height:1; opacity:0; transition:opacity .12s ease;
+}
+.open:hover{color:var(--blue)}
+.tangent:hover .open, .open:focus-visible{opacity:1}
+/* While a note is being edited, only the pointer on its title line, or on the ↗ itself,
+   brings it up; on a phone it stays unseen but still answers a tap, like the ×. */
+.tangent:focus-within .open{opacity:0}
+.tangent:focus-within .tangent__hrow:hover .open, .tangent .open:hover, .tangent .open:focus-visible{opacity:1}
+.tangent .open{position:static; display:inline-grid; vertical-align:middle; margin-left:6px; font-family:var(--text)}
+.tangent__m .open{display:none; width:auto; height:auto; margin-left:0}
+/* With the title folded away, the ↗ follows the date instead. */
+.tangent:not(:focus-within):not(.tangent--new):has(.tangent__h.is-empty) .tangent__m .open{display:inline-grid}
+.notepage .margin--inline{border-top:0}
+/* A note's × shows only with the pointer at its corner, in a square around it that sits in
+   the note's right padding and so never over the words; on touch, while the note is open. */
+.tangent .del::before{content:""; position:absolute; inset:-16px -16px -6px}   /* clear of the ↗ below */
+.tangent .del:hover{opacity:1}
+@media (hover:none){ .tangent:focus-within .del{opacity:1} }
 
 /* ============ adding a source ============ */
+/* The + and every row's × share one centre line: both sit on the column's right edge,
+   and the + reaches past it by half of what it is wider than the ×. */
 .plus{
-  width:38px; height:38px; display:grid; place-items:center; color:var(--blue);
+  --plus:38px;
+  width:var(--plus); height:var(--plus); margin-right:calc((var(--mark) - var(--plus)) / 2);
+  display:grid; place-items:center; color:var(--blue);
   font-family:var(--display); font-size:34px; line-height:1; flex:none;
   transition:transform .2s var(--ease);
 }
@@ -313,7 +373,15 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
   transition:top .16s var(--ease);
 }
 .fn__n{color:var(--blue); margin-right:6px; font-variant-numeric:tabular-nums}
-.fn__b{outline:none}
+/* The words take the whole line beside the number. As an inline span they were only as
+   wide as what was written, so a click beside a short note, past its end, or on a near-
+   empty one landed on the line around it and nothing could be edited. */
+.fn{display:flex; align-items:baseline}
+/* The roadmap's and a source's footnotes: under the text, the way a book has them. */
+.fnlist:not(:empty){margin-top:28px}
+.fnlist .fn{position:static; width:auto; margin-bottom:6px}
+.fn__n{flex:none; cursor:text}
+.fn__b{outline:none; flex:1; min-width:0; min-height:1.5em}
 .fn__b.is-empty::before{content:attr(data-ph); color:var(--faint); font-style:italic}
 .margin--inline{
   position:static; width:auto; margin:40px 0 0; padding-top:14px; border-top:1px solid var(--rule);
@@ -408,10 +476,12 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
   .wk{flex-direction:row; align-items:baseline; min-height:0}
   .wk__d{flex:none; width:5.4rem; padding:11px 0 11px 12px; text-align:left}
   .wk__b{padding:11px 12px 11px 0; min-height:1.4em}
+  /* On a phone the folded-under footnotes and roadmap pane run on without a rule. */
+  .margin--inline,.page--road .rmpane{border-top:0}
 }
 [contenteditable]{outline:none}
 [contenteditable].is-empty::before{content:attr(data-ph); color:var(--faint); font-style:italic}
-h1[contenteditable].is-empty::before,.pagedeck[contenteditable].is-empty::before{color:rgba(45,144,207,.42); font-style:normal}
+h1[contenteditable].is-empty::before,.pagetitle__t.is-empty::before,.pagedeck[contenteditable].is-empty::before,.tangent__h.is-empty::before{color:rgba(45,144,207,.42); font-style:normal}
 
 .tools{
   display:flex; gap:2px; align-items:center; flex-wrap:wrap;
@@ -424,6 +494,17 @@ h1[contenteditable].is-empty::before,.pagedeck[contenteditable].is-empty::before
 .tools i{font-style:italic}
 .tools .q{font-size:21px; position:relative; top:3px}
 .tools .h{font-family:var(--display)}
+.tools .lk{width:15px; height:15px; display:block; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round}
+/* The link box: one line for the address, under the words it links. */
+.linkbox{
+  position:fixed; z-index:40; display:flex; flex-wrap:wrap; align-items:center; gap:0 4px;
+  width:min(22rem, calc(100vw - 32px)); padding:4px 4px 4px 10px;
+  background:var(--paper); border:1px solid var(--rule); box-shadow:0 6px 22px rgba(60,54,40,.09);
+}
+.linkbox__in{flex:1; min-width:0; border:0; outline:none; background:none; font:inherit; font-size:15px; color:var(--ink); padding:5px 0}
+.linkbox .linkbox__text{flex:1 0 100%}            /* the words on a line of their own, the address under */
+.linkbox__go{width:28px; height:28px; display:grid; place-items:center; color:var(--faint); text-decoration:none; font-size:15px}
+.linkbox__go:hover{color:var(--blue)}
 .saved{margin-left:8px; font-size:13px; color:var(--blue); opacity:0; transition:opacity .25s ease}
 .saved.on{opacity:1}
 
@@ -469,7 +550,33 @@ h1[contenteditable].is-empty::before,.pagedeck[contenteditable].is-empty::before
 .filemenu--down{top:calc(100% + 9px); bottom:auto}
 .filemenu__i:hover{background:var(--blue-wash); color:var(--blue)}
 .filemenu__i--on{color:var(--blue)}
-.back{font-family:var(--display); font-size:17px; color:var(--blue); display:inline-block; margin-bottom:26px}
+.back{font-family:var(--display); font-size:17px; color:var(--blue); display:inline-block; margin-bottom:26px; align-self:flex-start}
+
+/* ============ an idea ============ */
+/* What it is about, in the voice of the line under it on Contents. */
+.ideadek{font-family:var(--text); font-style:italic; color:var(--ink-2); font-size:19px; line-height:1.45; max-width:none}
+.ideadek[contenteditable].is-empty::before{color:var(--faint); font-style:italic}
+/* The way into the draft: its opening lines, fading out, and how far it has got. */
+.back--idea{max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left}
+.ideahead{margin-bottom:20px}                 /* the draft follows close under what the idea is */
+.peek{display:block; width:100%; text-align:left; margin:0 0 24px}
+.peek__t{
+  display:block; font-size:16.5px; line-height:1.65; color:var(--ink-2); max-height:5em; overflow:hidden;
+  -webkit-mask-image:linear-gradient(#000 35%, transparent); mask-image:linear-gradient(#000 35%, transparent);
+  margin-bottom:10px;
+}
+.peek__c{font-family:var(--display); font-size:17px; color:var(--blue)}
+.peek:hover .peek__c, .peek:focus-visible .peek__c{text-decoration:underline; text-underline-offset:3px}
+/* As on Sources, a rule under each: the first has no rule above it, so one sits below every source. */
+.list--idea .row:first-child{padding-top:4px}
+.srchead{align-items:center; margin-bottom:10px}
+.srchead .pane__t{margin-bottom:0}
+.plus--small{--plus:28px; font-size:25px}       /* still centred on the ×s' line, by the same rule */
+.picks{display:flex; flex-direction:column; margin-top:6px}
+.picks:empty{display:none}
+.pick__s{display:block; width:100%; text-align:left; padding:7px 0; font-family:var(--text); font-style:italic; font-size:17px; color:var(--ink-2)}
+.pick__s span{font-style:normal; font-size:14px; color:var(--faint); margin-left:8px}
+.pick__s:hover, .pick__s:focus-visible{color:var(--blue)}
 .empty{color:var(--faint); font-style:italic}
 
 @media (max-width:620px){
@@ -1657,11 +1764,13 @@ const keyOf = {
   day:     iso => `day:${iso}`,         // one square of the calendar
   credit:  k => `credit:${k}`,          // "this reading has been counted"
   roadmap: () => "roadmap",
+  roadmapFns: () => "roadmap-fns",       // the roadmap's footnotes, kept as one record
+  tangent: id => `tangent:${id}`,     // one note on the Notes page
 };
 
 function emptyPayload() {
   return { ideas: [], readings: [], drafts: {}, roadmap: "",
-           notes: {}, days: {}, credited: {}, log: [],
+           notes: {}, days: {}, credited: {}, log: [], tangents: {}, roadmapFns: {},
            mtimes: {}, ctimes: {}, tombs: {} };
 }
 
@@ -1691,6 +1800,8 @@ function normalise(p) {
     days:     p.days     && typeof p.days     === "object" ? clone(p.days)  : e.days,
     credited: p.credited && typeof p.credited === "object" ? clone(p.credited) : e.credited,
     log:      Array.isArray(p.log) ? countLog(p.log) : e.log,
+    tangents: p.tangents && typeof p.tangents === "object" ? tangents(p.tangents) : e.tangents,
+    roadmapFns: strings(p.roadmapFns),
     mtimes:   p.mtimes   && typeof p.mtimes === "object"   ? { ...p.mtimes } : e.mtimes,
     ctimes:   p.ctimes   && typeof p.ctimes === "object"   ? { ...p.ctimes } : e.ctimes,
     tombs:    p.tombs    && typeof p.tombs  === "object"   ? { ...p.tombs }  : e.tombs,
@@ -1705,6 +1816,64 @@ function normalise(p) {
 }
 
 /*
+ * A note is {title, html, fns, created, updated}: rich text like an essay, with its own
+ * footnotes. The first ones were plain text — a bare string, then {title, text} — and
+ * are read as the same words in paragraphs, line breaks kept, rather than dropped.
+ */
+const escHtml = t => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const plainToHtml = t => t.trim() ? t.trim().split(/\n\s*\n/)
+  .map(para => `<p>${escHtml(para.trim()).replace(/\n/g, "<br>")}</p>`).join("") : "";
+
+/**
+ * What a typed link becomes: http(s) and mailto as given, a bare domain made https, and
+ * anything else — javascript:, data:, a stray word — refused with null.
+ */
+function linkHref(input) {
+  const v = String(input || "").trim();
+  if (!v || /\s/.test(v)) return null;
+  if (/^mailto:[^@\s]+@[^@\s]+$/i.test(v)) return v;
+  if (/^https?:\/\/[^/\s]+\.[^/\s]+/i.test(v) || /^https?:\/\/localhost\b/i.test(v)) return v;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(v) && !/^[^:]+\.[^:]+:\d/.test(v)) return null;   // another scheme
+  if (/^(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+(:\d+)?([/?#].*)?$/i.test(v)) return "https://" + v;
+  return null;
+}
+
+/**
+ * Pasted text that is nothing but an address — with its scheme, or starting www. — so a
+ * paste can become a link. A bare word with a dot in it is not enough: "e.g." is text.
+ */
+function pastedLink(text) {
+  const v = String(text || "").trim();
+  if (!/^(https?:\/\/|www\.|mailto:)/i.test(v)) return null;
+  return linkHref(v);
+}
+
+/** A map of footnote id → its words, with anything that is not words left out. */
+function strings(map) {
+  const out = {};
+  if (map && typeof map === "object") for (const [k, v] of Object.entries(map)) if (typeof v === "string") out[k] = v;
+  return out;
+}
+
+function tangents(map) {
+  const out = {};
+  for (const [id, v] of Object.entries(map)) {
+    if (typeof v !== "string" && !(v && typeof v === "object")) continue;
+    const o = typeof v === "string" ? { text: v } : v;
+    const n = { title: typeof o.title === "string" ? o.title : "",
+                html: typeof o.html === "string" ? o.html
+                    : typeof o.text === "string" ? plainToHtml(o.text) : "",
+                fns: {} };
+    if (o.fns && typeof o.fns === "object")
+      for (const [k, f] of Object.entries(o.fns)) if (typeof f === "string") n.fns[k] = f;
+    if (Number.isFinite(o.created)) n.created = o.created;
+    if (Number.isFinite(o.updated)) n.updated = o.updated;
+    out[id] = n;
+  }
+  return out;
+}
+
+/*
  * Two devices must be able to compare payloads byte for byte — it is how each decides
  * whether it has anything to push — so the maps are always written in key order.
  * Object key order is not meaningful, but JSON.stringify makes it look like it is.
@@ -1715,6 +1884,8 @@ function canonical(p) {
   p.notes = sortKeys(p.notes);
   p.days = sortKeys(p.days);
   p.credited = sortKeys(p.credited);
+  p.tangents = sortKeys(p.tangents);
+  p.roadmapFns = sortKeys(p.roadmapFns);
   p.log = countLog(p.log);
   p.mtimes = sortKeys(p.mtimes);
   p.ctimes = sortKeys(p.ctimes);
@@ -1767,7 +1938,9 @@ function records(p) {
   for (const [id, notes] of Object.entries(p.notes)) out.set(keyOf.note(id), notes);
   for (const [iso, text] of Object.entries(p.days)) out.set(keyOf.day(iso), text);
   for (const [k, when] of Object.entries(p.credited)) out.set(keyOf.credit(k), when);
+  for (const [id, text] of Object.entries(p.tangents)) out.set(keyOf.tangent(id), text);
   out.set(keyOf.roadmap(), p.roadmap);
+  out.set(keyOf.roadmapFns(), p.roadmapFns);
   return out;
 }
 
@@ -1789,7 +1962,7 @@ function stamp(prev, next, now = Date.now()) {
   for (const key of new Set([...a.keys(), ...b.keys()])) {
     const had = a.has(key), has = b.has(key);
     // The roadmap is always "present" — an empty one is a blank page, not a deletion.
-    if (had && !has && key !== keyOf.roadmap()) {
+    if (had && !has && key !== keyOf.roadmap() && key !== keyOf.roadmapFns()) {
       out.tombs[key] = now;
       delete out.mtimes[key];
     } else if (!same(a.get(key), b.get(key))) {
@@ -1850,10 +2023,12 @@ function merge(aRaw, bRaw) {
     if (Number.isFinite(ctime)) out.ctimes[key] = ctime;
     if (!live) { delete out.mtimes[key]; continue; }
     if (key === keyOf.roadmap()) out.roadmap = typeof value === "string" ? value : "";
+    else if (key === keyOf.roadmapFns()) out.roadmapFns = strings(value);
     else if (key.startsWith("draft:"))  out.drafts[key.slice(6)] = value;
     else if (key.startsWith("note:"))   out.notes[key.slice(5)] = value;
     else if (key.startsWith("day:"))    out.days[key.slice(4)] = value;
     else if (key.startsWith("credit:")) out.credited[key.slice(7)] = value;
+    else if (key.startsWith("tangent:")) out.tangents[key.slice(8)] = value;
   }
   out.log = mergeLogs(a.log, b.log);
 
@@ -1896,7 +2071,7 @@ function merge(aRaw, bRaw) {
 function sameContent(a, b) {
   const strip = p => { const n = normalise(p); return JSON.stringify({
     ideas: n.ideas, readings: n.readings, drafts: n.drafts, roadmap: n.roadmap,
-    notes: n.notes, days: n.days, credited: n.credited, log: n.log }); };
+    notes: n.notes, days: n.days, credited: n.credited, log: n.log, tangents: n.tangents, roadmapFns: n.roadmapFns }); };
   return strip(a) === strip(b);
 }
 
@@ -1924,12 +2099,12 @@ const TOKEN_KEY = "marginalia.token";
 
 /* What belongs to the notebook rather than to this browser. `done` is the exception:
    it is this device's note to itself about migrations already made. */
-const PAYLOAD_KEYS = ["ideas", "readings", "drafts", "roadmap", "notes", "days", "credited", "log"];
+const PAYLOAD_KEYS = ["ideas", "readings", "drafts", "roadmap", "notes", "days", "credited", "log", "tangents", "roadmapFns"];
 
 /* An empty notebook. This is what a browser that has never seen either version gets:
    the sample above is a sample, and only appears with ?demo on the address. */
 const blank = () => ({ ideas: [], readings: [], drafts: {}, roadmap: "",
-  log: [], credited: {}, notes: {}, days: {}, done: {novideo: true} });
+  log: [], credited: {}, notes: {}, days: {}, tangents: {}, roadmapFns: {}, done: {novideo: true} });
 
 /**
  * A v0 notebook in the shape this version wants. Idempotent, and additive: the old
@@ -2020,6 +2195,8 @@ const fromPayload = p => { const d = blank();
   for(const k of PAYLOAD_KEYS) d[k] = clone(p[k]); return d; };
 
 let data = load();
+data.tangents ||= {};                           // the demo sample predates the Notes page
+data.roadmapFns ||= {};
 
 function load(){
   let box = null;
@@ -2040,7 +2217,7 @@ function load(){
   // What it stored before there was any syncing in it: the notebook itself.
   if(box && Array.isArray(box.ideas) && Array.isArray(box.readings)){
     hadLocal = true;
-    box.log ||= []; box.credited ||= {}; box.notes ||= {}; box.days ||= {}; box.done ||= {};
+    box.log ||= []; box.credited ||= {}; box.notes ||= {}; box.days ||= {}; box.tangents ||= {}; box.roadmapFns ||= {}; box.done ||= {};
     if(!box.done.novideo){ box.log = box.log.filter(e => e.kind !== "video"); box.done.novideo = true; }
     stored = normalise(asPayload(box));
     return box;
@@ -2153,6 +2330,10 @@ const isEditing = () => {
 };
 
 function applyRemote(merged, version){
+  // Whatever was typed since the last save is newer than anything the server sent back.
+  // Date it and merge it in first: an update held while you typed was built before those
+  // keystrokes, and applied as it stood it would quietly put the old words back.
+  merged = merge(stamp(stored, snapshot()), merged);
   const differs = !sameContent(merged, snapshot());
   if(differs && isEditing()){ deferred = { merged, version }; setSync("waiting"); return false; }
   stored = merged;
@@ -2283,16 +2464,18 @@ function creditWork(){
 }
 
 let view = "contents", openSource = null, openIdea = "legibility", capture = false;
+let openNote = null;                        // a note opened on a page of its own
+let srcFromIdea = null, srcPushed = false, notePushed = false;  // a source opened from an idea's page goes back there
 
 const byIdea = id => data.readings.filter(r => r.ideas.includes(id));
 const readN = id => byIdea(id).filter(r => r.status === "read").length;
 
 /* ---------- menu ---------- */
-const PAGES = [["contents","Contents"], ["sources","Sources"], ["progress","Progress"],
-               ["draft","Draft"], ["roadmap","Roadmap"]];
+const PAGES = [["contents","Contents"], ["sources","Sources"], ["draft","Draft"],
+               ["progress","Progress"], ["roadmap","Roadmap"], ["notes","Notes"]];
 function renderMenu(){
   $("#menulist").innerHTML = PAGES.map(([id,label], n) =>
-    `<button class="menu__item" data-view="${id}" aria-current="${view===id}"
+    `<button class="menu__item" data-view="${id}" aria-current="${view === id && !(id === "sources" && srcFromIdea) || ((view === "idea" || srcFromIdea && view === "sources") && id === "contents")}"
       style="transition-delay:${40 + n * 28}ms, ${40 + n * 28}ms, 0s">${label}</button>`).join("");
 }
 
@@ -2316,6 +2499,34 @@ function viewContents(){
   <p class="listfoot">${data.ideas.length} ${data.ideas.length === 1 ? "idea" : "ideas"}</p>`;
 }
 
+/* An idea: what it is, the way into its draft, and what it is being read against. */
+function viewIdea(){
+  const i = data.ideas.find(x => x.id === openIdea);
+  if(!i){ view = "contents"; return viewContents(); }
+  const html = data.drafts[i.id] || "", w = words(html);
+  const d = document.createElement("div");
+  d.innerHTML = html;
+  d.querySelectorAll(".fnref, h2, h3").forEach(x => x.remove());   // its opening words, not its headings
+  d.querySelectorAll(".math[data-tex]").forEach(x => x.replaceWith(x.dataset.tex));
+  d.querySelectorAll("p, li, blockquote").forEach(x => x.append(" "));
+  const opening = d.textContent.replace(/\u200b/g, "").replace(/\s+/g, " ").trim().slice(0, 420);
+  const rs = byIdea(i.id);
+  return `<button class="back" data-view="contents">&larr; Contents</button>
+  <div class="pagehead ideahead">
+    <h1 class="pagetitle" contenteditable="true" data-edit="idea.title" data-ph="Title">${esc(i.title)}</h1>
+    <p class="pagedeck ideadek" contenteditable="true" data-edit="idea.dek" data-ph="Description">${esc(i.dek || "")}</p>
+  </div>
+  <button class="peek" data-godraft="${i.id}">
+    ${opening ? `<span class="peek__t">${esc(opening)}</span>` : ""}
+    <span class="peek__c">${w ? `Draft &middot; ${w.toLocaleString()} ${w === 1 ? "word" : "words"}` : "Draft"} &rarr;</span>
+  </button>
+  <div class="headrow srchead"><div class="pane__t">Sources</div>
+    <button class="plus plus--small" id="plus" aria-expanded="${capture}" aria-label="Add a source">+</button></div>
+  ${captureBox("Paste a link, drop a PDF, or find a source")}
+  ${rs.length ? `<div class="list list--idea">${rs.map(r => srcRow(r, false, i.id)).join("")}</div>
+  <p class="listfoot">${readN(i.id)} of ${rs.length} read</p>` : ""}`;
+}
+
 function viewSources(){
   const read = data.readings.filter(r => r.status === "read").length;
   return `<div class="pagehead">
@@ -2324,24 +2535,37 @@ function viewSources(){
       <button class="plus" id="plus" aria-expanded="${capture}" aria-label="Add a source">+</button>
     </div>
   </div>
-  <div class="capture ${capture ? "capture--on" : ""}" id="capturebox"><div class="capture__clip">
-    <input class="capture__in" id="capture" autocomplete="off" spellcheck="false"
-      placeholder="Paste a link or drop a PDF">
+  ${captureBox("Paste a link or drop a PDF")}
+  <div class="list" id="srclist">${data.readings.map(r => srcRow(r, true)).join("")}</div>
+  <p class="listfoot">${read} of ${data.readings.length} read</p>`;
+}
+
+/* The box a source is added through: on Sources, and under an idea's Sources. */
+function captureBox(placeholder){
+  return `<div class="capture ${capture ? "capture--on" : ""}" id="capturebox"><div class="capture__clip">
+    <input class="capture__in" id="capture" autocomplete="off" spellcheck="false" placeholder="${placeholder}">
     <p class="capture__hint" id="hint">${lookupsHint()}</p>
     <div class="steps" id="steps"></div>
-  </div></div>
-  <div class="list" id="srclist">${data.readings.map(r => `
+    <div class="picks" id="picks"></div>
+  </div></div>`;
+}
+
+/* A source as a row. On the Sources page its × deletes the source; on an idea's page it
+   only takes the source off that idea, and the source stays in the library. */
+function srcRow(r, deletable, unfileFrom){
+  return `
     <div class="row">
-      <button class="del" data-del="${r.id}" aria-label="Delete ${esc(r.title || "this source")}">×</button>
+      ${deletable ? `<button class="del" data-del="${r.id}" aria-label="Delete ${esc(r.title || "this source")}">×</button>` : ""}
+      ${unfileFrom ? `<button class="del" data-unfile="${r.id}" aria-label="Remove ${esc(r.title || "this source")} from this idea">×</button>` : ""}
       <button style="display:block;width:100%;text-align:left" data-src="${r.id}">
-        <span class="src__t">${esc(r.title || r.doi || r.pasted || "Untitled")}</span>
+        <span class="src__t">${esc(r.title || r.doi || r.pasted || "Untitled")}${sourceLink(r)
+          ? `<span class="srcgo" data-href="${esc(sourceLink(r))}" role="link" aria-label="Open the source">↗</span>` : ""}</span>
         <span class="src__b">${r.authors.length ? r.authors.map(esc).join(" & ") : "na"} · ${esc(r.venue || "")}</span>
         <span class="row__m"><b>${r.needsReview ? "Needs checking"
           : r.status === "read" ? "Read" : r.status === "reading" ? "Reading" : "Queued"}</b>
           <span>${KIND[r.kind] || "Source"}</span><span>${r.year || ""}</span></span>
       </button>
-    </div>`).join("")}</div>
-  <p class="listfoot">${read} of ${data.readings.length} read</p>`;
+    </div>`;
 }
 
 function viewProgress(){
@@ -2424,9 +2648,12 @@ function heatmap(year){
 function viewSource(){
   const r = data.readings.find(x => x.id === openSource);
   if(!r){ view = "sources"; return viewSources(); }
-  return `<button class="back" data-view="sources">&larr; Sources</button>
+  const from = srcFromIdea && data.ideas.find(x => x.id === srcFromIdea);
+  return `${from ? `<button class="back back--idea" data-backidea="${from.id}">&larr; ${esc(ideaName(from))}</button>`
+                 : `<button class="back" data-view="sources">&larr; Sources</button>`}
   <div class="pagehead">
-    <h1 class="pagetitle" contenteditable="true" data-edit="reading.title" data-ph="Title">${esc(r.title || "")}</h1>
+    <h1 class="pagetitle"><span class="pagetitle__t" contenteditable="true" data-edit="reading.title" data-ph="Title">${esc(r.title || "")}</span>${
+      sourceLink(r) ? `<a class="srcgo srcgo--page" href="${esc(sourceLink(r))}" target="_blank" rel="noopener" aria-label="Open the source">↗</a>` : ""}</h1>
     <p class="byline" contenteditable="true" data-edit="reading.authorline" data-ph="Author">${esc(r.authors.join(", "))}</p>
     <p class="pagedeck" contenteditable="true" data-edit="reading.venueline"
        data-ph="Journal, year">${esc([r.venue, r.year].filter(Boolean).join(", "))}</p>
@@ -2441,6 +2668,7 @@ function viewSource(){
       : esc(r.pasted)}</p>` : ""}` : ""}
   <div class="rich">${tools()}<div class="prose" contenteditable="true" data-edit="reading.note" data-rich="1"
     data-ph="Notes">${r.note}</div></div>
+  <div class="fnlist"></div>
   <div class="foot">
     <button class="stagebtn" data-rstatus title="Click to move it on">${
       r.status === "read" ? "Read" : r.status === "reading" ? "Reading" : "Queued"}</button>
@@ -2499,11 +2727,61 @@ function tally(i){
   </p>`;
 }
 
+/* Newest first: an id is its creation time in base 36, so it sorts by date — and the first
+   notes, saved before notes carried dates, can still say when they were started. */
+const noteBorn = (id, n) => n.created
+  || (/^t[0-9a-z]+$/.test(id) && parseInt(id.slice(1), 36)) || null;
+const shortDate = ms => { const d = new Date(ms);
+  return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}`
+    + (d.getFullYear() === new Date().getFullYear() ? "" : ` ${d.getFullYear()}`); };
+/* "updated …" shows for a few seconds, then fades: id → its pending timers. */
+const updTimers = new Map();
+const clearUpd = id => { for(const t of updTimers.get(id) || []) clearTimeout(t); updTimers.delete(id); };
+let freshNote = null;                       // the one just added, title open for typing
+
+function viewNotes(){
+  for(const id of [...updTimers.keys()]) clearUpd(id);
+  const ids = Object.keys(data.tangents).sort().reverse();
+  return `<div class="pagehead"><div class="headrow">
+    <h1 class="pagetitle">Notes</h1>
+    <button class="plus" id="newnote" aria-label="Add a note">+</button>
+  </div></div>
+  <div class="tangents">${ids.map(id => {
+    const n = data.tangents[id], born = noteBorn(id, n);
+    return `
+    <div class="tangent${id === freshNote ? " tangent--new" : ""}" data-note="${id}">
+      <button class="del" data-delnote="${id}" aria-label="Delete this note">×</button>
+      <div class="tangent__hrow"><span class="tangent__h" contenteditable="true" data-edit="tangent.title"
+        data-ph="Title">${esc(n.title || "")}</span><button class="open" data-opennote="${id}" aria-label="Open this note">↗</button></div>
+      <div class="rich">${tools(false)}<div class="prose tangent__t" contenteditable="true" data-edit="tangent.html"
+        data-rich="1" data-ph="Note">${n.html}</div></div>
+      <div class="tangent__fns"></div>
+      ${born ? `<p class="tangent__m"><button class="tangent__d" data-noteupd="${id}">${shortDate(born)}</button>
+        <span class="tangent__u" hidden>updated ${n.updated ? shortDate(n.updated) : ""}</span>
+        <button class="open" data-opennote="${id}" aria-label="Open this note">↗</button></p>` : ""}
+    </div>`; }).join("")}</div>`;
+}
+
+/* A note on a page of its own: the Draft page, less the subtitle and the tally. */
+function viewNote(){
+  const n = data.tangents[openNote];
+  return `<button class="back" data-backnotes>&larr; Notes</button>
+  <div class="notepage" data-note="${openNote}">
+    <div class="pagehead">
+      <h1 class="pagetitle" contenteditable="true" data-edit="tangent.title" data-ph="Title">${esc(n.title)}</h1>
+    </div>
+    <div class="rich">${tools()}<div class="prose" contenteditable="true" data-edit="tangent.html" data-rich="1"
+      data-ph="Note">${n.html}</div></div>
+    <div class="margin" id="margin"></div>
+  </div>`;
+}
+
 function viewRoadmap(){
   return `<div class="road__col">
     <div class="pagehead"><h1 class="pagetitle">Roadmap</h1></div>
     <div class="rich">${tools()}<div class="prose" contenteditable="true" data-edit="roadmap" data-rich="1"
       data-ph="The plan">${data.roadmap}</div></div>
+    <div class="fnlist"></div>
   </div>
   <aside class="rmpane" id="rmpane">${pane()}</aside>`;
 }
@@ -2599,7 +2877,7 @@ function renderPane(){
 }
 
 /* Eight buttons for what gets used; everything else is a markdown shortcut. */
-function tools(){
+function tools(saved = true){
   return `<div class="tools">
     <button data-cmd="h2" title="Heading — ⌥⌘2, or type &quot;# &quot;"><span class="h">H</span></button>
     <button data-cmd="bold" title="Bold — ⌘B"><b>B</b></button>
@@ -2607,16 +2885,18 @@ function tools(){
     <button data-cmd="insertUnorderedList" title="Bullets — ⇧⌘8, or type &quot;- &quot;">•</button>
     <button data-cmd="insertOrderedList" title="Numbered — ⇧⌘7, or type &quot;1. &quot;">1.</button>
     <button data-cmd="quote" title="Quote — ⇧⌘9, or type &quot;&gt; &quot;"><span class="q">&ldquo;</span></button>
+    <button data-cmd="link" title="Link — ⌘K"><svg class="lk" viewBox="0 0 20 20" aria-hidden="true"><path d="M8.5 11.5a3.2 3.2 0 0 0 4.6 0l2.8-2.8a3.2 3.2 0 0 0-4.6-4.6l-1 1"/><path d="M11.5 8.5a3.2 3.2 0 0 0-4.6 0l-2.8 2.8a3.2 3.2 0 0 0 4.6 4.6l1-1"/></svg></button>
     <button data-cmd="math" title="Maths — ⇧⌘E, or type $x^2$">&Sigma;</button>
     <button data-cmd="footnote" title="Footnote — ⌥⌘F">&dagger;</button>
-    <span id="saved" class="saved">Saved</span>
+    ${saved ? `<span id="saved" class="saved">Saved</span>` : ""}
   </div>`;
 }
 
 function render(){
   renderMenu();
   const page = $("#page");
-  page.classList.toggle("page--draft", view === "draft");
+  const noteOpen = view === "notes" && !!data.tangents[openNote];
+  page.classList.toggle("page--draft", view === "draft" || noteOpen);
   page.classList.toggle("page--prog", view === "progress");
   page.classList.toggle("page--road", view === "roadmap");
   $("#view").innerHTML =
@@ -2625,10 +2905,15 @@ function render(){
     : view === "progress" ? viewProgress()
     : view === "draft"    ? viewDraft()
     : view === "roadmap"  ? viewRoadmap()
+    : view === "idea"     ? viewIdea()
+    : noteOpen            ? viewNote()
+    : view === "notes"    ? viewNotes()
     : viewContents();
   document.querySelectorAll("[contenteditable]").forEach(markEmpty);
-  if(view === "draft") layoutFootnotes();
-  if(capture && view === "sources" && !openSource) $("#capture")?.focus();
+  if(view === "draft" || noteOpen) layoutFootnotes();
+  document.querySelectorAll('#view [data-edit="roadmap"], #view [data-edit="reading.note"]').forEach(belowFootnotes);
+  if(view === "notes" && !noteOpen) document.querySelectorAll(".tangent").forEach(noteFootnotes);
+  if(capture && (view === "sources" && !openSource || view === "idea")) $("#capture")?.focus();
   window.scrollTo(0, 0);
 }
 
@@ -2639,11 +2924,15 @@ function render(){
  */
 function layoutFootnotes(){
   const margin = $("#margin");
-  const prose = document.querySelector('[data-edit="draft"]');
+  // An essay's, or an opened note's: the same margin, a different home for the notes.
+  const notePage = document.querySelector(".notepage");
+  const prose = document.querySelector(notePage ? '.notepage [data-edit="tangent.html"]' : '[data-edit="draft"]');
   if(!margin || !prose) return;
+  const kept = notePage && data.tangents[notePage.dataset.note];
+  if(notePage && !kept) return;
 
   const refs = [...prose.querySelectorAll(".fnref")];
-  const store = (data.notes[openIdea] ||= {});
+  const store = kept ? kept.fns : (data.notes[openIdea] ||= {});
   const live = new Set();
   refs.forEach((r, i) => {
     // Words typed into a marker before it was sealed go back into the sentence,
@@ -2665,7 +2954,7 @@ function layoutFootnotes(){
     const had = document.activeElement?.closest?.(".fn")?.dataset.fn;
     margin.innerHTML = refs.map((r, i) => `<aside class="fn" data-fn="${r.dataset.fn}">
         <span class="fn__n">${i + 1}</span><span class="fn__b" contenteditable="true"
-          data-edit="footnote" data-fn="${r.dataset.fn}" data-rich="1"
+          data-edit="${kept ? "tangent.fn" : "footnote"}" data-fn="${r.dataset.fn}" data-rich="1"
           data-ph="Note">${store[r.dataset.fn] || ""}</span></aside>`).join("");
     margin.querySelectorAll("[contenteditable]").forEach(markEmpty);
     if(had) $(`.fn[data-fn="${had}"] .fn__b`)?.focus();
@@ -2688,6 +2977,136 @@ function layoutFootnotes(){
   });
 }
 let fnSig = "", fnTimer = null;
+
+/*
+ * On the list, a footnote shows over its number. Hovering shows it, and it lingers a
+ * moment so the pointer can reach a link in it. Clicking the number (tapping, on a
+ * phone) pins it open with the words editable in place; Esc or a click elsewhere puts
+ * it away. Edits go to the same note as anywhere else.
+ */
+let fnPop = null, fnPopTimer = null;
+function showFnPop(ref, pinned){
+  const box = ref.closest(".tangent[data-note]"), n = box && data.tangents[box.dataset.note];
+  if(!n) return;
+  const id = ref.dataset.fn, words = n.fns[id] || "";
+  if(fnPop?.ref === ref && (fnPop.pinned || !pinned)) return;
+  hideFnPop();
+  if(!pinned && !words.replace(/<[^>]*>|​/g, "").trim()) return;   // nothing to show yet
+  const el = document.createElement("div");
+  el.className = "fnpop" + (pinned ? " fnpop--pinned" : "");
+  el.dataset.note = box.dataset.note;                  // so an edit here finds its note
+  el.innerHTML = `<span class="fnpop__n">${esc(ref.textContent)}</span>${pinned
+    ? `<span class="fnpop__b" contenteditable="true" data-edit="tangent.fn" data-fn="${id}" data-rich="1">${words}</span>`
+    : words}`;
+  if(!pinned) el.querySelectorAll("a[href]").forEach(a => { a.target = "_blank"; a.rel = "noopener"; });
+  document.body.appendChild(el);
+  const r = ref.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
+  el.style.left = Math.max(16, Math.min(r.left - 12, innerWidth - w - 16)) + "px";
+  el.style.top = (r.top - h - 8 >= 8 ? r.top - h - 8 : Math.min(r.bottom + 8, innerHeight - h - 8)) + "px";
+  fnPop = { el, ref, pinned };
+  el.addEventListener("mouseenter", () => clearTimeout(fnPopTimer));
+  el.addEventListener("mouseleave", () => { if(!fnPop?.pinned) laterHideFnPop(); });
+  if(pinned){
+    const b = el.querySelector(".fnpop__b");
+    b.addEventListener("keydown", e => { if(e.key === "Escape"){ e.preventDefault(); hideFnPop(); } });
+    if(!matchMedia("(hover:none)").matches){
+      b.focus();
+      const sel = document.getSelection(); sel.selectAllChildren(b); sel.collapseToEnd();
+    }
+  }
+}
+function hideFnPop(){
+  clearTimeout(fnPopTimer);
+  if(!fnPop) return;
+  const { el } = fnPop;
+  fnPop = null;
+  const b = el.querySelector(".fnpop__b");
+  if(b && settle(b)) applyEdit(b);                     // maths and links typed in it
+  el.remove();
+}
+const laterHideFnPop = () => { clearTimeout(fnPopTimer); fnPopTimer = setTimeout(hideFnPop, 250); };
+document.addEventListener("mouseover", e => {
+  const ref = e.target.closest?.(".tangent .fnref");
+  if(ref){ clearTimeout(fnPopTimer); showFnPop(ref, false); }
+});
+document.addEventListener("mouseout", e => {
+  if(e.target.closest?.(".tangent .fnref") && !fnPop?.pinned) laterHideFnPop();
+});
+document.addEventListener("mousedown", e => {
+  if(fnPop?.pinned && !fnPop.el.contains(e.target) && !e.target.closest?.(".tangent .fnref")) hideFnPop();
+}, true);
+document.addEventListener("click", e => {
+  const ref = e.target.closest?.(".tangent .fnref");
+  if(!ref) return;
+  if(fnPop?.pinned && fnPop.ref === ref) return hideFnPop();   // a second tap puts it away
+  showFnPop(ref, true);
+});
+window.addEventListener("scroll", () => { if(!fnPop?.pinned) hideFnPop(); }, { passive: true });
+
+/*
+ * The roadmap's and a source's footnotes, under the text: numbered from the markers,
+ * kept on their own record (never an essay's), and rebuilt only when the markers change.
+ */
+function fnHome(body){
+  const kind = body?.dataset.edit;
+  if(kind === "roadmap") return { store: data.roadmapFns, edit: "roadmapfn" };
+  if(kind === "reading.note"){
+    const r = data.readings.find(x => x.id === openSource);
+    return r && { store: (r.fns ||= {}), edit: "reading.fn" };
+  }
+  return null;
+}
+function belowFootnotes(body){
+  const home = fnHome(body), list = body?.closest(".rich")?.nextElementSibling;
+  if(!home || !list?.classList.contains("fnlist")) return;
+  const refs = [...body.querySelectorAll(".fnref")], live = new Set();
+  refs.forEach((r, i) => {
+    const stray = r.textContent.replace(/^\d+/, "");
+    if(stray.replace(/\u200b/g, "")) r.after(document.createTextNode(stray));
+    r.textContent = String(i + 1); live.add(r.dataset.fn);
+    r.contentEditable = "false";
+  });
+  for(const id of Object.keys(home.store)) if(!live.has(id)) delete home.store[id];
+  const sig = refs.map(r => r.dataset.fn).join(",");
+  if(sig === list.dataset.sig && list.children.length === refs.length) return;
+  list.dataset.sig = sig;
+  const had = document.activeElement?.closest?.(".fn")?.dataset.fn;
+  list.innerHTML = refs.map((r, i) => `<aside class="fn" data-fn="${r.dataset.fn}">
+      <span class="fn__n">${i + 1}</span><span class="fn__b" contenteditable="true"
+        data-edit="${home.edit}" data-fn="${r.dataset.fn}" data-rich="1"
+        data-ph="Note">${home.store[r.dataset.fn] || ""}</span></aside>`).join("");
+  list.querySelectorAll("[contenteditable]").forEach(markEmpty);
+  if(had) list.querySelector(`.fn[data-fn="${had}"] .fn__b`)?.focus();
+}
+
+/* A note's footnotes, the same way: numbered from its markers, kept on the note, and
+   always folded under it. Rebuilt only when its set of markers changes. */
+function noteFootnotes(box){
+  if(box?.classList.contains("notepage")) return relayout();
+  const n = data.tangents[box.dataset.note], list = box.querySelector(".tangent__fns");
+  const body = box.querySelector(".tangent__t");
+  if(!n || !list || !body) return;
+  const refs = [...body.querySelectorAll(".fnref")];
+  const live = new Set();
+  refs.forEach((r, i) => {
+    const stray = r.textContent.replace(/^\d+/, "");
+    if(stray.replace(/\u200b/g, "")) r.after(document.createTextNode(stray));
+    r.textContent = String(i + 1); live.add(r.dataset.fn);
+    r.contentEditable = "false";
+  });
+  for(const id of Object.keys(n.fns)) if(!live.has(id)) delete n.fns[id];
+  if(fnPop && !fnPop.ref.isConnected) hideFnPop();
+  const sig = refs.map(r => r.dataset.fn).join(",");
+  if(sig === list.dataset.sig) return;
+  list.dataset.sig = sig;
+  const had = document.activeElement?.closest?.(".fn")?.dataset.fn;
+  list.innerHTML = refs.map((r, i) => `<aside class="fn" data-fn="${r.dataset.fn}">
+      <span class="fn__n">${i + 1}</span><span class="fn__b" contenteditable="true"
+        data-edit="tangent.fn" data-fn="${r.dataset.fn}" data-rich="1"
+        data-ph="Note">${n.fns[r.dataset.fn] || ""}</span></aside>`).join("");
+  list.querySelectorAll("[contenteditable]").forEach(markEmpty);
+  if(had) list.querySelector(`.fn[data-fn="${had}"] .fn__b`)?.focus();
+}
 const relayout = () => { clearTimeout(fnTimer); fnTimer = setTimeout(layoutFootnotes, 120); };
 window.addEventListener("resize", relayout);
 
@@ -2722,6 +3141,17 @@ function applyEdit(el){
     save(); return;
   }
   if(kind === "footnote"){ (data.notes[openIdea] ||= {})[el.dataset.fn] = value; save(); return; }
+  if(kind === "roadmapfn"){ data.roadmapFns[el.dataset.fn] = value; save(); return; }
+  if(kind === "tangent"){
+    const box = el.closest("[data-note]"), n = box && data.tangents[box.dataset.note];
+    if(!n) return;
+    if(field === "fn") n.fns[el.dataset.fn] = value;
+    else n[field] = value;
+    n.updated = Date.now();
+    const u = box.querySelector(".tangent__u");
+    if(u) u.textContent = `updated ${shortDate(n.updated)}`;
+    save(); return;
+  }
   if(kind === "draft") data.drafts[openIdea] = value;
   else if(kind === "roadmap") data.roadmap = value;
   else if(kind === "idea"){
@@ -2730,7 +3160,8 @@ function applyEdit(el){
   } else if(kind === "reading"){
     const r = data.readings.find(x => x.id === openSource);
     if(!r) return;
-    if(field === "authorline") r.authors = value.split(/\s*,\s*/).filter(Boolean);
+    if(field === "fn") (r.fns ||= {})[el.dataset.fn] = value;
+    else if(field === "authorline") r.authors = value.split(/\s*,\s*/).filter(Boolean);
     else if(field === "venueline"){
       const m = /^(.*?)(?:,\s*)?((?:1[6-9]|20)\d{2})?$/.exec(value) || [];
       r.venue = (m[1] || value).trim();
@@ -2749,6 +3180,8 @@ document.addEventListener("input", e => {
   if(el.dataset.rich === "1") autoformat(el);
   markEmpty(el);
   applyEdit(el);
+  if(el.dataset.edit === "tangent.html") noteFootnotes(el.closest("[data-note]"));
+  if(el.dataset.edit === "roadmap" || el.dataset.edit === "reading.note") belowFootnotes(el);
   if(el.dataset.edit === "draft"){
     relayout();
     const w = words(el.innerHTML);
@@ -2829,6 +3262,17 @@ document.addEventListener("paste", e => {
   const html = e.clipboardData.getData("text/html");
   const text = e.clipboardData.getData("text/plain");
   e.preventDefault();
+  // An address on its own becomes a link: over selected words it links them, and
+  // anywhere else it goes in as itself.
+  const href = el.dataset.rich === "1" ? pastedLink(text) : null;
+  if(href){
+    const sel = document.getSelection(), r = sel.rangeCount ? sel.getRangeAt(0) : null;
+    const node = r?.commonAncestorContainer, inLink = (node?.nodeType === 1 ? node : node?.parentElement)?.closest("a");
+    if(r && !r.collapsed && inLink && el.contains(inLink)){ inLink.setAttribute("href", href); applyEdit(el); }
+    else if(r && !r.collapsed && el.contains(node)) document.execCommand("createLink", false, href);
+    else document.execCommand("insertHTML", false, `<a href="${esc(href)}">${esc(text.trim())}</a>\u200b`);
+    return;
+  }
   if(el.dataset.rich === "1" && html) document.execCommand("insertHTML", false, cleanPaste(html));
   else document.execCommand("insertText", false, el.dataset.rich === "1" ? text : text.replace(/\s*\n\s*/g, " "));
 });
@@ -2842,6 +3286,127 @@ const spell = (e, on) => {
 };
 document.addEventListener("focusin",  e => spell(e, true));
 document.addEventListener("focusout", e => spell(e, false));
+
+/* A note left blank is not kept. Removed in place: redrawing here would swallow the click
+   that moved the focus. */
+document.addEventListener("focusout", e => {
+  const box = e.target.closest?.(".tangent[data-note]");
+  if(!box || box.contains(e.relatedTarget)) return;
+  const n = data.tangents[box.dataset.note];
+  const body = box.querySelector(".tangent__t");
+  if(!n || n.title.trim() || (body && (body.textContent.trim() || body.querySelector(".math,li,img")))) return;
+  delete data.tangents[box.dataset.note];
+  box.remove();
+  save();
+});
+
+/* Return in a note's title goes on to its text. */
+document.addEventListener("keydown", e => {
+  if(e.key !== "Enter" || e.target.dataset?.edit !== "tangent.title") return;
+  e.preventDefault();
+  e.target.closest("[data-note]")?.querySelector('[data-edit="tangent.html"]')?.focus();
+});
+
+/* Down from a title's last line goes into the text, and Up from the text's first line
+   back to the title, keeping the caret's place across where the line allows. */
+const caretBox = () => {
+  const sel = document.getSelection();
+  if(!sel.rangeCount) return null;
+  const r = sel.getRangeAt(0).cloneRange(); r.collapse(true);
+  const rects = r.getClientRects();
+  return rects.length ? rects[0] : null;
+};
+function caretTo(el, x, y, atEnd){
+  el.focus();
+  const sel = document.getSelection();
+  let r = null;
+  if(x != null){
+    if(document.caretRangeFromPoint) r = document.caretRangeFromPoint(x, y);
+    else if(document.caretPositionFromPoint){
+      const p = document.caretPositionFromPoint(x, y);
+      if(p){ r = document.createRange(); r.setStart(p.offsetNode, p.offset); }
+    }
+  }
+  if(!r || !el.contains(r.startContainer)){
+    r = document.createRange(); r.selectNodeContents(el); r.collapse(!atEnd);
+  }
+  r.collapse(true);
+  sel.removeAllRanges(); sel.addRange(r);
+}
+/*
+ * A page's fields as one run of lines — an idea's title and description; an essay's title,
+ * subtitle, text and footnotes;
+ * a source's title, author, journal, notes and footnotes; the roadmap's text and footnotes;
+ * an opened note's text and footnotes: Down from the last line of one goes into the next, Up from the first line
+ * goes back. Anywhere else in a field the arrows move as they always do.
+ */
+function fnChain(el){
+  if(!el) return null;
+  const page = el.closest(".notepage");
+  if(page && (el.dataset.edit === "tangent.html" || el.closest("#margin")))
+    return [page.querySelector('[data-edit="tangent.html"]'), ...document.querySelectorAll("#margin .fn__b")];
+  const q = sel => document.querySelector(`#view ${sel}`);
+  // An idea's page: its title, then what it is about.
+  const dek = q('[data-edit="idea.dek"]');
+  if(dek){
+    const run = [q('[data-edit="idea.title"]'), dek].filter(Boolean);
+    return run.includes(el) ? run : null;
+  }
+  // An essay: its title and subtitle come first, then the text, then its footnotes.
+  const essay = q('[data-edit="draft"]');
+  if(essay){
+    const run = [q('[data-edit="idea.title"]'), q('[data-edit="idea.deck"]'), essay,
+                 ...document.querySelectorAll("#margin .fn__b")].filter(Boolean);
+    return run.includes(el) ? run : null;
+  }
+  // A source: title, author and journal lines, then its notes and their footnotes.
+  const notes = q('[data-edit="reading.note"]');
+  if(notes){
+    const list = notes.closest(".rich")?.nextElementSibling;
+    const run = [q('[data-edit="reading.title"]'), q('[data-edit="reading.authorline"]'),
+                 q('[data-edit="reading.venueline"]'), notes, ...(list?.querySelectorAll(".fn__b") || [])].filter(Boolean);
+    return run.includes(el) ? run : null;
+  }
+  const body = el.dataset.edit === "roadmap" ? el
+    : el.closest(".fnlist")?.previousElementSibling?.querySelector('[data-edit="roadmap"]');
+  const list = body?.closest(".rich")?.nextElementSibling;
+  return body && list?.classList.contains("fnlist") ? [body, ...list.querySelectorAll(".fn__b")] : null;
+}
+document.addEventListener("keydown", e => {
+  if((e.key !== "ArrowDown" && e.key !== "ArrowUp") || e.shiftKey || e.altKey || e.metaKey || e.ctrlKey) return;
+  const el = e.target.closest?.("[contenteditable]"), chain = fnChain(el);
+  const i = chain ? chain.indexOf(el) : -1;
+  if(i < 0) return;
+  const next = chain[i + (e.key === "ArrowDown" ? 1 : -1)];
+  if(!next) return;
+  const lh = x => parseFloat(getComputedStyle(x).lineHeight) || 20;
+  const c = caretBox(), r = el.getBoundingClientRect();
+  if(c && (e.key === "ArrowDown" ? c.bottom < r.bottom - lh(el) * .6 : c.top > r.top + lh(el) * .6)) return;
+  e.preventDefault();
+  const n = next.getBoundingClientRect();
+  if(e.key === "ArrowDown") caretTo(next, c ? c.left : null, n.top + lh(next) / 2, false);
+  else caretTo(next, c ? c.left : null, n.bottom - lh(next) / 2, true);
+});
+
+document.addEventListener("keydown", e => {
+  if((e.key !== "ArrowDown" && e.key !== "ArrowUp") || e.shiftKey || e.altKey || e.metaKey || e.ctrlKey) return;
+  const box = e.target.closest?.("[data-note]");
+  if(!box) return;
+  const title = box.querySelector('[data-edit="tangent.title"]'), body = box.querySelector('[data-edit="tangent.html"]');
+  const lh = el => parseFloat(getComputedStyle(el).lineHeight) || 24;
+  const c = caretBox();
+  if(e.key === "ArrowDown" && e.target === title){
+    if(c && c.bottom < title.getBoundingClientRect().bottom - lh(title) * .6) return;   // not the last line yet
+    e.preventDefault();
+    const b = body.getBoundingClientRect();
+    caretTo(body, c ? c.left : null, b.top + lh(body) / 2, false);
+  } else if(e.key === "ArrowUp" && e.target === body){
+    if(c && c.top > body.getBoundingClientRect().top + lh(body) * .6) return;           // not the first line
+    e.preventDefault();
+    const t = title.getBoundingClientRect();
+    caretTo(title, c ? c.left : null, t.bottom - lh(title) / 2, true);
+  }
+});
 
 /* A chord each, so the toolbar is a reminder rather than the only way in. A letter
    each was the first try, and half of them never reached the page: ⌘N, ⌘L, ⌘H, ⌘M and
@@ -2858,6 +3423,7 @@ const KEYTOOL = {
   "shift+Digit7": "insertOrderedList",
   "shift+Digit9": "quote",
   "shift+KeyE":  "math",
+  "KeyK":        "link",
 };
 
 document.addEventListener("keydown", e => {
@@ -2899,9 +3465,15 @@ function runTool(cmd, host){
   else if(cmd === "h2")    document.execCommand("formatBlock", false, inside("h2") ? "p" : "h2");
   else if(cmd === "h3")    document.execCommand("formatBlock", false, inside("h3") ? "p" : "h3");
   else if(cmd === "math")  document.execCommand("insertText", false, "$x$");
+  else if(cmd === "link"){ openLinkBox(host); return; }
   else if(cmd === "footnote"){
     const id = "f" + Date.now();
-    (data.notes[openIdea] ||= {})[id] = "";
+    const box = host?.dataset.edit === "tangent.html" ? host.closest("[data-note]") : null;
+    const below = fnHome(host);
+    if(box) data.tangents[box.dataset.note].fns[id] = "";
+    else if(below) below.store[id] = "";
+    else if(host?.dataset.edit === "draft") (data.notes[openIdea] ||= {})[id] = "";
+    else return;                                     // a footnote's own words take no footnote
     document.execCommand("insertHTML", false,
       `<sup class="fnref" data-fn="${id}">0</sup>&#8203;`);
     // Sealed after it is in, not in the HTML: Chrome will not put a non-editable
@@ -2910,13 +3482,113 @@ function runTool(cmd, host){
     if(ref) ref.contentEditable = "false";
     leaveMarker(ref);
     if(host) applyEdit(host);
-    layoutFootnotes();
-    setTimeout(() => $(`.fn[data-fn="${id}"] .fn__b`)?.focus(), 0);
+    if(below){
+      belowFootnotes(host);
+      host.closest(".rich")?.nextElementSibling?.querySelector(`.fn[data-fn="${id}"] .fn__b`)?.focus();
+    } else if(box && !box.classList.contains("notepage")){
+      noteFootnotes(box);
+      const ref = box.querySelector(`.fnref[data-fn="${id}"]`);
+      if(ref) showFnPop(ref, true);                    // at once, so nothing typed lands behind it
+    } else {
+      layoutFootnotes();
+      setTimeout(() => $(`.fn[data-fn="${id}"] .fn__b`)?.focus(), 0);
+    }
     return;
   }
   else                     document.execCommand(cmd);
   if(host){ markEmpty(host); applyEdit(host); }
 }
+
+/* A footnote's number is part of the line you click to write in it. */
+document.addEventListener("click", e => {
+  const num = e.target.closest?.(".fn__n, .fnpop--pinned .fnpop__n");
+  const b = num?.parentElement.querySelector(".fn__b, .fnpop__b");
+  if(!b) return;
+  b.focus();
+  const sel = document.getSelection(); sel.selectAllChildren(b); sel.collapseToEnd();
+});
+
+/* ---------- links ---------- */
+/*
+ * ⌘K or the toolbar: a box under the selection for its address. Enter sets it, Esc
+ * leaves things as they were, and an emptied box takes the link off. On a link that
+ * exists the box also carries a ↗, which is how a phone opens one.
+ */
+let linkBox = null;
+function closeLinkBox(restore){
+  if(!linkBox) return;
+  const { el, range, host } = linkBox;
+  linkBox = null;
+  el.remove();
+  if(restore && host?.isConnected){
+    host.focus({ preventScroll: true });
+    const sel = document.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+  }
+}
+function openLinkBox(host, anchor){
+  if(!host) return;
+  closeLinkBox(false);
+  const sel = document.getSelection();
+  if(!sel.rangeCount && !anchor) return;
+  const range = anchor ? (() => { const r = document.createRange(); r.selectNodeContents(anchor); return r; })()
+                       : sel.getRangeAt(0).cloneRange();
+  const a = anchor || range.commonAncestorContainer.parentElement?.closest?.("a")
+    || (range.commonAncestorContainer.nodeType === 1 ? range.commonAncestorContainer.closest("a") : null);
+  const link = a && host.contains(a) ? a : null;
+  const el = document.createElement("div");
+  el.className = "linkbox";
+  el.innerHTML = `${link ? `<input class="linkbox__in linkbox__text" autocomplete="off"
+      aria-label="Link text" value="${esc(link.textContent.replace(/\u200b/g, ""))}">` : ""}<input class="linkbox__in linkbox__addr" type="url" inputmode="url" autocomplete="off" spellcheck="false"
+      aria-label="Link address" value="${esc(link?.getAttribute("href") || "")}">${
+    link ? `<a class="linkbox__go" href="${esc(link.getAttribute("href") || "")}" target="_blank" rel="noopener" aria-label="Open the link">↗</a>` : ""}`;
+  document.body.appendChild(el);
+  const r = (link || range).getBoundingClientRect();
+  el.style.left = Math.max(16, Math.min(r.left, window.innerWidth - el.offsetWidth - 16)) + "px";
+  el.style.top = Math.min(r.bottom + 8, window.innerHeight - el.offsetHeight - 8) + "px";
+  linkBox = { el, range, host, link };
+  const input = el.querySelector(".linkbox__addr"), text = el.querySelector(".linkbox__text");
+  for(const f of [text, input].filter(Boolean)) f.addEventListener("keydown", e => {
+    if(e.key === "Escape"){ e.preventDefault(); e.stopPropagation(); closeLinkBox(true); }
+    if(e.key === "Enter"){ e.preventDefault(); applyLink(input.value, text?.value); }
+  });
+  // A tap on a phone shows the box to open the link, not to retype it.
+  if(!(anchor && matchMedia("(hover:none)").matches)){ const f = text || input; f.focus(); f.select(); }   // typing replaces it
+}
+function applyLink(value, words){
+  if(!linkBox) return;
+  const { range, host, link } = linkBox;
+  const href = value.trim() ? linkHref(value) : "";
+  if(href === null){ linkBox.el.querySelector(".linkbox__addr").select(); return; }   // not an address
+  closeLinkBox(true);
+  if(link){
+    if(href){
+      link.setAttribute("href", href);
+      const now = (words ?? "").trim() || href, was = link.textContent.replace(/\u200b/g, "");
+      if(words !== undefined && now !== was){
+        // Keep a bold or italic that wraps the whole link; otherwise it becomes plain words.
+        let inner = link;
+        while(inner.childNodes.length === 1 && inner.firstChild.nodeType === 1) inner = inner.firstChild;
+        inner.textContent = now;
+      }
+    }
+    else { link.replaceWith(...link.childNodes); }
+  } else if(href){
+    if(range.collapsed) document.execCommand("insertHTML", false, `<a href="${esc(href)}">${esc(href)}</a>`);
+    else document.execCommand("createLink", false, href);
+  }
+  host.normalize();
+  markEmpty(host); applyEdit(host);
+}
+document.addEventListener("mousedown", e => {
+  if(linkBox && !linkBox.el.contains(e.target)) closeLinkBox(false);
+}, true);
+document.addEventListener("click", e => {
+  const a = e.target.closest?.("[data-rich] a[href]");
+  if(!a) return;
+  // ⌘- or Ctrl-click opens a link from the text; a plain click puts the caret in it.
+  if(e.metaKey || e.ctrlKey){ e.preventDefault(); window.open(a.href, "_blank", "noopener"); return; }
+  if(matchMedia("(hover:none)").matches) openLinkBox(a.closest("[data-rich]"), a);
+});
 
 document.addEventListener("click", e => {
   const b = e.target.closest(".tools button");
@@ -3051,7 +3723,7 @@ const sourceLink = r =>
   : r.jstor ? "https://www.jstor.org/stable/" + r.jstor
   : r.url   || null;
 
-async function addSource(input, fileName, realFile){
+async function addSource(input, fileName, realFile, ideaId){
   const steps = $("#steps");
   const trail = [];
   const onStep = m => {
@@ -3089,7 +3761,7 @@ async function addSource(input, fileName, realFile){
     jstor: ids.jstor || null,
     pasted: typeof input === "string" ? input : null,
     offline: liveFailed,
-    ideas: [data.ideas[0]?.id].filter(Boolean),
+    ideas: [ideaId || data.ideas[0]?.id].filter(Boolean),
     status: "queued",
     note: "",
     needsReview: !!meta.needsReview || !meta.title,
@@ -3100,19 +3772,40 @@ async function addSource(input, fileName, realFile){
   save();
   capture = false;
   render();
-  if(r.needsReview){ openSource = r.id; view = "sources"; render(); }
+  if(r.needsReview){
+    if(ideaId && view === "idea"){                   // checked from the idea, and back to it
+      srcFromIdea = ideaId; srcPushed = true;
+      history.pushState(null, "", `#idea=${ideaId}&src=${r.id}`);
+    }
+    openSource = r.id; view = "sources"; render();
+  }
 }
 
 document.addEventListener("keydown", e => {
   if(e.target.id !== "capture" || e.key !== "Enter") return;
   const v = e.target.value.trim();
   if(!v) return;
+  const first = view === "idea" && $("#picks .pick__s");
+  if(first && !/^(https?:|www\.|10\.\d|doi:|arxiv:)/i.test(v)){ first.click(); return; }   // words: the first match
   e.target.value = "";
-  addSource(v, null, null);
+  addSource(v, null, null, view === "idea" ? openIdea : null);
+});
+
+/* On an idea's page, words rather than a link look through the library for a source to
+   attach — one already there, filed under something else or nothing at all. */
+document.addEventListener("input", e => {
+  if(e.target.id !== "capture" || view !== "idea") return;
+  const q = e.target.value.trim().toLowerCase(), box = $("#picks");
+  if(!box) return;
+  if(q.length < 2 || /^(https?:|www\.|10\.\d|doi:|arxiv:)/i.test(q)){ box.innerHTML = ""; return; }
+  const hits = data.readings.filter(r => !r.ideas.includes(openIdea)
+    && [r.title, ...(r.authors || []), r.venue].join(" ").toLowerCase().includes(q)).slice(0, 5);
+  box.innerHTML = hits.map(r => `<button class="pick__s" data-attach="${r.id}">${esc(r.title || "Untitled")}<span>${
+    esc((r.authors || []).slice(0, 2).join(" & "))}</span></button>`).join("");
 });
 
 ["dragenter","dragover"].forEach(ev => document.addEventListener(ev, e => {
-  if(view !== "sources" || openSource) return;
+  if(!(view === "sources" && !openSource) && view !== "idea") return;
   e.preventDefault();
   $("#capturebox")?.classList.add("drop");
 }));
@@ -3122,11 +3815,12 @@ document.addEventListener("keydown", e => {
 }));
 document.addEventListener("drop", e => {
   const files = [...(e.dataTransfer?.files || [])].filter(f => /pdf$/i.test(f.type) || /\.pdf$/i.test(f.name));
-  if(!files.length || view !== "sources" || openSource) return;
+  if(!files.length || !(view === "sources" && !openSource) && view !== "idea") return;
   e.preventDefault();
   capture = true;
   render();
-  files.forEach(f => addSource(null, f.name, f));
+  const home = view === "idea" ? openIdea : null;
+  files.forEach(f => addSource(null, f.name, f, home));
 });
 
 /* ---------- navigation ---------- */
@@ -3147,26 +3841,74 @@ try{
 }catch{}
 setMenu(startOpen);
 
-// Leaving an idea's row disarms its ×.
+// Leaving a row disarms its ×; so does a tap anywhere else.
+const disarm = b => { b.classList.remove("del--arm"); b.textContent = "×"; };
+/* The first click on a × arms it; true means this click did only that. */
+const armed = (b, word = "Delete") => {
+  if(b.classList.contains("del--arm")) return false;
+  b.classList.add("del--arm"); b.textContent = word;
+  return true;
+};
+document.addEventListener("click", e => {
+  document.querySelectorAll(".del--arm").forEach(b => { if(!b.contains(e.target)) disarm(b); });
+}, true);
 document.addEventListener("mouseout", e => {
-  const row = e.target.closest?.(".row");
+  const row = e.target.closest?.(".row, .tangent");
   if(!row || row.contains(e.relatedTarget)) return;
-  const armed = row.querySelector(".del--arm");
-  if(armed){ armed.classList.remove("del--arm"); armed.textContent = "×"; }
+  const on = row.querySelector(".del--arm");
+  if(on) disarm(on);
 });
 
 document.addEventListener("click", e => {
   const go = e.target.closest("[data-view]");
   if(go){
-    view = go.dataset.view; openSource = null; capture = false;
+    view = go.dataset.view; openSource = null; capture = false; srcFromIdea = null;
+    if(openNote) openNote = null;
+    if(noteInHash() || ideaInHash()) history.replaceState(null, "", location.pathname + location.search);
     if(!window.matchMedia("(min-width: 861px)").matches) setMenu(false);
     return render();
   }
   if(e.target.closest("#plus")){ capture = !capture; return render(); }
+  if(e.target.closest("#newnote")){
+    const now = Date.now();
+    freshNote = "t" + now.toString(36);
+    data.tangents[freshNote] = { title: "", html: "", fns: {}, created: now };
+    save(); render();
+    $(".tangent__h")?.focus();
+    freshNote = null;
+    $(".tangent--new")?.classList.remove("tangent--new");
+    return;
+  }
+  const openBtn = e.target.closest("[data-opennote]");
+  if(openBtn){
+    openNote = openBtn.dataset.opennote; notePushed = true;
+    history.pushState(null, "", `#note=${openNote}`);
+    return render();
+  }
+  const delNote = e.target.closest("[data-delnote]");
+  if(delNote){
+    if(armed(delNote)) return;
+    delete data.tangents[delNote.dataset.delnote]; save(); return render();
+  }
+  const upd = e.target.closest("[data-noteupd]");
+  if(upd){
+    const id = upd.dataset.noteupd, u = upd.nextElementSibling;
+    if(!data.tangents[id]?.updated || !u) return;
+    clearUpd(id);
+    u.classList.remove("is-fading");
+    if(!u.hidden){ u.hidden = true; return; }
+    u.hidden = false;
+    updTimers.set(id, [setTimeout(() => {
+      u.classList.add("is-fading");
+      updTimers.set(id, [setTimeout(() => { u.hidden = true; u.classList.remove("is-fading"); updTimers.delete(id); }, 400)]);
+    }, 5000)]);
+    return;
+  }
   if(e.target.closest("#newidea")){
     const id = "i" + Date.now().toString(36);
     data.ideas.push({id, title:"", stage:"reading", dek:"", deck:""});
-    openIdea = id; view = "draft"; openSource = null;
+    openIdea = id; view = "idea"; openSource = null; srcFromIdea = null;
+    history.pushState(null, "", `#idea=${id}`);    // a new idea starts on its own page
     save(); render();
     $(".pagetitle[contenteditable]")?.focus();     // straight into naming it
     return;
@@ -3256,6 +3998,7 @@ document.addEventListener("click", e => {
   }
   const del = e.target.closest("[data-del]");
   if(del){
+    if(armed(del)) return;
     const i = data.readings.findIndex(r => r.id === del.dataset.del);
     if(i > -1){ data.readings.splice(i, 1); save(); render(); }
     return;
@@ -3263,10 +4006,7 @@ document.addEventListener("click", e => {
   const delIdea = e.target.closest("[data-delidea]");
   if(delIdea){
     const id = delIdea.dataset.delidea;
-    if(!delIdea.classList.contains("del--arm")){
-      delIdea.classList.add("del--arm"); delIdea.textContent = "Delete?";
-      return;
-    }
+    if(armed(delIdea)) return;
     data.ideas = data.ideas.filter(x => x.id !== id);
     delete data.drafts[id]; delete data.notes[id];
     for(const r of data.readings) if(r.ideas.includes(id)) r.ideas = r.ideas.filter(x => x !== id);
@@ -3274,10 +4014,53 @@ document.addEventListener("click", e => {
     save(); render();
     return;
   }
+  const out = e.target.closest("[data-href]");
+  if(out){ window.open(out.dataset.href, "_blank", "noopener"); return; }
   const src = e.target.closest("[data-src]");
-  if(src){ view = "sources"; openSource = src.dataset.src; return render(); }
+  if(src){
+    if(view === "idea"){
+      srcFromIdea = openIdea; srcPushed = true;
+      history.pushState(null, "", `#idea=${openIdea}&src=${src.dataset.src}`);
+    } else srcFromIdea = null;
+    view = "sources"; openSource = src.dataset.src;
+    return render();
+  }
+  if(e.target.closest("[data-backnotes]")){
+    if(notePushed) return history.back();            // the list is the step behind
+    history.replaceState(null, "", location.pathname + location.search);
+    openNote = null; view = "notes"; return render();
+  }
+  const attach = e.target.closest("[data-attach]");
+  if(attach){
+    const r = data.readings.find(x => x.id === attach.dataset.attach);
+    if(r && !r.ideas.includes(openIdea)) r.ideas.push(openIdea);
+    capture = false; save(); return render();
+  }
+  const unfile = e.target.closest("[data-unfile]");
+  if(unfile){
+    if(armed(unfile, "Remove")) return;
+    const r = data.readings.find(x => x.id === unfile.dataset.unfile);
+    if(r) r.ideas = r.ideas.filter(x => x !== openIdea);
+    save(); return render();
+  }
+  const backIdea = e.target.closest("[data-backidea]");
+  if(backIdea){
+    if(srcPushed) return history.back();             // the idea's page is the step behind
+    history.replaceState(null, "", `#idea=${backIdea.dataset.backidea}`);
+    srcFromIdea = null; routeFromHash(); return render();
+  }
   const idea = e.target.closest("[data-idea]");
-  if(idea){ view = "draft"; openIdea = idea.dataset.idea; openSource = null; return render(); }
+  if(idea){
+    view = "idea"; openIdea = idea.dataset.idea; openSource = null;
+    history.pushState(null, "", `#idea=${openIdea}`);
+    return render();
+  }
+  const godraft = e.target.closest("[data-godraft]");
+  if(godraft){
+    view = "draft"; openIdea = godraft.dataset.godraft;
+    history.pushState(null, "", `#idea=${openIdea}&draft`);
+    return render();
+  }
 });
 
 /* Open it where there is room for it, and no taller than that room. */
@@ -3300,6 +4083,35 @@ document.addEventListener("keydown", e => {
   if(m && !m.hidden){ m.hidden = true; return; }          // the nearer thing first
   if(document.documentElement.classList.contains("is-open")) setMenu(false);
 });
+
+const noteInHash = () => (/(?:^#|&)note=([\w-]+)/.exec(location.hash) || [])[1] || null;
+const ideaInHash = () => {
+  const m = /(?:^#|&)idea=([\w-]+)(&draft)?(?:&src=([\w-]+))?/.exec(location.hash);
+  return m && data.ideas.some(x => x.id === m[1])
+    ? { id: m[1], draft: !!m[2], src: m[3] && data.readings.some(r => r.id === m[3]) ? m[3] : null } : null;
+};
+/* An opened note, an idea's page, or the draft reached from it: each is its own step in
+   the browser's history, so Back walks out the way you came in and a reload stays put. */
+function routeFromHash(){
+  const note = noteInHash(), idea = ideaInHash();
+  if(note){ view = "notes"; openNote = note; return true; }
+  notePushed = false;
+  if(idea){
+    openNote = null; openIdea = idea.id;
+    if(idea.src){ view = "sources"; openSource = idea.src; srcFromIdea = idea.id; return true; }
+    view = idea.draft ? "draft" : "idea"; openSource = null; srcFromIdea = null; srcPushed = false;
+    return true;
+  }
+  return false;
+}
+window.addEventListener("popstate", () => {
+  if(!routeFromHash()){
+    if(openNote) openNote = null;
+    else if(view === "idea") view = "contents";
+  }
+  render();
+});
+routeFromHash();
 
 render();
 startSync();

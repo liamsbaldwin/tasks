@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { merge, stamp, normalise, prune, sameContent, emptyPayload, keyOf } from "../src/sync.js";
+import { merge, stamp, normalise, prune, sameContent, emptyPayload, keyOf, linkHref, pastedLink } from "../src/sync.js";
 
 const idea = (id, title) => ({ id, title, blurb: "", stage: "reading", essay: { deck: "" } });
 const book = (id, title) => ({ id, title, kind: "paper", status: "unread", ideas: [] });
@@ -324,4 +324,155 @@ test("sameContent notices a calendar entry, a footnote or a credit", () => {
     change(other);
     assert.equal(sameContent(base, other), false);
   }
+});
+
+const note = (html, extra = {}) => ({ title: "", html, fns: {}, ...extra });
+
+test("notes on the Notes page sync per note, and a deleted one stays deleted", () => {
+  const base = at(100, p => { p.tangents = { t1: note("<p>first</p>"), t2: note("<p>second</p>") }; return p; });
+  const phone = stamp(base, { ...base, tangents: { t1: note("<p>first, <b>edited</b></p>"), t2: note("<p>second</p>") } }, 200);
+  const laptop = stamp(base, { ...base, tangents: { t1: note("<p>first</p>") } }, 300);
+  const m = merge(phone, laptop);
+  assert.deepEqual(m.tangents, { t1: note("<p>first, <b>edited</b></p>") });
+  assert.deepEqual(merge(laptop, phone).tangents, m.tangents);
+});
+
+test("notes stand alone: they outlive every idea and count for nothing", () => {
+  const p = at(100, q => { q.ideas = [idea("a", "A")]; q.tangents = { t1: note("<p>a thought</p>") }; return q; });
+  const out = merge(stamp(p, { ...p, ideas: [] }, 200), p);
+  assert.deepEqual(out.tangents, { t1: note("<p>a thought</p>") });
+  assert.deepEqual(out.log, []);
+  assert.deepEqual(out.credited, {});
+  assert.equal(sameContent(p, { ...p, tangents: {} }), false);
+  assert.deepEqual(normalise({ tangents: "junk" }).tangents, {});
+});
+
+test("a note's title, footnotes and dates travel with it, and the later edit wins", () => {
+  const base = at(100, p => { p.tangents = { t1: note("<p>body</p>", { created: 100 }) }; return p; });
+  const later = note('<p>body<sup class="fnref" data-fn="f1">1</sup></p>',
+    { title: "On maps", fns: { f1: "<i>see</i> Bettencourt" }, created: 100, updated: 200 });
+  const phone = stamp(base, { ...base, tangents: { t1: later } }, 200);
+  const laptop = stamp(base, { ...base, tangents: { t1: note("<p>body, longer</p>", { created: 100, updated: 150 }) } }, 150);
+  const m = merge(laptop, phone);
+  assert.deepEqual(m.tangents.t1, later);
+  assert.deepEqual(merge(phone, laptop).tangents, m.tangents);
+});
+
+test("a note's footnotes are its own: not an essay's, and gone with the note", () => {
+  const p = at(100, q => {
+    q.ideas = [idea("a", "A")]; q.drafts = { a: "<p>essay</p>" };
+    q.tangents = { t1: note("<p>x</p>", { fns: { f1: "aside" } }) };
+    return q;
+  });
+  assert.deepEqual(p.notes, {});
+  const gone = merge(stamp(p, { ...p, tangents: {} }, 200), p);
+  assert.deepEqual(gone.tangents, {});
+  assert.deepEqual(gone.notes, {});
+  assert.deepEqual(normalise({ tangents: { t1: { html: "", fns: { f1: 3, f2: "ok" } } } }).tangents.t1.fns, { f2: "ok" });
+});
+
+test("the first notes, saved as plain text, become paragraphs with their line breaks", () => {
+  const n = normalise({ tangents: {
+    t1: "old thought",
+    t2: 7,
+    t3: { text: "one\ntwo\n\n<three> & four", title: "T", created: "soon", updated: 5 },
+  } });
+  assert.deepEqual(n.tangents, {
+    t1: { title: "", html: "<p>old thought</p>", fns: {} },
+    t3: { title: "T", html: "<p>one<br>two</p><p>&lt;three&gt; &amp; four</p>", fns: {}, updated: 5 },
+  });
+  // and reading them that way is not itself an edit
+  const was = { tangents: { t1: "old thought", t3: { title: "", text: "a\nb" } } };
+  assert.deepEqual(stamp(was, normalise(was), 500).mtimes, {});
+});
+
+test("a typed link becomes a web or mail address, or nothing", () => {
+  assert.equal(linkHref("https://www.jstor.org/stable/724011"), "https://www.jstor.org/stable/724011");
+  assert.equal(linkHref("  example.com/a?b=1#c "), "https://example.com/a?b=1#c");
+  assert.equal(linkHref("www.nature.com"), "https://www.nature.com");
+  assert.equal(linkHref("example.com:8080/x"), "https://example.com:8080/x");
+  assert.equal(linkHref("mailto:liam@example.com"), "mailto:liam@example.com");
+  for (const bad of ["javascript:alert(1)", "JavaScript:void(0)", "data:text/html,hi", "ftp://x.org",
+                     "vbscript:x", "not a link", "word", "http://", ""])
+    assert.equal(linkHref(bad), bad === "" ? null : null, bad);
+});
+
+test("links survive saving and syncing in every kind of writing", () => {
+  const a = '<p>see <a href="https://example.com/x">this</a></p>';
+  const base = at(100, p => {
+    p.ideas = [idea("i", "I")]; p.drafts = { i: a }; p.roadmap = a;
+    p.readings = [{ ...book("r", "R"), note: a }];
+    p.tangents = { t1: note(a, { fns: { f1: a } }) };
+    return p;
+  });
+  const m = merge(base, emptyPayload());
+  assert.equal(m.drafts.i, a);
+  assert.equal(m.roadmap, a);
+  assert.equal(m.readings[0].note, a);
+  assert.equal(m.tangents.t1.html, a);
+  assert.equal(m.tangents.t1.fns.f1, a);
+  // an edited address is an edit like any other, and the later one wins
+  const moved = a.replace("example.com/x", "example.org/y");
+  const phone = stamp(base, { ...base, tangents: { t1: note(moved, { fns: { f1: a } }) } }, 200);
+  assert.equal(merge(base, phone).tangents.t1.html, moved);
+});
+
+test("a paste becomes a link only when it is nothing but an address", () => {
+  assert.equal(pastedLink(" https://example.com/a?b=1 \n"), "https://example.com/a?b=1");
+  assert.equal(pastedLink("www.nature.com/articles/x"), "https://www.nature.com/articles/x");
+  assert.equal(pastedLink("mailto:liam@example.com"), "mailto:liam@example.com");
+  for (const not of ["see https://example.com", "https://example.com and more", "e.g.", "example.com",
+                     "javascript:alert(1)", "https://", "", "Two lines\nhttps://example.com"])
+    assert.equal(pastedLink(not), null, not);
+});
+
+test("the roadmap's footnotes sync as their own record, and emptying them is not a deletion", () => {
+  const base = at(100, p => { p.roadmap = '<p>plan<sup class="fnref" data-fn="f1">1</sup></p>'; p.roadmapFns = { f1: "why" }; return p; });
+  assert.deepEqual(merge(base, emptyPayload()).roadmapFns, { f1: "why" });
+  const edited = stamp(base, { ...base, roadmapFns: { f1: "why, <i>really</i>" } }, 200);
+  assert.equal(edited.mtimes[keyOf.roadmapFns()], 200);
+  assert.deepEqual(merge(base, edited).roadmapFns, { f1: "why, <i>really</i>" });
+  const emptied = stamp(base, { ...base, roadmapFns: {} }, 300);
+  assert.equal(emptied.tombs[keyOf.roadmapFns()], undefined);
+  assert.deepEqual(merge(emptied, base).roadmapFns, {});
+  assert.equal(sameContent(base, { ...base, roadmapFns: {} }), false);
+  assert.deepEqual(normalise({ roadmapFns: { a: "x", b: 3 } }).roadmapFns, { a: "x" });
+  assert.deepEqual(normalise({}).roadmapFns, {});
+});
+
+test("a source's footnotes live on the source, never on an essay", () => {
+  const base = at(100, p => {
+    p.ideas = [idea("a", "A")]; p.drafts = { a: "<p>essay</p>" };
+    p.readings = [{ ...book("r", "R"), note: '<p>n<sup class="fnref" data-fn="f1">1</sup></p>', fns: { f1: "aside" } }];
+    return p;
+  });
+  const m = merge(base, emptyPayload());
+  assert.deepEqual(m.readings[0].fns, { f1: "aside" });
+  assert.deepEqual(m.notes, {});
+  const later = stamp(base, { ...base, readings: [{ ...base.readings[0], fns: { f1: "aside, longer" } }] }, 200);
+  assert.deepEqual(merge(base, later).readings[0].fns, { f1: "aside, longer" });
+});
+
+test("an idea's description is part of the idea: it syncs with it, and the later edit wins", () => {
+  const base = at(100, p => { p.ideas = [{ ...idea("a", "A"), dek: "" }, idea("b", "B")]; return p; });
+  const phone = stamp(base, { ...base, ideas: [{ ...base.ideas[0], dek: "What legibility costs" }, base.ideas[1]] }, 200);
+  const laptop = stamp(base, { ...base, ideas: [base.ideas[0], { ...base.ideas[1], title: "B prime" }] }, 300);
+  const m = merge(phone, laptop);
+  assert.equal(m.ideas.find(i => i.id === "a").dek, "What legibility costs");
+  assert.equal(m.ideas.find(i => i.id === "b").title, "B prime");
+  assert.deepEqual(merge(laptop, phone).ideas, m.ideas);
+  assert.equal(sameContent(base, phone), false);
+});
+
+test("an update held while typing does not undo what was typed meanwhile", () => {
+  // the server's answer, merged against the notebook as it stood before the keystrokes
+  const before = at(100, p => { p.ideas = [{ ...idea("a", "A"), dek: "old" }]; return p; });
+  const heldBack = merge(before, before);
+  // then the typing, dated when it is folded in
+  const typed = { ...before, ideas: [{ ...before.ideas[0], dek: "old, and new" }] };
+  const landed = merge(stamp(before, typed, 200), heldBack);
+  assert.equal(landed.ideas[0].dek, "old, and new");
+  // and a genuinely newer edit from elsewhere still wins over an older local one
+  const elsewhere = stamp(before, { ...before, ideas: [{ ...before.ideas[0], dek: "from the phone" }] }, 300);
+  assert.equal(merge(stamp(before, typed, 200), elsewhere).ideas[0].dek, "from the phone");
 });
