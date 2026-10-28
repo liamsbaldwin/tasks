@@ -6,6 +6,7 @@
  *   GET  /api/state      hand back the stored notebook and its version
  *   PUT  /api/state      store a new one, refusing a write built on a stale version
  *   GET  /api/fetch?url= fetch a bibliographic record on the page's behalf
+ *   GET  /api/events     the edit history kept beside the notebook (history.js)
  *
  * The store is dumb on purpose. It keeps one row and a version counter and knows
  * nothing about ideas or essays; merging two divergent copies is the client's job
@@ -17,6 +18,8 @@
  * publisher's PDF directly: no CORS headers, so the request is blocked before it is
  * even sent. Same-origin through here, and it simply works — on the phone too.
  */
+
+import * as history from "./history.js";
 
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
 const json = (body, status = 200, extra = {}) =>
@@ -137,11 +140,21 @@ export default {
           return json({ error: "expected {baseVersion, payload}" }, 400);
         }
         const base = Number.isInteger(body.baseVersion) ? body.baseVersion : 0;
+        // What is being replaced, for the history. Versions only climb, so if this is
+        // not the base the write below is refused anyway and nothing is recorded.
+        const before = base > 0 ? await readState(env) : { version: 0, payload: null };
         const result = await writeState(env, base, body.payload);
+        if (result.ok && before.version === base) {
+          await history.record(env, request, before.payload, body.payload, result.version);
+        }
         // 409 carries the winning copy, so the client can merge and try again without
         // a second round trip.
         return result.ok ? json({ version: result.version })
                          : json({ error: "stale", ...result.current }, 409);
+      }
+
+      if (url.pathname === "/api/events" && request.method === "GET") {
+        return json({ events: await history.list(env, url) });
       }
 
       if (url.pathname === "/api/fetch" && request.method === "GET") {
