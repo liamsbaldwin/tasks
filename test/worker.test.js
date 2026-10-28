@@ -9,7 +9,13 @@ import worker from "../worker/src/index.js";
  */
 function fakeDB() {
   const rows = new Map();
+  const events = [];
   const run = (sql, args) => {
+    if (/^INSERT INTO events/.test(sql)) {
+      const [at, local, tz, key, kind, action, words, delta, device, version, received] = args;
+      events.push({ id: events.length + 1, at, local, tz, key, kind, action, words, delta, device, version, received });
+      return { meta: { changes: 1 } };
+    }
     if (/^INSERT INTO state/.test(sql)) {
       const [id, payload, updated] = args;
       if (rows.has(id)) return { meta: { changes: 0 } };
@@ -27,6 +33,8 @@ function fakeDB() {
   };
   return {
     rows,
+    events,
+    async batch(stmts) { const out = []; for (const s of stmts) out.push(await s.run()); return out; },
     prepare(sql) {
       return {
         bind: (...args) => ({
@@ -37,6 +45,14 @@ function fakeDB() {
             return rows.get(args[0]) || null;
           },
           run: async () => run(sql, args),
+          all: async () => {
+            if (!/^SELECT id, at, local, tz, key, kind, action, words, delta, device FROM events/.test(sql)) {
+              throw new Error("unexpected statement: " + sql);
+            }
+            const [since, limit] = args;
+            return { results: events.filter(e => e.at > since).slice(0, limit)
+              .map(({ version, received, ...e }) => e) };
+          },
         }),
       };
     },
@@ -169,4 +185,50 @@ test("a database that throws becomes a 502, not a blank page", async () => {
   const res = await call(env, "/api/state");
   assert.equal(res.status, 502);
   assert.match((await res.json()).error, /d1 is down/);
+});
+
+/* ==================== the edit history ==================== */
+
+const book = (text, mtime, extra = {}) => ({
+  ideas: [{ id: "a", title: "An idea" }], readings: [], drafts: { a: text },
+  mtimes: { "idea:a": 1000, "draft:a": mtime }, ctimes: {}, tombs: {}, ...extra,
+});
+
+const putFrom = (env, baseVersion, payload, headers = {}) =>
+  call(env, "/api/state", { method: "PUT", headers, body: JSON.stringify({ baseVersion, payload }) });
+
+test("an accepted save records what moved, on the writer's own clock", async () => {
+  const env = envWith();
+  await put(env, 0, book("<p>one two</p>", 2000));
+  const edited = Date.UTC(2026, 9, 28, 14, 49);              // 15:49 in London (BST is over)
+  const res = await putFrom(env, 1, book("<p>one two three four</p>", edited), {
+    "x-timezone": "Europe/London",
+    "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15",
+  });
+  assert.equal(res.status, 200);
+  assert.deepEqual(env.DB.events.filter(e => e.version === 2)
+    .map(e => [e.key, e.action, e.words, e.delta, e.local, e.device]),
+    [["draft:a", "edit", 4, 2, "2026-10-28T14:49", "Safari on Mac"]]);
+
+  const list = await (await call(env, "/api/events")).json();
+  assert.deepEqual(list.events.map(e => e.at), [1000, 2000, edited]);   // the first save births both
+  assert.equal((await call(env, "/api/events", {}, null)).status, 401);
+});
+
+test("a refused save records nothing", async () => {
+  const env = envWith();
+  await put(env, 0, book("x", 2000));
+  await put(env, 1, book("x y", 3000));
+  assert.equal((await put(env, 1, book("x y z", 4000))).status, 409);
+  assert.deepEqual(env.DB.events.map(e => e.at), [1000, 2000, 3000]);
+});
+
+test("a history that cannot be written does not fail the sync", async () => {
+  const db = fakeDB();
+  db.batch = async () => { throw new Error("no such table: events"); };
+  const env = envWith(db);
+  await put(env, 0, book("x", 2000));
+  const quiet = console.error; console.error = () => {};
+  try { assert.equal((await put(env, 1, book("x y", 3000))).status, 200); }
+  finally { console.error = quiet; }
 });

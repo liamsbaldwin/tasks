@@ -139,6 +139,33 @@ with no server behind it — local-only, exactly as it behaved before.
 - **localStorage is still the first line.** The server is a second copy, not the only one;
   every device keeps a full local notebook and works with no network at all.
 
+## The edit history
+
+Alongside the notebook, the Worker keeps a log of every save: which idea, reading,
+draft or note changed, when (on the device's clock, and as local time of day), whether
+it was created, edited or deleted, its word count and how many words the save added or
+removed, and which browser it came from. It keeps counts, never copies of your text, so
+it stays small — a heavy day is a few hundred rows, roughly 30 MB a year.
+
+It needs one table. On a server set up before the history existed, run this once after
+deploying (it only adds what is missing and leaves the notebook alone):
+
+```sh
+npm run db:init
+```
+
+Until then saves work exactly as before and simply are not logged. History starts the
+day the table exists; it cannot be filled in backwards.
+
+Read it back with the key, oldest first:
+
+```sh
+curl -H "Authorization: Bearer YOUR-SYNC-TOKEN" \
+  "https://marginalia.<your-subdomain>.workers.dev/api/events?since=0&limit=5000"
+```
+
+`since` is a timestamp in milliseconds, so a chart can fetch only what is new.
+
 ## Lookups
 
 Pasted links (Crossref, DOI, JSTOR, NBER, arXiv, Open Library, PubMed, YouTube) and
