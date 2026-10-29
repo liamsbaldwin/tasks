@@ -2250,15 +2250,24 @@ function flashSaved(){
 let saveTimer = null;
 function save(){
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    creditWork();
-    // Date what changed since the last save, here, once — so no edit has to remember
-    // to touch a timestamp and none of them can forget.
-    stored = stamp(stored, snapshot());
-    writeLocal();
-    flashSaved();
-    schedulePush();
-  }, 300);
+  saveTimer = setTimeout(commit, 300);
+}
+function commit(){
+  clearTimeout(saveTimer);
+  creditWork();
+  // Date what changed since the last save, here, once — so no edit has to remember
+  // to touch a timestamp and none of them can forget.
+  stored = stamp(stored, snapshot());
+  writeLocal();
+  flashSaved();
+  schedulePush();
+}
+/* ⌘S: everything typed so far, saved and sent now rather than in a second. */
+function saveNow(){
+  commit();
+  if(!SYNC.on) return;
+  clearTimeout(pushTimer);
+  queue(() => pushNow());
 }
 
 /* ==================== the same notebook on two devices ====================
@@ -3184,12 +3193,28 @@ document.addEventListener("input", e => {
   if(el.dataset.edit === "roadmap" || el.dataset.edit === "reading.note") belowFootnotes(el);
   if(el.dataset.edit === "draft"){
     relayout();
-    const w = words(el.innerHTML);
-    const n = $("#wordnow"), f = $("#tickfill"), l = $("#wordlabel");
-    if(n) n.textContent = w.toLocaleString();
-    if(l) l.textContent = w === 1 ? "word" : "words";
-    if(f) f.style.width = Math.min(100, w / ESSAY_WORDS * 100) + "%";
+    showCount();
   }
+});
+
+/* The tally under the draft: its words, or with some selected, how many of them. */
+let countingPart = false;
+function showCount(){
+  const essay = $('[data-edit="draft"]'), n = $("#wordnow");
+  if(!essay || !n) return;
+  const w = words(essay.innerHTML), sel = document.getSelection();
+  const r = sel.rangeCount && !sel.isCollapsed ? sel.getRangeAt(0) : null;
+  const part = r && essay.contains(r.commonAncestorContainer)
+    ? (sel.toString().match(WORD_RE) || []).length : null;
+  countingPart = part != null;
+  n.textContent = countingPart ? `${part.toLocaleString()} of ${w.toLocaleString()}` : w.toLocaleString();
+  const f = $("#tickfill"), l = $("#wordlabel");
+  if(l) l.textContent = w === 1 ? "word" : "words";
+  if(f) f.style.width = Math.min(100, w / ESSAY_WORDS * 100) + "%";
+}
+document.addEventListener("selectionchange", () => {
+  const sel = document.getSelection();
+  if(countingPart || (sel.rangeCount && !sel.isCollapsed)) showCount();
 });
 
 /* Markdown openers, so the toolbar can stay small. */
@@ -3229,9 +3254,215 @@ function autoformat(host){
   r.setStart(node, 0);
   r.setEnd(node, sel.anchorOffset);
   r.deleteContents();
+  // An emptied line has nowhere for the caret to be, and the browser formatted the line
+  // above instead; a <br> keeps it open, as the browser's own empty lines are.
+  if(blk !== host && !blk.textContent){ blk.innerHTML = "<br>"; sel.collapse(blk, 0); }
   rule[1]();
+  freeList(host);
   applyEdit(host);
 }
+
+/* The caret `n` characters before the end of `el`. */
+function caretFromEnd(el, n){
+  const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT), texts = [];
+  for(let t; (t = w.nextNode());) texts.push(t);
+  for(const t of texts.reverse()){
+    if(n <= t.nodeValue.length){ document.getSelection().collapse(t, t.nodeValue.length - n); return; }
+    n -= t.nodeValue.length;
+  }
+}
+
+/* A list made from a paragraph is put inside it, which no page can hold, and anything
+   typed after the list stays in there too. The paragraph is let go. */
+function freeList(host){
+  const sel = document.getSelection();
+  const li = blockOf(sel.anchorNode, host), wrap = li.closest?.("ul,ol")?.parentElement;
+  if(li.tagName !== "LI" || !wrap || wrap === host || !/^(P|DIV)$/.test(wrap.tagName) || !host.contains(wrap)) return;
+  const { anchorNode, anchorOffset, focusNode, focusOffset } = sel;
+  wrap.replaceWith(...wrap.childNodes);
+  sel.setBaseAndExtent(anchorNode, anchorOffset, focusNode, focusOffset);
+}
+
+/*
+ * Return starts a new paragraph, and Shift-Return a new line inside this one. Left to
+ * itself the browser made a <div> per line, which the essay's styles do not space, so
+ * Return only ever looked like a line break; a <p> is what everything else here writes.
+ */
+document.execCommand("defaultParagraphSeparator", false, "p");
+
+/* The first line typed into an empty text sits loose in it, with nothing to space it
+   from the next; it is made a paragraph as soon as it has a character in it. */
+document.addEventListener("input", e => {
+  const host = e.target.closest?.(".prose[data-rich=\"1\"]");
+  if(!host || !e.inputType?.startsWith("insert") || e.isComposing) return;
+  const node = document.getSelection().anchorNode;
+  if(node?.nodeType !== 3 || node.parentNode !== host || !node.nodeValue.trim()) return;
+  document.execCommand("formatBlock", false, "p");
+  applyEdit(host);
+});
+
+/* Return on an empty heading or quote goes back to plain paragraphs, rather than
+   starting another of the same. */
+document.addEventListener("keydown", e => {
+  if(e.key !== "Enter" || e.shiftKey || e.isComposing) return;
+  const host = e.target.closest?.(".prose[data-rich=\"1\"]");
+  if(!host) return;
+  const blk = blockOf(document.getSelection().anchorNode, host);
+  if(!/^(H2|H3|BLOCKQUOTE)$/.test(blk.tagName) || blk.textContent.replace(/\u200b/g, "").trim()) return;
+  e.preventDefault();
+  document.execCommand("formatBlock", false, "p");
+  applyEdit(host);
+});
+
+/* <<< generated by build.mjs — edit src/typing.js, not this >>> */
+/**
+ * What the editor puts right as you type: curly quotes, dashes, the ellipsis, the usual
+ * slips of the fingers and a capital at the start of a sentence.
+ *
+ * It is a pure function of the text before the caret and the character just typed, so
+ * it can be tested in Node; the page applies the answer one character after it happens,
+ * which is what lets the first ⌘Z undo a correction and keep what was actually typed.
+ *
+ * It errs towards leaving things alone. A correction nobody asked for is worse than a
+ * typo, so nothing is touched inside maths, an address, or a word with a capital
+ * already somewhere in it.
+ */
+
+/** Slips common enough that no one means them. Lower case; the typed case is kept, and
+    the apostrophes are curled like every other one typed. */
+const TYPOS = {
+  teh: "the", hte: "the", taht: "that", thta: "that", adn: "and", nad: "and",
+  waht: "what", wiht: "with", whith: "with",
+  jsut: "just", becuase: "because", beacuse: "because", becasue: "because",
+  recieve: "receive", recieved: "received", beleive: "believe", belive: "believe",
+  acheive: "achieve", wierd: "weird", freind: "friend", thier: "their",
+  occured: "occurred", occurence: "occurrence", untill: "until", alot: "a lot",
+  definately: "definitely", seperate: "separate", seperately: "separately",
+  goverment: "government", enviroment: "environment", accomodate: "accommodate",
+  arguement: "argument", existance: "existence", independant: "independent",
+  neccessary: "necessary", necesary: "necessary", occassion: "occasion",
+  publically: "publicly", tommorow: "tomorrow", tomorow: "tomorrow",
+  wich: "which", whcih: "which", woudl: "would", coudl: "could", shoudl: "should",
+  becomming: "becoming", begining: "beginning", calender: "calendar",
+  concious: "conscious", embarass: "embarrass", foriegn: "foreign", gaurd: "guard",
+  happend: "happened", knowlege: "knowledge", liason: "liaison", millenium: "millennium",
+  noticable: "noticeable", persue: "pursue", posession: "possession", truely: "truly",
+  dont: "don’t", doesnt: "doesn’t", didnt: "didn’t", isnt: "isn’t", wasnt: "wasn’t",
+  arent: "aren’t", werent: "weren’t", havent: "haven’t", hasnt: "hasn’t",
+  couldnt: "couldn’t", shouldnt: "shouldn’t", wouldnt: "wouldn’t", youre: "you’re",
+  theyre: "they’re", thats: "that’s"
+};
+
+/** Words that end in a full stop without ending a sentence. */
+const ABBR = new Set(["e.g", "i.e", "eg", "ie", "etc", "vs", "cf", "al", "mr", "mrs", "ms",
+  "dr", "prof", "st", "no", "fig", "figs", "eq", "ch", "vol", "pp", "p", "ed", "eds", "approx", "c"]);
+
+/** Typing one of these finishes the word before it. An apostrophe does not: "don't". */
+const BOUNDARY = /^[\s.,;:!?)\]}"”]$/u;
+
+const OPENS_AFTER = /(?:^|[\s(\[{—–\-\/“‘])$/u;
+
+/** Inside $…$ while there is an odd number of unescaped dollars before the caret. */
+const inMaths = text => ((text.match(/(?<!\\)\$/g) || []).length % 2) === 1;
+
+function matchCase(typed, fix){
+  if(typed.length > 1 && typed === typed.toUpperCase()) return fix.toUpperCase();
+  if(typed[0] !== typed[0].toLowerCase()) return fix[0].toUpperCase() + fix.slice(1);
+  return fix;
+}
+
+/** What the word just finished should be, or null to leave it as it is. */
+function fixWord(before, typed, sentences){
+  const token = /(\S+)$/u.exec(before)?.[1];
+  if(!token) return null;
+  // An address, an email or a path is not prose.
+  if(/[\/@]|:\/\/|^www\./i.test(token)) return null;
+  const pre = before.slice(0, -token.length);
+  const lead = /^[(\["“‘']*/u.exec(token)[0];
+  const word = token.slice(lead.length);
+  if(!word) return null;
+
+  let out = word;
+  const lower = word.toLowerCase();
+  if(/^\p{L}+$/u.test(word) && TYPOS[lower] && (word === lower || word === word.toUpperCase()
+      || word === word[0].toUpperCase() + word.slice(1).toLowerCase())) out = matchCase(word, TYPOS[lower]);
+  else if(word === "i") out = "I";
+  else if(/^i['’](m|ll|ve|d)$/u.test(word)) out = "I" + word.slice(1);
+  // Two capitals then lower case is a held Shift: THis → This. Two letters after it at
+  // least, so IDs and MBAs are left alone.
+  else if(/^\p{Lu}\p{Lu}\p{Ll}{2,}$/u.test(word)) out = word[0] + word.slice(1).toLowerCase();
+
+  // A letter and a full stop is an initial or the start of "e.g.", not a word.
+  const initial = typed === "." && word.length === 1;
+  if(sentences && !initial && /^\p{Ll}[\p{Ll}'’-]*$/u.test(out) && lead === "" && startsSentence(pre))
+    out = out[0].toUpperCase() + out.slice(1);
+
+  return out === word ? null : { len: word.length, text: out };
+}
+
+function startsSentence(pre){
+  if(/^\s*$/.test(pre)) return true;                        // the start of the paragraph
+  const m = /(\S*?)([.!?])["”’)\]]*\s+$/u.exec(pre);
+  if(!m) return false;
+  if(m[2] !== ".") return true;
+  const last = m[1].replace(/^[(\["“‘']+/u, "").toLowerCase();
+  // An initial, an abbreviation, a number or a run of dots is not the end of a sentence.
+  return !(last.length <= 1 || ABBR.has(last) || /\d/.test(last) || last.endsWith("."));
+}
+
+/**
+ * The correction for one keystroke: `before` is the text of the paragraph up to where
+ * `typed` went in. Returns { len, text } — replace the last `len` characters, the typed
+ * one included, with `text` — or null when there is nothing to do.
+ */
+function correction(before, typed, { sentences = false } = {}){
+  if(typeof before !== "string" || typeof typed !== "string" || typed.length !== 1) return null;
+  if(inMaths(before)) return null;
+
+  let ch = typed, extra = 0;
+  if(typed === '"') ch = OPENS_AFTER.test(before) ? "“" : "”";
+  else if(typed === "'") ch = OPENS_AFTER.test(before) ? "‘" : "’";
+  else if(typed === "-" && before.endsWith("-") && !before.endsWith("--")){ ch = "—"; extra = 1; }
+  else if(typed === "." && before.endsWith("..") && !before.endsWith("...")){ ch = "…"; extra = 2; }
+  if(extra) return { len: extra + 1, text: ch };
+
+  const word = BOUNDARY.test(typed) ? fixWord(before, typed, sentences) : null;
+  if(!word) return ch === typed ? null : { len: 1, text: ch };
+  return { len: word.len + 1, text: word.text + ch };
+}
+/* <<< end generated typing >>> */
+
+/*
+ * Curly quotes, dashes and the usual slips, as you type, in every field. Each is put right
+ * one character after it was typed, as an edit of its own, so the first ⌘Z after a
+ * correction takes back only the correction. Capitals for new sentences are for the
+ * long texts, not titles and author lines.
+ */
+let correcting = false;
+document.addEventListener("input", e => {
+  if(correcting || e.inputType !== "insertText" || e.isComposing || e.data?.length !== 1) return;
+  const host = e.target.closest?.("[contenteditable]");
+  const sel = document.getSelection();
+  if(!host || !sel.rangeCount || !sel.isCollapsed) return;
+  const node = sel.anchorNode, at = sel.anchorOffset;
+  // A space typed at the end of a line goes in as a non-breaking one.
+  const typed = node?.nodeType === 3 ? node.nodeValue[at - 1] : null;
+  if(!typed || (typed !== e.data && !(e.data === " " && typed === "\u00a0"))
+     || node.parentElement.closest(".math,a,code")) return;
+  const prose = host.classList.contains("prose");
+  const r = document.createRange();
+  r.setStart(prose ? blockOf(node, host) : host, 0); r.setEnd(node, at - 1);
+  const before = r.toString().replace(/\u200b/g, "");
+  const fix = correction(before, e.data, { sentences: prose });
+  // Only ever within the text just typed into, and only if it reads as expected.
+  if(!fix || fix.len > at || node.nodeValue.slice(at - fix.len, at) !== before.slice(before.length - fix.len + 1) + typed) return;
+  const span = document.createRange();
+  span.setStart(node, at - fix.len); span.setEnd(node, at);
+  sel.removeAllRanges(); sel.addRange(span);
+  correcting = true;
+  try{ document.execCommand("insertText", false, fix.text); }
+  finally{ correcting = false; }
+});
 
 /*
  * Pasting brings only words. A plain field takes plain text on one line; a rich one keeps bold,
@@ -3442,6 +3673,13 @@ document.addEventListener("keydown", e => {
   runTool(cmd, host);
 });
 
+/* ⌘S anywhere saves, and is not the browser offering to download the page. */
+document.addEventListener("keydown", e => {
+  if(!(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey || e.code !== "KeyS") return;
+  e.preventDefault();
+  saveNow();
+});
+
 document.addEventListener("mousedown", e => {
   if(e.target.closest(".tools button")) e.preventDefault();      // keep the caret
 });
@@ -3494,6 +3732,20 @@ function runTool(cmd, host){
       setTimeout(() => $(`.fn[data-fn="${id}"] .fn__b`)?.focus(), 0);
     }
     return;
+  }
+  else if(host && /List$/.test(cmd)){
+    // Chrome sends the caret back to the start of the line it listed, and remakes the
+    // line's text as it goes; the caret is put back as far from the line's end as it was.
+    const sel = document.getSelection();
+    let tail = null;
+    if(sel.rangeCount && sel.isCollapsed){
+      const r = sel.getRangeAt(0).cloneRange();
+      r.setEnd(blockOf(sel.anchorNode, host), blockOf(sel.anchorNode, host).childNodes.length);
+      tail = r.toString().length;
+    }
+    document.execCommand(cmd);
+    freeList(host);
+    if(tail != null) caretFromEnd(blockOf(sel.anchorNode, host), tail);
   }
   else                     document.execCommand(cmd);
   if(host){ markEmpty(host); applyEdit(host); }
