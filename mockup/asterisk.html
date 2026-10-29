@@ -3186,7 +3186,7 @@ function applyEdit(el){
 document.addEventListener("input", e => {
   const el = e.target.closest("[data-edit]");
   if(!el) return;
-  if(el.dataset.rich === "1") autoformat(el);
+  if(el.dataset.rich === "1" && !e.inputType?.startsWith("history")) autoformat(el);
   markEmpty(el);
   applyEdit(el);
   if(el.dataset.edit === "tangent.html") noteFootnotes(el.closest("[data-note]"));
@@ -3250,6 +3250,7 @@ function autoformat(host){
   const blk = blockOf(node, host);
   // ...and it has to be the very start of that line, not a dash mid-sentence.
   if(document.createTreeWalker(blk, NodeFilter.SHOW_TEXT).nextNode() !== node) return;
+  checkpoint(host);
   const r = document.createRange();
   r.setStart(node, 0);
   r.setEnd(node, sel.anchorOffset);
@@ -3462,6 +3463,102 @@ function correction(before, typed, { sentences = false } = {}){
  * correction takes back only the correction. Capitals for new sentences are for the
  * long texts, not titles and author lines.
  */
+/*
+ * Undo and redo of the page's own, for every field: titles, subtitles, the text, footnotes,
+ * notes, the calendar. The browser's undo was not up to it — it went back a letter at a
+ * time in the essay, forgot a field whenever the page redrew it, and in Safari often did
+ * nothing at all. Each step is a field as it stood before a run of typing, so ⌘Z puts back
+ * a whole run, wherever the caret is now, and the restored text is saved and synced like
+ * any other edit. Plain inputs (the capture box, the link box) keep the browser's own.
+ *
+ * A run ends at a pause, on moving to another field, on switching between typing and
+ * deleting, and at anything that is not plain typing — a paste, a format, a correction.
+ */
+const UNDO = { past: [], future: [], last: null };
+const UNDO_PAUSE = 1000, UNDO_MAX = 300;
+
+/* Enough to find a field again after the page has redrawn it. */
+function fieldKey(el){
+  const d = el.dataset;
+  return [d.edit, d.fn || "", d.date || "", el.closest("[data-note]")?.dataset.note || "",
+          view, openIdea || "", openSource || "", openNote || ""].join("|");
+}
+function fieldFor(step){
+  if(step.el.isConnected) return step.el;
+  return [...document.querySelectorAll("[data-edit][contenteditable]")].find(x => fieldKey(x) === step.key) || null;
+}
+function caretOffset(el){
+  const sel = document.getSelection();
+  if(!sel.rangeCount || !el.contains(sel.anchorNode)) return null;
+  const r = document.createRange();
+  r.setStart(el, 0); r.setEnd(sel.anchorNode, sel.anchorOffset);
+  return r.toString().length;
+}
+function caretAt(el, n){
+  el.focus();
+  const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  let t, last = null;
+  while(n != null && (t = w.nextNode())){
+    if(n <= t.nodeValue.length){ document.getSelection().collapse(t, n); return; }
+    n -= t.nodeValue.length; last = t;
+  }
+  const r = document.createRange(); r.selectNodeContents(el); r.collapse(false);
+  document.getSelection().removeAllRanges(); document.getSelection().addRange(r);
+}
+const snap = el => ({ el, key: fieldKey(el), html: el.innerHTML, caret: caretOffset(el) });
+
+/* Called before a change: starts a new step unless this continues the run in progress. */
+function checkpoint(el, kind = "other"){
+  if(!el?.isContentEditable) return;
+  el = el.closest("[data-edit]") || el;
+  const now = Date.now(), last = UNDO.last;
+  if(last && last.el === el && kind !== "other" && kind === last.kind && now - last.at < UNDO_PAUSE){
+    last.at = now; return;
+  }
+  const top = UNDO.past[UNDO.past.length - 1];
+  if(!(top && top.el === el && top.html === el.innerHTML)) UNDO.past.push(snap(el));
+  if(UNDO.past.length > UNDO_MAX) UNDO.past.shift();
+  UNDO.future.length = 0;
+  UNDO.last = { el, kind, at: now };
+}
+
+function restore(step, from, to){
+  let el;
+  // A step that would change nothing, or whose field is gone, is passed over.
+  while((step = from.pop()) && (!(el = fieldFor(step)) || el.innerHTML === step.html));
+  if(!step) return;
+  to.push(snap(el));
+  el.innerHTML = step.html;
+  UNDO.last = null;
+  caretAt(el, step.caret);
+  // Everything an edit sets off — saving, the tally, footnotes — as if it were typed.
+  el.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: from === UNDO.past ? "historyUndo" : "historyRedo" }));
+}
+const undo = () => restore(null, UNDO.past, UNDO.future);
+const redo = () => restore(null, UNDO.future, UNDO.past);
+
+document.addEventListener("beforeinput", e => {
+  const el = e.target.closest?.("[data-edit][contenteditable]");
+  if(!el) return;
+  const t = e.inputType || "";
+  if(t === "historyUndo" || t === "historyRedo"){       // the Edit menu, or a shake on a phone
+    e.preventDefault();
+    (t === "historyUndo" ? undo : redo)();
+    return;
+  }
+  checkpoint(el, t === "insertText" || t === "insertCompositionText" ? "type" : t.startsWith("delete") ? "delete" : "other");
+});
+document.addEventListener("focusin", () => { UNDO.last = null; });
+
+document.addEventListener("keydown", e => {
+  if(!(e.metaKey || e.ctrlKey) || e.altKey) return;
+  const z = e.code === "KeyZ", y = e.code === "KeyY" && !e.shiftKey;
+  if(!z && !y) return;
+  if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;   // those keep their own
+  e.preventDefault();
+  (z && !e.shiftKey ? undo : redo)();
+});
+
 let correcting = false;
 document.addEventListener("input", e => {
   if(correcting || e.inputType !== "insertText" || e.isComposing || e.data?.length !== 1) return;
@@ -3480,6 +3577,7 @@ document.addEventListener("input", e => {
   const fix = correction(before, e.data, { sentences: prose });
   // Only ever within the text just typed into, and only if it reads as expected.
   if(!fix || fix.len > at || node.nodeValue.slice(at - fix.len, at) !== before.slice(before.length - fix.len + 1) + typed) return;
+  checkpoint(host);
   const span = document.createRange();
   span.setStart(node, at - fix.len); span.setEnd(node, at);
   sel.removeAllRanges(); sel.addRange(span);
@@ -3517,6 +3615,7 @@ document.addEventListener("paste", e => {
   const html = e.clipboardData.getData("text/html");
   const text = e.clipboardData.getData("text/plain");
   e.preventDefault();
+  checkpoint(el);
   // An address on its own becomes a link: over selected words it links them, and
   // anywhere else it goes in as itself.
   const href = el.dataset.rich === "1" ? pastedLink(text) : null;
@@ -3722,6 +3821,7 @@ function leaveMarker(ref){
 
 /* One place a tool runs, whether it was clicked or typed. */
 function runTool(cmd, host){
+  checkpoint(host);
   const inside = tag => !!document.getSelection().anchorNode?.parentElement?.closest(tag);
   if(cmd === "quote")      document.execCommand("formatBlock", false, inside("blockquote") ? "p" : "blockquote");
   else if(cmd === "h2")    document.execCommand("formatBlock", false, inside("h2") ? "p" : "h2");
