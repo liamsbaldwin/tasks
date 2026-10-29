@@ -2931,6 +2931,19 @@ function render(){
  * Numbering and pruning both come from the text itself: the markers in the draft are
  * the record of which notes exist, so deleting one in the prose deletes the note.
  */
+/*
+ * A footnote whose marker has gone is dropped from the notebook, but its words are kept
+ * aside for as long as the page is open: undo the deletion, or paste the cut marker back,
+ * and the marker finds its note again instead of coming back empty.
+ */
+const FN_GONE = new Map();
+function keepFns(store, live){
+  for(const id of Object.keys(store)) if(!live.has(id)){ if(store[id]) FN_GONE.set(id, store[id]); delete store[id]; }
+  let back = false;
+  for(const id of live) if(!(id in store) && FN_GONE.has(id)){ store[id] = FN_GONE.get(id); FN_GONE.delete(id); back = true; }
+  if(back) save();
+}
+
 function layoutFootnotes(){
   const margin = $("#margin");
   // An essay's, or an opened note's: the same margin, a different home for the notes.
@@ -2951,7 +2964,7 @@ function layoutFootnotes(){
     r.textContent = String(i + 1); live.add(r.dataset.fn);
     r.contentEditable = "false";            // markers saved before this was set
   });
-  for(const id of Object.keys(store)) if(!live.has(id)) delete store[id];
+  keepFns(store, live);
 
   /*
    * Rebuild only when the set of markers changes. Typing in the draft fires input,
@@ -3075,7 +3088,7 @@ function belowFootnotes(body){
     r.textContent = String(i + 1); live.add(r.dataset.fn);
     r.contentEditable = "false";
   });
-  for(const id of Object.keys(home.store)) if(!live.has(id)) delete home.store[id];
+  keepFns(home.store, live);
   const sig = refs.map(r => r.dataset.fn).join(",");
   if(sig === list.dataset.sig && list.children.length === refs.length) return;
   list.dataset.sig = sig;
@@ -3103,7 +3116,7 @@ function noteFootnotes(box){
     r.textContent = String(i + 1); live.add(r.dataset.fn);
     r.contentEditable = "false";
   });
-  for(const id of Object.keys(n.fns)) if(!live.has(id)) delete n.fns[id];
+  keepFns(n.fns, live);
   if(fnPop && !fnPop.ref.isConnected) hideFnPop();
   const sig = refs.map(r => r.dataset.fn).join(",");
   if(sig === list.dataset.sig) return;
@@ -3303,27 +3316,70 @@ document.addEventListener("input", e => {
 });
 
 /*
- * Safari takes no default separator and still makes a <div> per Return, and texts written
- * before this have them too. After each Return the text's own lines are made paragraphs —
- * the same nodes, moved, so the caret stays where it was.
+ * A long text is made of paragraphs, but not everything in it arrived as one: Safari makes
+ * a <div> per Return, Chrome did too until it was told otherwise, and text pasted before
+ * pastes kept their paragraphs sits loose, one line per <br>. None of it is spaced, and
+ * Return inside it made a stray blank line rather than a new paragraph. Each such line is
+ * made a <p> — the same nodes, moved, so the caret stays where it was — when the caret
+ * goes into the text and after each Return. A <br> inside a paragraph is a Shift-Return
+ * and is left alone.
  */
-document.addEventListener("input", e => {
-  const host = e.target.closest?.(".prose[data-rich=\"1\"]");
-  if(!host || e.inputType !== "insertParagraph") return;
-  const lines = [...host.children].filter(d => d.tagName === "DIV" && !d.querySelector("p,div,ul,ol,h2,h3,blockquote"));
-  if(!lines.length) return;
+const BLOCK_TAG = /^(P|DIV|H[1-6]|UL|OL|LI|BLOCKQUOTE|PRE|TABLE|HR|FIGURE)$/;
+function paragraphs(host){
   const sel = document.getSelection();
   const { anchorNode, anchorOffset, focusNode, focusOffset } = sel;
-  let onLine = null;                                        // an empty line: the caret was on the div itself
-  for(const d of lines){
-    const p = document.createElement("p");
-    p.append(...d.childNodes);
-    d.replaceWith(p);
-    if(anchorNode === d) onLine = p;
+  let changed = false, caretP = null;
+  // Nodes split at each <br>, one paragraph per line. Blank lines between are dropped,
+  // since the paragraphs' spacing now does their job — unless the caret is on one, or it
+  // is all there is of an empty <div> line.
+  const lay = (nodes, before, fromDiv) => {
+    if(fromDiv && nodes.length && nodes[nodes.length - 1].nodeName === "BR") nodes.pop().remove();   // a placeholder
+    const lines = [[]], made = [];
+    for(const n of nodes){
+      if(n.nodeName === "BR"){ lines.push([]); n.remove(); }
+      else lines[lines.length - 1].push(n);
+    }
+    for(const line of lines){
+      const empty = !line.some(n => n.nodeType === 1 || n.nodeValue.replace(/\u200b/g, "").trim());
+      if(empty && !line.includes(anchorNode) && !(fromDiv && lines.length === 1)){ line.forEach(n => n.remove()); continue; }
+      const p = document.createElement("p");
+      p.append(...line);
+      if(empty) p.replaceChildren(document.createElement("br"));
+      host.insertBefore(p, before);
+      made.push(p);
+    }
+    changed = true;
+    return made;
+  };
+  let run = [];
+  const flush = before => { if(run.length) lay(run, before, false); run = []; };
+  for(const n of [...host.childNodes]){
+    if(n.nodeType === 1 && n.tagName === "DIV" && ![...n.children].some(c => BLOCK_TAG.test(c.tagName))){
+      flush(n);
+      const made = lay([...n.childNodes], n, true);
+      if(anchorNode === n) caretP = made[0] || null;            // an empty line: the caret was on the div itself
+      n.remove();
+    } else if(n.nodeType === 3 || (n.nodeType === 1 && !BLOCK_TAG.test(n.tagName))) run.push(n);
+    else flush(n);
   }
-  if(onLine) sel.collapse(onLine, anchorOffset);
-  else if(anchorNode && host.contains(anchorNode)) sel.setBaseAndExtent(anchorNode, anchorOffset, focusNode, focusOffset);
-  applyEdit(host);
+  flush(null);
+  if(!changed) return false;
+  if(caretP) sel.collapse(caretP, 0);
+  else if(anchorNode?.isConnected && host.contains(anchorNode)) sel.setBaseAndExtent(anchorNode, anchorOffset, focusNode, focusOffset);
+  return true;
+}
+const looseLines = host => [...host.childNodes].some(n =>
+  (n.nodeType === 3 && n.nodeValue.trim()) || (n.nodeType === 1 && (n.tagName === "BR" || n.tagName === "DIV")));
+document.addEventListener("input", e => {
+  const host = e.target.closest?.(".prose[data-rich=\"1\"]");
+  if(!host || e.inputType !== "insertParagraph" || !looseLines(host)) return;
+  if(paragraphs(host)) applyEdit(host);
+});
+document.addEventListener("focusin", e => {
+  const host = e.target.closest?.(".prose[data-rich=\"1\"]");
+  if(!host || !looseLines(host)) return;
+  checkpoint(host);
+  if(paragraphs(host)) applyEdit(host);
 });
 
 /* Return on an empty heading or quote goes back to plain paragraphs, rather than
@@ -3593,7 +3649,7 @@ document.addEventListener("input", e => {
  */
 const PASTE_KEEP = new Set(["B","STRONG","I","EM","A","BR"]);
 const PASTE_BLOCK = /^(P|DIV|LI|H[1-6]|BLOCKQUOTE|TR|PRE)$/;
-function cleanPaste(html){
+function cleanPaste(html, paras = false){
   const doc = new DOMParser().parseFromString(html, "text/html");
   const walk = node => [...node.childNodes].map(n => {
     if(n.nodeType === 3) return esc(n.nodeValue.replace(/\s+/g, " "));
@@ -3605,9 +3661,13 @@ function cleanPaste(html){
       return /^(https?:|mailto:)/i.test(href) ? `<a href="${esc(href)}">${inner}</a>` : inner;
     }
     if(PASTE_KEEP.has(n.tagName)){ const t = n.tagName.toLowerCase(); return `<${t}>${inner}</${t}>`; }
-    return PASTE_BLOCK.test(n.tagName) ? inner + "<br>" : inner;
+    return PASTE_BLOCK.test(n.tagName) ? inner + "\u2029" : inner;
   }).join("");
-  return walk(doc.body).replace(/(<br>\s*)+$/, "");
+  const out = walk(doc.body);
+  // Into a long text, what were paragraphs where they came from stay paragraphs.
+  if(paras) return out.split(/\u2029/).map(x => x.replace(/^(\s|<br>)+|(\s|<br>)+$/g, ""))
+    .filter(Boolean).map(x => `<p>${x}</p>`).join("");
+  return out.replace(/\u2029/g, "<br>").replace(/(<br>\s*)+$/, "");
 }
 document.addEventListener("paste", e => {
   const el = e.target.closest?.("[contenteditable]");
@@ -3627,7 +3687,10 @@ document.addEventListener("paste", e => {
     else document.execCommand("insertHTML", false, `<a href="${esc(href)}">${esc(text.trim())}</a>\u200b`);
     return;
   }
-  if(el.dataset.rich === "1" && html) document.execCommand("insertHTML", false, cleanPaste(html));
+  const paras = el.classList.contains("prose") && el.dataset.rich === "1";
+  if(el.dataset.rich === "1" && html) document.execCommand("insertHTML", false, cleanPaste(html, paras));
+  else if(paras && /\n/.test(text.trim()))
+    document.execCommand("insertHTML", false, text.trim().split(/\s*\n\s*/).map(x => `<p>${esc(x)}</p>`).join(""));
   else document.execCommand("insertText", false, el.dataset.rich === "1" ? text : text.replace(/\s*\n\s*/g, " "));
 });
 
