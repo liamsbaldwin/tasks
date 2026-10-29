@@ -1,6 +1,7 @@
 name = "marginalia"
 main = "src/index.js"
 compatibility_date = "2025-08-01"
+account_id = "77de38c52999395606023e9915e45400"
 
 # The page itself. `npm run bundle` writes worker/public/index.html.
 #
@@ -15,7 +16,7 @@ run_worker_first = ["/api/*"]
 [[d1_databases]]
 binding = "DB"
 database_name = "marginalia"
-database_id = "PUT-YOUR-DATABASE-ID-HERE"   # printed by: wrangler d1 create marginalia
+database_id = "bc0b8474-f77c-47a6-9102-c283aeccf78b"
 
 # The shared secret is NOT kept here. Set it once with:
 #   wrangler secret put SYNC_TOKEN

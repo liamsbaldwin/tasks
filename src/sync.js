@@ -26,11 +26,13 @@ export const keyOf = {
   day:     iso => `day:${iso}`,         // one square of the calendar
   credit:  k => `credit:${k}`,          // "this reading has been counted"
   roadmap: () => "roadmap",
+  roadmapFns: () => "roadmap-fns",       // the roadmap's footnotes, kept as one record
+  tangent: id => `tangent:${id}`,     // one note on the Notes page
 };
 
 export function emptyPayload() {
   return { ideas: [], readings: [], drafts: {}, roadmap: "",
-           notes: {}, days: {}, credited: {}, log: [],
+           notes: {}, days: {}, credited: {}, log: [], tangents: {}, roadmapFns: {},
            mtimes: {}, ctimes: {}, tombs: {} };
 }
 
@@ -60,6 +62,8 @@ export function normalise(p) {
     days:     p.days     && typeof p.days     === "object" ? clone(p.days)  : e.days,
     credited: p.credited && typeof p.credited === "object" ? clone(p.credited) : e.credited,
     log:      Array.isArray(p.log) ? countLog(p.log) : e.log,
+    tangents: p.tangents && typeof p.tangents === "object" ? tangents(p.tangents) : e.tangents,
+    roadmapFns: strings(p.roadmapFns),
     mtimes:   p.mtimes   && typeof p.mtimes === "object"   ? { ...p.mtimes } : e.mtimes,
     ctimes:   p.ctimes   && typeof p.ctimes === "object"   ? { ...p.ctimes } : e.ctimes,
     tombs:    p.tombs    && typeof p.tombs  === "object"   ? { ...p.tombs }  : e.tombs,
@@ -74,6 +78,64 @@ export function normalise(p) {
 }
 
 /*
+ * A note is {title, html, fns, created, updated}: rich text like an essay, with its own
+ * footnotes. The first ones were plain text — a bare string, then {title, text} — and
+ * are read as the same words in paragraphs, line breaks kept, rather than dropped.
+ */
+const escHtml = t => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+export const plainToHtml = t => t.trim() ? t.trim().split(/\n\s*\n/)
+  .map(para => `<p>${escHtml(para.trim()).replace(/\n/g, "<br>")}</p>`).join("") : "";
+
+/**
+ * What a typed link becomes: http(s) and mailto as given, a bare domain made https, and
+ * anything else — javascript:, data:, a stray word — refused with null.
+ */
+export function linkHref(input) {
+  const v = String(input || "").trim();
+  if (!v || /\s/.test(v)) return null;
+  if (/^mailto:[^@\s]+@[^@\s]+$/i.test(v)) return v;
+  if (/^https?:\/\/[^/\s]+\.[^/\s]+/i.test(v) || /^https?:\/\/localhost\b/i.test(v)) return v;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(v) && !/^[^:]+\.[^:]+:\d/.test(v)) return null;   // another scheme
+  if (/^(www\.)?[a-z0-9-]+(\.[a-z0-9-]+)+(:\d+)?([/?#].*)?$/i.test(v)) return "https://" + v;
+  return null;
+}
+
+/**
+ * Pasted text that is nothing but an address — with its scheme, or starting www. — so a
+ * paste can become a link. A bare word with a dot in it is not enough: "e.g." is text.
+ */
+export function pastedLink(text) {
+  const v = String(text || "").trim();
+  if (!/^(https?:\/\/|www\.|mailto:)/i.test(v)) return null;
+  return linkHref(v);
+}
+
+/** A map of footnote id → its words, with anything that is not words left out. */
+function strings(map) {
+  const out = {};
+  if (map && typeof map === "object") for (const [k, v] of Object.entries(map)) if (typeof v === "string") out[k] = v;
+  return out;
+}
+
+function tangents(map) {
+  const out = {};
+  for (const [id, v] of Object.entries(map)) {
+    if (typeof v !== "string" && !(v && typeof v === "object")) continue;
+    const o = typeof v === "string" ? { text: v } : v;
+    const n = { title: typeof o.title === "string" ? o.title : "",
+                html: typeof o.html === "string" ? o.html
+                    : typeof o.text === "string" ? plainToHtml(o.text) : "",
+                fns: {} };
+    if (o.fns && typeof o.fns === "object")
+      for (const [k, f] of Object.entries(o.fns)) if (typeof f === "string") n.fns[k] = f;
+    if (Number.isFinite(o.created)) n.created = o.created;
+    if (Number.isFinite(o.updated)) n.updated = o.updated;
+    out[id] = n;
+  }
+  return out;
+}
+
+/*
  * Two devices must be able to compare payloads byte for byte — it is how each decides
  * whether it has anything to push — so the maps are always written in key order.
  * Object key order is not meaningful, but JSON.stringify makes it look like it is.
@@ -84,6 +146,8 @@ function canonical(p) {
   p.notes = sortKeys(p.notes);
   p.days = sortKeys(p.days);
   p.credited = sortKeys(p.credited);
+  p.tangents = sortKeys(p.tangents);
+  p.roadmapFns = sortKeys(p.roadmapFns);
   p.log = countLog(p.log);
   p.mtimes = sortKeys(p.mtimes);
   p.ctimes = sortKeys(p.ctimes);
@@ -136,7 +200,9 @@ function records(p) {
   for (const [id, notes] of Object.entries(p.notes)) out.set(keyOf.note(id), notes);
   for (const [iso, text] of Object.entries(p.days)) out.set(keyOf.day(iso), text);
   for (const [k, when] of Object.entries(p.credited)) out.set(keyOf.credit(k), when);
+  for (const [id, text] of Object.entries(p.tangents)) out.set(keyOf.tangent(id), text);
   out.set(keyOf.roadmap(), p.roadmap);
+  out.set(keyOf.roadmapFns(), p.roadmapFns);
   return out;
 }
 
@@ -158,7 +224,7 @@ export function stamp(prev, next, now = Date.now()) {
   for (const key of new Set([...a.keys(), ...b.keys()])) {
     const had = a.has(key), has = b.has(key);
     // The roadmap is always "present" — an empty one is a blank page, not a deletion.
-    if (had && !has && key !== keyOf.roadmap()) {
+    if (had && !has && key !== keyOf.roadmap() && key !== keyOf.roadmapFns()) {
       out.tombs[key] = now;
       delete out.mtimes[key];
     } else if (!same(a.get(key), b.get(key))) {
@@ -219,10 +285,12 @@ export function merge(aRaw, bRaw) {
     if (Number.isFinite(ctime)) out.ctimes[key] = ctime;
     if (!live) { delete out.mtimes[key]; continue; }
     if (key === keyOf.roadmap()) out.roadmap = typeof value === "string" ? value : "";
+    else if (key === keyOf.roadmapFns()) out.roadmapFns = strings(value);
     else if (key.startsWith("draft:"))  out.drafts[key.slice(6)] = value;
     else if (key.startsWith("note:"))   out.notes[key.slice(5)] = value;
     else if (key.startsWith("day:"))    out.days[key.slice(4)] = value;
     else if (key.startsWith("credit:")) out.credited[key.slice(7)] = value;
+    else if (key.startsWith("tangent:")) out.tangents[key.slice(8)] = value;
   }
   out.log = mergeLogs(a.log, b.log);
 
@@ -265,7 +333,7 @@ export function merge(aRaw, bRaw) {
 export function sameContent(a, b) {
   const strip = p => { const n = normalise(p); return JSON.stringify({
     ideas: n.ideas, readings: n.readings, drafts: n.drafts, roadmap: n.roadmap,
-    notes: n.notes, days: n.days, credited: n.credited, log: n.log }); };
+    notes: n.notes, days: n.days, credited: n.credited, log: n.log, tangents: n.tangents, roadmapFns: n.roadmapFns }); };
   return strip(a) === strip(b);
 }
 
