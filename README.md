@@ -69,11 +69,11 @@ will quietly replace it.
 ```sh
 npm install
 npm start            # the app at http://localhost:4321, local-only
-npm test             # resolver, sync merge, Worker and history tests
-node build.mjs       # after editing src/resolve.js or src/sync.js
+npm test             # resolver, sync merge, typing, Worker and history tests
+node build.mjs       # after editing src/resolve.js, src/sync.js or src/typing.js
 ```
 
-`build.mjs` copies `src/resolve.js` and `src/sync.js` into marked blocks in the HTML (and
+`build.mjs` copies `src/resolve.js`, `src/sync.js` and `src/typing.js` into marked blocks in the HTML (and
 inlines pdf.js and KaTeX), so the page and the tested modules can't drift. Never edit a
 generated block by hand; CI refuses to deploy if they are stale.
 
