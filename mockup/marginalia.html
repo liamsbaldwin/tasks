@@ -2982,6 +2982,24 @@ function wordsByDay(events, dayOf = ms => new Date(ms).toISOString().slice(0, 10
   return out;
 }
 
+/**
+ * Days from before the history began have no word counts, only the credit log. Each
+ * credited reading or essay stands in for the words it took to cross its line, so the
+ * calendar is not blank before the history's first day. That first day is only partly
+ * covered, so it takes whichever is larger; later days are left alone.
+ */
+function backfillFromLog(wrote, log, firstDay, perKind = { reading: 500, essay: 1500 }) {
+  const credits = {};
+  for (const e of log || []) {
+    if (!e || typeof e.d !== "string" || !perKind[e.kind]) continue;
+    if (firstDay && e.d > firstDay) continue;
+    credits[e.d] = (credits[e.d] || 0) + perKind[e.kind];
+  }
+  const out = { ...wrote };
+  for (const [d, n] of Object.entries(credits)) out[d] = Math.max(out[d] || 0, n);
+  return out;
+}
+
 /** The progress calendar's shades: 0, then the first square at 250 words, the last at 2,000. */
 const WORD_STEPS = [0, 250, 500, 1000, 2000];
 const wordLevel = n => WORD_STEPS.reduce((l, step, i) => (n >= step && step > 0 ? i : l), 0);

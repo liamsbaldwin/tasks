@@ -496,3 +496,14 @@ test("the calendar shades at 250, 500, 1,000 and 2,000 words", async () => {
   assert.deepEqual([0, 1, 249, 250, 499, 500, 999, 1000, 1999, 2000, 9000].map(wordLevel),
                    [0, 0, 0,   1,   1,   2,   2,   3,    3,    4,    4]);
 });
+
+test("days before the history began are filled in from the credit log", async () => {
+  const { backfillFromLog } = await import("../src/sync.js");
+  const log = [{ d: "2026-10-27", kind: "reading" }, { d: "2026-10-28", kind: "reading" },
+               { d: "2026-10-28", kind: "essay" }, { d: "2026-10-28", kind: "video" },
+               { d: "2026-10-29", kind: "reading" }];
+  assert.deepEqual(backfillFromLog({ "2026-10-28": 300, "2026-10-29": 100 }, log, "2026-10-28"),
+                   { "2026-10-27": 500, "2026-10-28": 2000, "2026-10-29": 100 });
+  assert.equal(backfillFromLog({ "2026-10-28": 2600 }, log, "2026-10-28")["2026-10-28"], 2600);
+  assert.deepEqual(backfillFromLog({}, log, undefined)["2026-10-29"], 500);   // no history at all
+});
