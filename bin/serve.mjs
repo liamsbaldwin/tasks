@@ -7,12 +7,14 @@
  *
  *   npm start   →   http://localhost:4321
  *
- * State lives in .marginalia-state.json next to the repo. No dependencies.
+ * State lives in .marginalia-state.json next to the repo. No dependencies. The edit
+ * history (/api/events) is kept in memory, from this run's saves only.
  */
 import { createServer } from "node:http";
 import { readFile, writeFile, rename } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { FAVICON, ICONS } from "../src/favicon.js";
+import { diff, localTime } from "../worker/src/history.js";
 
 const FILE  = fileURLToPath(new URL("../mockup/asterisk.html", import.meta.url));
 const STATE = process.env.MARGINALIA_STATE
@@ -28,6 +30,8 @@ const send = (res, status, body, headers = {}) => {
                           "cache-control": "no-store", ...headers });
   res.end(text);
 };
+
+const events = [];
 
 async function readState() {
   try { return JSON.parse(await readFile(STATE, "utf8")); }
@@ -106,8 +110,16 @@ createServer(async (req, res) => {
         const next = { version: cur.version + 1, payload: b.payload,
                        updated: new Date().toISOString() };
         await writeState(next);
+        const tz = req.headers["x-timezone"];
+        for (const e of diff(cur.payload, b.payload))
+          events.push({ id: events.length + 1, ...e, local: localTime(e.at, tz), tz: tz || null });
         send(res, 200, { version: next.version });
       });
+    }
+
+    if (url.pathname === "/api/events" && req.method === "GET") {
+      const since = Number(url.searchParams.get("since")) || 0;
+      return send(res, 200, { events: events.filter(e => e.at > since) });
     }
 
     if (url.pathname === "/api/fetch" && req.method === "GET") {

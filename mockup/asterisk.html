@@ -2091,6 +2091,26 @@ function prune(p, now = Date.now()) {
   }
   return canonical(out);
 }
+
+/**
+ * Words written each day, from the edit history the Worker keeps (/api/events). Only
+ * what a save added counts: a cut is editing, and a day of it should not read as less
+ * than nothing. The day is the writer's own (`local`), or the device's when the server
+ * was not told a time zone.
+ */
+function wordsByDay(events, dayOf = ms => new Date(ms).toISOString().slice(0, 10)) {
+  const out = {};
+  for (const e of events || []) {
+    if (!e || !(e.delta > 0) || !Number.isFinite(e.at)) continue;
+    const d = typeof e.local === "string" && e.local.length >= 10 ? e.local.slice(0, 10) : dayOf(e.at);
+    out[d] = (out[d] || 0) + e.delta;
+  }
+  return out;
+}
+
+/** The progress calendar's shades: 0, then the first square at 250 words, the last at 2,000. */
+const WORD_STEPS = [0, 250, 500, 1000, 2000];
+const wordLevel = n => WORD_STEPS.reduce((l, step, i) => (n >= step && step > 0 ? i : l), 0);
 /* <<< end generated sync >>> */
 
 const STORE = "marginalia.quarterly.v2";
@@ -2589,19 +2609,45 @@ function viewProgress(){
         <div class="fig"><span class="fig__n">${count("video")}</span><span class="fig__l">Videos</span></div>
       </div></div></div>
   <div class="wide">
-    <div class="card__t">${mine.length} logged in ${year}</div>
+    <div class="card__t">${wrote ? `${wordsIn(year).toLocaleString()} words written in ${year}`
+      : SYNC.on ? "Counting words…" : "Words are counted once this page syncs"}</div>
     ${heatmap(year)}
     <p class="counts" id="counts" hidden>A reading counts once its notes pass ${READING_WORDS} words,
-      an essay once its draft passes ${ESSAY_WORDS.toLocaleString()}. Filing a source or moving an
-      idea's stage credits nothing. Videos are the one you mark by hand.</p>
+      an essay once its draft passes ${ESSAY_WORDS.toLocaleString()}. The squares shade by the
+      words you wrote that day: 250, 500, 1,000 and 2,000.</p>
   </div>`;
+}
+
+/* Words written per day, from the edit history the server keeps. Fetched when the page
+   is opened and topped up from where it left off, so a year of saves is read once. */
+let wrote = null, wroteEvents = [], wroteSince = 0, wroteBusy = false;
+const wordsIn = year => Object.entries(wrote || {})
+  .reduce((n, [d, w]) => d.startsWith(String(year)) ? n + w : n, 0);
+const localDay = ms => { const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+async function loadWrote(){
+  if(!SYNC.on || wroteBusy) return;
+  wroteBusy = true;
+  try{
+    for(;;){
+      const res = await api(`/api/events?since=${wroteSince}&limit=10000`);
+      if(!res.ok) break;                          // no history yet: an empty year
+      const page = await res.json();
+      const rows = Array.isArray(page) ? page : page.events || [];
+      wroteEvents.push(...rows);
+      if(rows.length) wroteSince = rows[rows.length - 1].at;
+      if(rows.length < 10000) break;
+    }
+    wrote = wordsByDay(wroteEvents, localDay);
+    if(view === "progress" && !isEditing()) render();
+  }catch{ /* offline: the calendar keeps what it had */ }
+  finally{ wroteBusy = false; }
 }
 
 /* A year of days: seven rows of weeks, Monday at the top. Laid out in rows rather than
    columns so each cell can be a fraction of the width and the year always fits. */
 function heatmap(year){
-  const counts = {};
-  for(const e of data.log) counts[e.d] = (counts[e.d] || 0) + 1;
+  const counts = wrote || {};
 
   const iso = d => d.toISOString().slice(0, 10);
   const jan1 = new Date(Date.UTC(year, 0, 1));
@@ -2634,12 +2680,11 @@ function heatmap(year){
     return `<span>${MONTHS[m]}</span>`;
   }).join("");
 
-  const level = n => !n ? 0 : n >= 4 ? 4 : n;
   const rows = Array.from({length: 7}, (_, r) => weeks.map(w => w[r]));
   const now = today();
   const cells = rows.flat().map(c =>
-    `<span class="cell ${c.d === now ? "cell--today" : ""}" data-l="${level(counts[c.d] || 0)}"
-      title="${c.d}${counts[c.d] ? ` — ${counts[c.d]} logged` : ""}"></span>`).join("");
+    `<span class="cell ${c.d === now ? "cell--today" : ""}" data-l="${wordLevel(counts[c.d] || 0)}"
+      title="${c.d}${counts[c.d] ? ` — ${counts[c.d].toLocaleString()} words` : ""}"></span>`).join("");
 
   const DAYS = ["Mon","","Wed","","Fri","",""];
   return `<div class="heat__grid" style="--n:${n}">
@@ -2647,9 +2692,8 @@ function heatmap(year){
     <div class="heat__days">${DAYS.map(d => `<span>${d}</span>`).join("")}</div>
     <div class="heat__cells">${cells}</div>
   </div>
-  <div class="legend">Less<span class="cell" data-l="0"></span><span class="cell" data-l="1"></span>
-    <span class="cell" data-l="2"></span><span class="cell" data-l="3"></span>
-    <span class="cell" data-l="4"></span>More
+  <div class="legend">Less${WORD_STEPS.map((n, i) =>
+    `<span class="cell" data-l="${i}" title="${i ? `${n.toLocaleString()}+ words` : "Under 250 words"}"></span>`).join("")}More
     <button class="info" id="info" aria-expanded="false" aria-controls="counts"
       aria-label="What counts"></button></div>`;
 }
@@ -2920,6 +2964,7 @@ function render(){
     : viewContents();
   document.querySelectorAll("[contenteditable]").forEach(markEmpty);
   if(view === "draft" || noteOpen) layoutFootnotes();
+  if(view === "progress") loadWrote();
   document.querySelectorAll('#view [data-edit="roadmap"], #view [data-edit="reading.note"]').forEach(belowFootnotes);
   if(view === "notes" && !noteOpen) document.querySelectorAll(".tangent").forEach(noteFootnotes);
   if(capture && (view === "sources" && !openSource || view === "idea")) $("#capture")?.focus();
