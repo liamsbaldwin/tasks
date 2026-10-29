@@ -19,7 +19,7 @@
  */
 
 /** The record kinds, as src/sync.js's keyOf spells them. Anything else is ignored. */
-const KINDS = new Set(["idea", "reading", "draft", "note", "day", "credit", "roadmap"]);
+const KINDS = new Set(["idea", "reading", "draft", "note", "day", "credit", "roadmap", "tangent"]);
 
 function records(p) {
   const out = new Map();
@@ -33,6 +33,7 @@ function records(p) {
   each(p.notes, "note");
   each(p.days, "day");
   each(p.credited, "credit");
+  each(p.tangents, "tangent");
   if (typeof p.roadmap === "string") out.set("roadmap", p.roadmap);
   return out;
 }

@@ -64,3 +64,11 @@ test("devices are named coarsely", () => {
   assert.equal(device("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Version/18.0 Mobile/15E148 Safari/604.1"), "Safari on iPhone");
   assert.equal(device(""), null);
 });
+
+test("a note on the Notes page is part of the history", () => {
+  const prev = { ...base(), tangents: {} };
+  const next = { ...base(), tangents: { t1: { title: "Aside", html: "<p>Three more words</p>", fns: {} } },
+                 mtimes: { ...base().mtimes, "tangent:t1": 400 } };
+  assert.deepEqual(diff(prev, next),
+    [{ at: 400, key: "tangent:t1", kind: "tangent", action: "create", words: 4, delta: 4 }]);
+});

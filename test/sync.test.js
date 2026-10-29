@@ -476,3 +476,23 @@ test("an update held while typing does not undo what was typed meanwhile", () =>
   const elsewhere = stamp(before, { ...before, ideas: [{ ...before.ideas[0], dek: "from the phone" }] }, 300);
   assert.equal(merge(stamp(before, typed, 200), elsewhere).ideas[0].dek, "from the phone");
 });
+
+test("words written each day count only what saves added, on the writer's day", async () => {
+  const { wordsByDay } = await import("../src/sync.js");
+  const day = ms => new Date(ms).toISOString().slice(0, 10);
+  assert.deepEqual(wordsByDay([
+    { at: Date.UTC(2026, 9, 28, 23), local: "2026-10-28T19:00", delta: 300 },
+    { at: Date.UTC(2026, 9, 29, 1),  local: "2026-10-28T21:00", delta: 120 },
+    { at: Date.UTC(2026, 9, 29, 2),  local: "2026-10-28T22:00", delta: -500 },   // a cut
+    { at: Date.UTC(2026, 9, 29, 15), delta: 40 },                                // no time zone
+    { at: Date.UTC(2026, 9, 29, 16), delta: 0 },
+    null,
+  ], day), { "2026-10-28": 420, "2026-10-29": 40 });
+  assert.deepEqual(wordsByDay(undefined), {});
+});
+
+test("the calendar shades at 250, 500, 1,000 and 2,000 words", async () => {
+  const { wordLevel } = await import("../src/sync.js");
+  assert.deepEqual([0, 1, 249, 250, 499, 500, 999, 1000, 1999, 2000, 9000].map(wordLevel),
+                   [0, 0, 0,   1,   1,   2,   2,   3,    3,    4,    4]);
+});

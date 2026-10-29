@@ -353,3 +353,23 @@ export function prune(p, now = Date.now()) {
   }
   return canonical(out);
 }
+
+/**
+ * Words written each day, from the edit history the Worker keeps (/api/events). Only
+ * what a save added counts: a cut is editing, and a day of it should not read as less
+ * than nothing. The day is the writer's own (`local`), or the device's when the server
+ * was not told a time zone.
+ */
+export function wordsByDay(events, dayOf = ms => new Date(ms).toISOString().slice(0, 10)) {
+  const out = {};
+  for (const e of events || []) {
+    if (!e || !(e.delta > 0) || !Number.isFinite(e.at)) continue;
+    const d = typeof e.local === "string" && e.local.length >= 10 ? e.local.slice(0, 10) : dayOf(e.at);
+    out[d] = (out[d] || 0) + e.delta;
+  }
+  return out;
+}
+
+/** The progress calendar's shades: 0, then the first square at 250 words, the last at 2,000. */
+export const WORD_STEPS = [0, 250, 500, 1000, 2000];
+export const wordLevel = n => WORD_STEPS.reduce((l, step, i) => (n >= step && step > 0 ? i : l), 0);
