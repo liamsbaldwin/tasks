@@ -3301,6 +3301,30 @@ document.addEventListener("input", e => {
   applyEdit(host);
 });
 
+/*
+ * Safari takes no default separator and still makes a <div> per Return, and texts written
+ * before this have them too. After each Return the text's own lines are made paragraphs —
+ * the same nodes, moved, so the caret stays where it was.
+ */
+document.addEventListener("input", e => {
+  const host = e.target.closest?.(".prose[data-rich=\"1\"]");
+  if(!host || e.inputType !== "insertParagraph") return;
+  const lines = [...host.children].filter(d => d.tagName === "DIV" && !d.querySelector("p,div,ul,ol,h2,h3,blockquote"));
+  if(!lines.length) return;
+  const sel = document.getSelection();
+  const { anchorNode, anchorOffset, focusNode, focusOffset } = sel;
+  let onLine = null;                                        // an empty line: the caret was on the div itself
+  for(const d of lines){
+    const p = document.createElement("p");
+    p.append(...d.childNodes);
+    d.replaceWith(p);
+    if(anchorNode === d) onLine = p;
+  }
+  if(onLine) sel.collapse(onLine, anchorOffset);
+  else if(anchorNode && host.contains(anchorNode)) sel.setBaseAndExtent(anchorNode, anchorOffset, focusNode, focusOffset);
+  applyEdit(host);
+});
+
 /* Return on an empty heading or quote goes back to plain paragraphs, rather than
    starting another of the same. */
 document.addEventListener("keydown", e => {
