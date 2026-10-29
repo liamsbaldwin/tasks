@@ -1,0 +1,49 @@
+# Every push to the default branch is tested and then put live on Cloudflare, so the
+# site is always exactly what GitHub holds. Needs one repository secret:
+#   CLOUDFLARE_API_TOKEN  (Workers Scripts: Edit, D1: Edit — see SETUP.md)
+name: Deploy
+
+on:
+  push:
+    branches: [claude/project-task-manager-design-w2j421]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build the page
+        run: npm run build && npm run bundle
+      - name: Refuse to ship a page whose generated blocks were stale
+        run: git diff --exit-code -- mockup/
+      - name: Create any missing tables, then deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          wranglerVersion: "4"
+          workingDirectory: worker
+          command: |
+            d1 execute marginalia --remote --file=./schema.sql
+            deploy

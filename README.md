@@ -1,235 +1,98 @@
 # Marginalia
 
-A private cockpit for running personal research projects that end in an essay
-and then a video: **idea → reading → notes → draft → cut**.
+A private notebook for research projects that end in an essay and then a video:
+**idea → reading → notes → draft → published**. One person, every device, no account.
 
-The interactive mockup lives at [`mockup/marginalia.html`](mockup/marginalia.html).
-Open it in a browser — no build step, no dependencies, no server.
+Live at <https://marginalia.liambwin02.workers.dev>.
 
-## The model
-
-| Thing | What it is |
-|---|---|
-| **Idea** | A title, a 1–3 sentence brief, and a stage. The unit of work. |
-| **Source** | A paper, book, essay, or talk. Lives in one shared library, tagged onto one or more ideas. |
-| **Notes** | A page per source — summary, argument, objections — not a drawer. |
-| **Draft** | One essay per idea, written next to that idea's reading. |
-
-Ideas move through four stages — reading, drafting, editing, published — and the
-interface colours them on a cool-to-warm ramp, so the cockpit shows at a glance which
-projects are heating up and which have gone cold.
-
-## The three decisions worth arguing with
-
-1. **Adding a source must cost nothing.** Paste a link or drop a PDF and the tile
-   builds itself — title, authors, year, cover. A reading list you have to fill in by
-   hand is a reading list you stop filling in.
-2. **Sources are shared, not owned.** Ideas are tags on one library, not folders.
-   Filing a paper under a second idea is one click and brings its notes along.
-3. **Notes get a page, not a dropdown.** A drawer signals "keep it short"; the
-   summary is where you find out whether you actually understood the source.
-
-The reasoning behind these, plus three organisational alternatives that were considered
-and rejected, is in this README rather than inside the app — that tab is now a Roadmap
-for planning the project instead.
-
-## Running it on your phone and your laptop
-
-[`SETUP.md`](SETUP.md) — a Cloudflare Worker plus one D1 row, on the free plan. Five
-one-off commands, then `npm run deploy`. Merging is per record, so edits made on two
-devices at once both survive; deletes stick; and lookups start working on the phone,
-because the Worker fetches them on the page's behalf.
-
-With no server behind it the page is unchanged: local, offline, one file.
-
-## Editing
-
-Everything you are meant to fill in edits in place and saves as you type — no forms, no
-save buttons, no edit mode.
-
-| | |
-|---|---|
-| **Ideas** | `+` in the rail creates one. Title, blurb and open questions are editable in place; the stage picker moves it between Reading / Drafting / Editing / Published; the brief page deletes it, with undo. |
-| **Sources** | Added by pasting a link or dropping a PDF. Title, authors and venue are editable in place on the source's page; kind and year sit in the sidebar; status is three buttons. Hover a tile for a × to delete, with undo. |
-| **Filing** | A source can sit under several ideas. Each tag has an × to unfile it, and a picker adds it to another. |
-| **Writing** | The deck and the prose are editable, and the word count updates as you type. A full progress bar is fifteen minutes on screen. |
-| **Roadmap** | One page that is not about a particular idea — a blank document for planning the project as a whole, with the same editor as everywhere else. |
-
-### Formatting
-
-Four buttons, shown only while you are writing in a field: **bold**, *italic*, bullets,
-and maths. ⌘B / ⌘I work as usual; ⌘⇧8 toggles a list.
-
-Maths is LaTeX between dollars — `$B \propto M^{3/4}$` inline, `$$…$$` on its own line —
-rendered as you type the closing delimiter. Click a rendered formula to get its source
-back. A lone `$` before a space or a digit is left alone, so prices survive.
-
-Rendering is KaTeX, output as **MathML** rather than KaTeX's own HTML: the browser draws
-it with the system maths font, so the page needs neither KaTeX's stylesheet nor its
-sixty-odd font files — ~270KB instead of ~900KB, and nothing fetched from a CDN.
-
-The view is deliberately not re-rendered on every keystroke — replacing the node you are
-typing into steals the caret. Only the rail and the top bar, which never hold the focus,
-refresh live.
-
-### Where it is kept
-
-The prototype saves to `localStorage`, so what you type survives a reload in that browser.
-**Reset** in the bottom corner discards it and restores the sample data. This is a
-prototype convenience, not the storage model: the intended build writes `data.json` and
-`essays/*.md` into a folder you choose, so drafts stay plain files you own.
-
-## Adding a source
-
-`src/resolve.js` turns whatever you paste or drag into real bibliographic fields. It has
-no dependencies; `fetch` and pdf.js are injected, so it runs in node and from a `file://`
-page alike. It works down a ladder and stops at the first step that gives a real answer:
-
-| # | Step | Why it is in this position |
-|---|---|---|
-| 1 | An identifier in the input — DOI, arXiv id, ISBN, or a URL containing one | Authoritative, instant, and needs no download at all |
-| 2 | An identifier printed inside the PDF | Papers print their DOI in the page-1 footer; preprints stamp the arXiv id up the margin; JSTOR prints `Stable URL:` on its cover |
-| 3 | The archive's cover sheet citation | `Author(s):` / `Source:` / `Published by:` is structured data, and works offline |
-| 4 | The PDF's embedded metadata, after a junk check | Half of them claim to be called `Microsoft Word - final_v3.doc` |
-| 5 | The layout of the first page that is not a cover sheet | Largest type block near the top is the title; the first block below it that reads like names is the byline |
-| 6 | A Crossref title search to confirm step 5 | Upgrades a guess to a fact, and discards a hit that is a different paper |
-
-Several archives mint their DOIs mechanically from an id in the URL, so step 1 derives
-rather than guesses:
-
-| Link | DOI |
-|---|---|
-| `jstor.org/stable/1885060` | `10.2307/1885060` |
-| `nber.org/papers/w1885` | `10.3386/w1885` |
-| `papers.ssrn.com/…?abstract_id=123` | `10.2139/ssrn.123` |
-| `nature.com/articles/<slug>` | `10.1038/<slug>` |
-| `pubmed.ncbi.nlm.nih.gov/<pmid>` | via NCBI, which returns the DOI |
-
-Springer, Wiley, Taylor & Francis, bioRxiv and most other publishers already put the DOI
-in the URL and need no special case. A ScienceDirect PII cannot be derived — there the
-answer is to drag the PDF in, which is read locally.
-
-Registries used: Crossref (DOIs), arXiv, Open Library (ISBNs), plus Google Scholar's
-`citation_*` meta tags on publisher landing pages. All allow direct browser requests and
-need no API key.
-
-### Covers
-
-In order of preference:
-
-1. **A thumbnail of the paper's own first page**, rendered locally with the pdf.js that
-   is already loaded for reading the text. No network, works for anything you drop in,
-   and you recognise your own PDFs by sight. An archive cover sheet is skipped, so you
-   get the article rather than a JSTOR banner.
-2. **The jacket**, for a book Open Library resolved, at the largest size it holds.
-3. **The still**, for a talk, from the video's own oEmbed record.
-4. **The drawn stand-in** otherwise — a monogram, the publisher line, and a form that
-   says what kind of thing it is.
-
-The drawn cover stays in the markup underneath the real one, so an image that 404s or
-is blocked reveals it again rather than leaving a hole. Thumbnails are WebP where the
-browser can encode it and JPEG otherwise (older Safari quietly returns a PNG when asked
-for WebP, which is far bigger, so the result is checked rather than assumed).
-
-### It never accepts the wrong record
-
-Every registry answer is checked against the identifier that was requested: a Crossref
-record whose DOI differs from the one asked for, an arXiv entry that is really an error
-page, an NCBI record for a different PMID — all are refused rather than returned. A
-confident wrong citation is worse than no citation, and this class of bug is invisible
-until you are proofreading a bibliography.
-
-### It never invents a field
-
-No author, no year, no venue is ever fabricated. If a step could not establish something,
-the source is flagged **Check** and opens into a form with whatever *was* found already
-filled in — usually one field to type, not four. The sidebar lists which step produced
-which field. A scan with no text layer says so and asks for a title. A title read off
-page 1 but never confirmed by a registry is usable but still gets flagged; anything a
-registry confirmed goes straight in.
-
-### The one real limitation
-
-A browser cannot download a PDF from a site that refuses cross-origin requests, and most
-publishers do. The tool says so and asks you to drag the file in instead. This is why
-identifiers are tried first: for arXiv, doi.org, PubMed Central and biorxiv the download
-never has to happen.
-
-## Running it
+## How it works
 
 ```
+ browser (any device)                         Cloudflare
+┌──────────────────────────┐   /api/state   ┌──────────────────────────────────┐
+│ the page: one HTML file  │ ─────────────▶ │ Worker  (worker/src/index.js)    │
+│ notebook in localStorage │ ◀───────────── │   ├─ D1 `state`  the notebook    │
+│ works fully offline      │   /api/fetch   │   ├─ D1 `events` the edit history│
+└──────────────────────────┘ ─────────────▶ │   └─ proxy for Crossref, arXiv…  │
+                                            └──────────────────────────────────┘
+```
+
+- **The page is the app.** Everything — Cockpit, Library, Roadmap, Notes, Progress, the
+  essay editor, the PDF reader and maths rendering — is one file,
+  [`mockup/asterisk.html`](mockup/asterisk.html). `npm run bundle` wraps it for Cloudflare.
+- **Each browser keeps a full copy** of the notebook in `localStorage`, so it opens
+  instantly and works with no network.
+- **Sync.** About a second after you stop typing, the page sends its copy to the Worker;
+  it pulls on arrival, on returning to the tab and every 30 seconds. The server stores one
+  row and refuses a write built on a stale version; the client then merges
+  ([`src/sync.js`](src/sync.js)) **per record** — each idea, reading, draft and note
+  carries its own timestamps, so edits on two devices both survive, deletes stick, and an
+  update never lands while you are typing.
+- **The key.** The API answers only requests carrying the secret `SYNC_TOKEN`. A browser
+  is given it once by opening `…/#key=THE-KEY`; it is saved and stripped from the address
+  bar. Without it the page still works, local-only, and the corner says **No key**.
+- **Edit history.** Every accepted sync also appends one row per changed record to the
+  `events` table: when it was written (device clock, local time of day and time zone),
+  what it was, created/edited/deleted, word count and words added or removed, and which
+  browser. Counts only — never copies of the text — so it stays small (≈30 MB a year at
+  most). Read it with `GET /api/events?since=<ms>`. See
+  [`worker/src/history.js`](worker/src/history.js).
+- **Lookups.** Paste a link or drop a PDF and the source fills itself in
+  ([`src/resolve.js`](src/resolve.js)): identifiers first (DOI, arXiv, ISBN, PMID), then
+  what is printed in the PDF, then registry search. Every answer is checked against what
+  was asked for, and no field is ever invented — anything unconfirmed is flagged
+  **Check**. The Worker fetches on the page's behalf because those registries send no
+  CORS headers.
+
+## Where things live
+
+| What | Where |
+|---|---|
+| Code and its history | GitHub, this repo |
+| The running site | Cloudflare Workers (`marginalia`) |
+| Your notebook | Cloudflare D1 `marginalia`, table `state` (one row), plus a copy in each browser |
+| Edit history | Cloudflare D1 `marginalia`, table `events` |
+| The sync key | Cloudflare secret `SYNC_TOKEN`, and each browser's `localStorage` |
+
+## Deploying
+
+**Merging to the default branch deploys.** [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)
+runs the tests, builds the page, creates any missing database tables and publishes the
+Worker. It needs one repository secret, `CLOUDFLARE_API_TOKEN` — see [`SETUP.md`](SETUP.md).
+
+So GitHub is the source of truth: don't `npm run deploy` from a local folder with
+uncommitted changes, or the site will run code GitHub doesn't have, and the next merge
+will quietly replace it.
+
+## Working on it
+
+```sh
 npm install
-npm start            # → http://localhost:4321
+npm start            # the app at http://localhost:4321, local-only
+npm test             # resolver, sync merge, Worker and history tests
+node build.mjs       # after editing src/resolve.js or src/sync.js
 ```
 
-From localhost (or from disk) the page calls the real Crossref, arXiv, Open Library and
-NCBI. **This is the only way lookups work.** Or resolve a single item without the UI:
+`build.mjs` copies `src/resolve.js` and `src/sync.js` into marked blocks in the HTML (and
+inlines pdf.js and KaTeX), so the page and the tested modules can't drift. Never edit a
+generated block by hand; CI refuses to deploy if they are stale.
 
-```
-npm run resolve -- "https://doi.org/10.2307/1912767"
-npm run resolve -- ~/Downloads/paper.pdf
-npm run resolve -- --json "https://www.nber.org/papers/w31710"
-```
-
-It prints the trail and the resolved fields, and exits non-zero if the result needs
-checking.
-
-### The published preview cannot look anything up
-
-A published Artifact runs in a sandbox with no outbound network, and no capability grants
-one. So the hosted copy of this mockup resolves only its half-dozen sample links, from
-recorded answers, and everything else lands in "needs checking" no matter how good the
-identifier is. The page says so on screen the first time a lookup fails. Dropped PDFs
-*are* parsed there for real, since pdf.js is inlined and needs no network.
-
-Treat the hosted page as a design mockup. Run it locally to use it.
+`npm run resolve -- <url|file.pdf>` resolves one source from the command line and prints
+the trail of how it got there (`--json` for the raw record).
 
 ## Layout
 
-
 ```
-src/resolve.js          the resolver — no dependencies, fully tested
-bin/resolve.mjs         resolve a link or PDF from the command line
-bin/serve.mjs           npm start — serves the app so it can reach the registries
-src/extract-fixtures.mjs build step: pulls page-1 text runs out of sample PDFs
-build.mjs               inlines the resolver + samples into the mockup
-test/                   25 tests, including six real PDFs through pdf.js
-mockup/marginalia.html  the single-file prototype (generated block inside)
+mockup/asterisk.html     the app (deployed)
+mockup/marginalia.html   the earlier single-file prototype
+src/resolve.js           link/PDF → bibliographic record
+src/sync.js              per-record merge, timestamps, tombstones
+src/favicon.js           icons, inlined by the bundler
+worker/src/index.js      the Worker: /api/state, /api/events, /api/fetch, static page
+worker/src/history.js    the edit-history diff and the events table
+worker/schema.sql        D1 tables (safe to re-run)
+worker/wrangler.toml     Cloudflare config
+build.mjs, bin/          build, bundle, local server, CLI resolver, smoke test
+test/                    node --test suites and sample PDFs
+SETUP.md                 one-off Cloudflare setup, devices, the sync indicator
 ```
-
-`node bin/resolve.mjs <url|file.pdf>` resolves anything from the command line against the
-live registries and prints what the app would file, with the trail of how it got there;
-`--json` for the raw record. It exits non-zero when the result needs checking.
-
-`npm test` runs the suite. `node build.mjs` re-inlines the resolver after editing
-`src/resolve.js` — never edit the generated block in the HTML directly.
-
-`build.mjs` also inlines pdf.js (~1.7MB) into the page as inert text, turned into a blob
-module on first use — so a PDF dropped into the published preview is genuinely parsed in
-the browser, offline. If a host's CSP refuses `blob:` scripts the load fails and the page
-falls back to asking for the fields. The preview has no outbound network, so registry
-lookups replay recorded answers there; opened from disk it calls the real APIs, and falls
-back to the recordings if it cannot reach them.
-
-## Intended shape of the real thing
-
-
-A single local HTML file, opened from disk, with no server and no account. On first
-run it asks for a folder and then reads/writes:
-
-```
-~/Projects/marginalia/
-├── data.json      ideas, sources, cards, notes
-├── essays/*.md    one plain markdown file per draft
-└── pdfs/          the papers themselves
-```
-
-Make that folder a git repo and you get version history of every draft and backup
-by pushing to a private remote. Metadata lookup (Crossref, arXiv, Open Library) all
-allow direct browser requests, so adding a source by pasting a DOI needs no backend
-and no API keys.
-
-## Status
-
-Mockup only. Every screen is interactive — add a source, insert a card into the
-draft, type in the essay — but nothing persists across a reload.

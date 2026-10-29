@@ -36,6 +36,23 @@ npm run deploy                 # 5. build, bundle, publish
 
 Wrangler prints your URL: `https://marginalia.<your-subdomain>.workers.dev`.
 
+## Automatic deploys from GitHub
+
+Once this is set up, merging to the default branch tests and deploys the site, and
+creates any missing database tables. You never run `npm run deploy` by hand again.
+
+1. In the Cloudflare dashboard: **My Profile → API Tokens → Create Token → Custom
+   token**. Give it two permissions, both on your account: **Workers Scripts → Edit**
+   and **D1 → Edit**. Create it and copy the token.
+2. On GitHub: the repo's **Settings → Secrets and variables → Actions → New repository
+   secret**. Name it `CLOUDFLARE_API_TOKEN` and paste the token.
+
+To deploy without merging anything, open **Actions → Deploy → Run workflow**.
+
+The database id and account id are in `worker/wrangler.toml`. They name things rather
+than unlock them, so they are safe to commit; the token and `SYNC_TOKEN` are not, and
+stay in GitHub's and Cloudflare's secret stores.
+
 ## Check it worked
 
 ```sh
