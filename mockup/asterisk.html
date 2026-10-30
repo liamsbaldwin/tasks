@@ -2137,6 +2137,17 @@ function backfillFromLog(wrote, log, firstDay, perKind = { reading: 500, essay: 
   return out;
 }
 
+/**
+ * Days whose count is known better than the history knows it, set by hand. Each one
+ * replaces whatever the history and the credit log made of that day; other days are
+ * left alone.
+ */
+const WORD_OVERRIDES = { "2026-10-28": 338 };
+
+function applyOverrides(wrote, overrides = WORD_OVERRIDES) {
+  return { ...wrote, ...overrides };
+}
+
 /** The progress calendar's shades: 0, then the first square at 250 words, the last at 2,000. */
 const WORD_STEPS = [0, 250, 500, 1000, 2000];
 const wordLevel = n => WORD_STEPS.reduce((l, step, i) => (n >= step && step > 0 ? i : l), 0);
@@ -2669,8 +2680,8 @@ async function loadWrote(){
     }
     const byDay = wordsByDay(wroteEvents, localDay);
     const first = Object.keys(byDay).sort()[0];
-    wrote = backfillFromLog(byDay, data.log, first,
-                            { reading: READING_WORDS, essay: ESSAY_WORDS });
+    wrote = applyOverrides(backfillFromLog(byDay, data.log, first,
+                                           { reading: READING_WORDS, essay: ESSAY_WORDS }));
     if(view === "progress" && !isEditing()) render();
   }catch{ /* offline: the calendar keeps what it had */ }
   finally{ wroteBusy = false; }

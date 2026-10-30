@@ -388,6 +388,17 @@ export function backfillFromLog(wrote, log, firstDay, perKind = { reading: 500, 
   return out;
 }
 
+/**
+ * Days whose count is known better than the history knows it, set by hand. Each one
+ * replaces whatever the history and the credit log made of that day; other days are
+ * left alone.
+ */
+export const WORD_OVERRIDES = { "2026-10-28": 338 };
+
+export function applyOverrides(wrote, overrides = WORD_OVERRIDES) {
+  return { ...wrote, ...overrides };
+}
+
 /** The progress calendar's shades: 0, then the first square at 250 words, the last at 2,000. */
 export const WORD_STEPS = [0, 250, 500, 1000, 2000];
 export const wordLevel = n => WORD_STEPS.reduce((l, step, i) => (n >= step && step > 0 ? i : l), 0);

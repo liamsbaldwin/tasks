@@ -507,3 +507,11 @@ test("days before the history began are filled in from the credit log", async ()
   assert.equal(backfillFromLog({ "2026-10-28": 2600 }, log, "2026-10-28")["2026-10-28"], 2600);
   assert.deepEqual(backfillFromLog({}, log, undefined)["2026-10-29"], 500);   // no history at all
 });
+
+test("a day set by hand replaces what the history made of it, and only that day", async () => {
+  const { applyOverrides, WORD_OVERRIDES } = await import("../src/sync.js");
+  assert.equal(WORD_OVERRIDES["2026-10-28"], 338);
+  assert.deepEqual(applyOverrides({ "2026-10-27": 500, "2026-10-28": 2000, "2026-10-29": 100 }),
+                   { "2026-10-27": 500, "2026-10-28": 338, "2026-10-29": 100 });
+  assert.deepEqual(applyOverrides({ "2026-10-29": 100 }, {}), { "2026-10-29": 100 });
+});
