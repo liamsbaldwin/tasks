@@ -153,6 +153,9 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
   font-family:var(--display); color:var(--blue); font-size:clamp(20px, 2.6vw, 25px);
   line-height:1.22; margin-top:10px; max-width:30ch;
 }
+/* The draft is the page you write on, so its title and subtitle stand a size up. */
+.drafthead .pagetitle{font-size:clamp(44px, 7vw, 64px); line-height:1.02}
+.drafthead .pagedeck{font-size:clamp(25px, 3.4vw, 31px); line-height:1.2; margin-top:12px}
 .byline{
   font-family:var(--display); font-style:italic; color:var(--blue);
   font-size:clamp(22px, 3.4vw, 32px); line-height:1.1; margin-top:2px;
@@ -2777,7 +2780,7 @@ function viewDraft(){
     </div></div>
     <p class="empty">Nothing to write on yet. The + starts an idea.</p>`;
   openIdea = i.id;
-  return `<div class="pagehead">
+  return `<div class="pagehead drafthead">
     <h1 class="pagetitle" contenteditable="true" data-edit="idea.title" data-ph="Title">${esc(i.title)}</h1>
     <p class="pagedeck" contenteditable="true" data-edit="idea.deck"
        data-ph="Subtitle">${esc(i.deck || "")}</p>
