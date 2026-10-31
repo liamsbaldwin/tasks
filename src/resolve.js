@@ -107,8 +107,17 @@ export function isJunkTitle(t) {
   return false;
 }
 
+// Crossref and the PDF Info dictionary both carry markup in titles: <i>, <italic>, <sub>,
+// MathML. Keep the words, lose the tags, and undo the entities that come with them.
+const TAG = /<\/?[a-z][\w:-]*(?:\s[^<>]*)?\/?>/gi;
+const ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+const unentity = s => s
+  .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+  .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+  .replace(/&([a-z]+);/gi, (m, n) => ENTITIES[n.toLowerCase()] ?? m);
+
 export function cleanTitle(t) {
-  return String(t || "")
+  return unentity(String(t || "").replace(TAG, ""))
     .replace(/\s*[\r\n]+\s*/g, " ")
     .replace(/^\s*(?:microsoft word\s*-\s*)?/i, "")
     .replace(/\s{2,}/g, " ")
