@@ -2660,7 +2660,7 @@ function srcRow(r, deletable, unfileFrom){
       ${unfileFrom ? `<button class="del" data-unfile="${r.id}" aria-label="Remove ${esc(r.title || "this source")} from this idea">×</button>` : ""}
       <button style="display:block;width:100%;text-align:left" data-src="${r.id}">
         <span class="src__t">${esc(r.title || r.doi || r.pasted || "Untitled")}${sourceLink(r)
-          ? `<span class="srcgo" data-href="${esc(sourceLink(r))}" role="link" aria-label="Open the source">↗</span>` : ""}</span>
+          ? `<span class="srcgo" data-href="${esc(sourceLink(r))}" role="link" aria-label="Open the source">↗︎</span>` : ""}</span>
         <span class="src__b">${r.authors.length ? r.authors.map(esc).join(" & ") : "na"} · ${esc(r.venue || "")}</span>
         <span class="row__m"><b>${r.needsReview ? "Needs checking"
           : r.status === "read" ? "Read" : r.status === "reading" ? "Reading" : "Queued"}</b>
@@ -2781,7 +2781,7 @@ function viewSource(){
                  : `<button class="back" data-view="sources">&larr; Sources</button>`}
   <div class="pagehead">
     <h1 class="pagetitle"><span class="pagetitle__t" contenteditable="true" data-edit="reading.title" data-ph="Title">${esc(r.title || "")}</span>${
-      sourceLink(r) ? `<a class="srcgo srcgo--page" href="${esc(sourceLink(r))}" target="_blank" rel="noopener" aria-label="Open the source">↗</a>` : ""}</h1>
+      sourceLink(r) ? `<a class="srcgo srcgo--page" href="${esc(sourceLink(r))}" target="_blank" rel="noopener" aria-label="Open the source">↗︎</a>` : ""}</h1>
     <p class="byline" contenteditable="true" data-edit="reading.authorline" data-ph="Author">${esc(r.authors.join(", "))}</p>
     <p class="pagedeck" contenteditable="true" data-edit="reading.venueline"
        data-ph="Journal, year">${esc([r.venue, r.year].filter(Boolean).join(", "))}</p>
@@ -2880,13 +2880,13 @@ function viewNotes(){
     <div class="tangent${id === freshNote ? " tangent--new" : ""}" data-note="${id}">
       <button class="del" data-delnote="${id}" aria-label="Delete this note">×</button>
       <div class="tangent__hrow"><span class="tangent__h" contenteditable="true" data-edit="tangent.title"
-        data-ph="Title">${esc(n.title || "")}</span><button class="open" data-opennote="${id}" aria-label="Open this note">↗</button></div>
+        data-ph="Title">${esc(n.title || "")}</span><button class="open" data-opennote="${id}" aria-label="Open this note">↗︎</button></div>
       <div class="rich">${tools(false)}<div class="prose tangent__t" contenteditable="true" data-edit="tangent.html"
         data-rich="1" data-ph="Note">${n.html}</div></div>
       <div class="tangent__fns"></div>
       ${born ? `<p class="tangent__m"><button class="tangent__d" data-noteupd="${id}">${shortDate(born)}</button>
         <span class="tangent__u" hidden>updated ${n.updated ? shortDate(n.updated) : ""}</span>
-        <button class="open" data-opennote="${id}" aria-label="Open this note">↗</button></p>` : ""}
+        <button class="open" data-opennote="${id}" aria-label="Open this note">↗︎</button></p>` : ""}
     </div>`; }).join("")}</div>`;
 }
 
@@ -4099,7 +4099,7 @@ function openLinkBox(host, anchor){
   el.innerHTML = `${link ? `<input class="linkbox__in linkbox__text" autocomplete="off"
       aria-label="Link text" value="${esc(link.textContent.replace(/\u200b/g, ""))}">` : ""}<input class="linkbox__in linkbox__addr" type="url" inputmode="url" autocomplete="off" spellcheck="false"
       aria-label="Link address" value="${esc(link?.getAttribute("href") || "")}">${
-    link ? `<a class="linkbox__go" href="${esc(link.getAttribute("href") || "")}" target="_blank" rel="noopener" aria-label="Open the link">↗</a>` : ""}`;
+    link ? `<a class="linkbox__go" href="${esc(link.getAttribute("href") || "")}" target="_blank" rel="noopener" aria-label="Open the link">↗︎</a>` : ""}`;
   document.body.appendChild(el);
   const r = (link || range).getBoundingClientRect();
   el.style.left = Math.max(16, Math.min(r.left, window.innerWidth - el.offsetWidth - 16)) + "px";
