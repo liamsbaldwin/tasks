@@ -2763,9 +2763,9 @@ function viewSource(){
     <p class="pagedeck" contenteditable="true" data-edit="reading.venueline"
        data-ph="Journal, year">${esc([r.venue, r.year].filter(Boolean).join(", "))}</p>
   </div>
-  ${r.needsReview ? `<p class="warn">${r.offline ? "Not looked up."
-    : doiDisproven(r) ? `This looked like DOI ${esc(r.doi)}, but the registry has no record of it.`
-    : "Not identified."}</p>
+  ${r.needsReview ? `${r.offline ? `<p class="warn">Not looked up.</p>`
+    : doiDisproven(r) ? `<p class="warn">This looked like DOI ${esc(r.doi)}, but the registry has no record of it.</p>`
+    : ""}
     ${r.doi || r.arxiv || r.jstor || r.pasted ? `<p class="pasted">${
       sourceLink(r) ? `<a href="${esc(sourceLink(r))}" target="_blank" rel="noopener">${esc(
         pastedUrl(r) ? r.pasted : doiDisproven(r) ? r.url : r.doi ? "DOI " + r.doi : r.arxiv ? "arXiv " + r.arxiv
