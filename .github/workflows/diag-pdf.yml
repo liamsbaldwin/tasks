@@ -7,29 +7,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
-      - run: npm ci
-      - name: Resolve the PDF end to end
+      - run: npm ci && npm i --no-save playwright@1.48.2 && npx playwright install --with-deps chromium >/dev/null
+      - name: Before (live version)
         run: |
-          curl -sS -o /tmp/s.pdf https://home.uchicago.edu/~rmyerson/stratofc2010.pdf
-          cat > /tmp/r.mjs <<'JS'
-          import { readFileSync } from "node:fs";
-          import * as R from "/home/runner/work/tasks/tasks/src/resolve.js";
-          const P = await import("/home/runner/work/tasks/tasks/node_modules/pdfjs-dist/legacy/build/pdf.mjs");
-          const buf = readFileSync("/tmp/s.pdf");
-          const file = { file: { name: "stratofc2010.pdf", arrayBuffer: async () => new Uint8Array(buf).buffer } };
-          const a = await R.resolveSource(file, { fetch, getDocument: P.getDocument, onStep: m => console.log("  step:", m) });
-          console.log("FILE:", JSON.stringify(a, null, 1));
-          const b = await R.resolveSource("https://home.uchicago.edu/~rmyerson/stratofc2010.pdf", { fetch, getDocument: P.getDocument, onStep: m => console.log("  step:", m) });
-          console.log("URL:", JSON.stringify(b, null, 1));
-          const pdf = await R.readPdf(new Uint8Array(buf), { getDocument: P.getDocument });
-          console.log("TEXT:", pdf.text.slice(0, 600));
-          console.log("INFO:", JSON.stringify(pdf.info), JSON.stringify(pdf.xmp));
-          JS
-          node /tmp/r.mjs
-      - name: Live site
+          git show origin/claude/project-task-manager-design-w2j421:mockup/asterisk.html > mockup/asterisk.html
+          (MARGINALIA_STATE=/tmp/s1.json node bin/serve.mjs > /tmp/srv1.log 2>&1 &) ; sleep 2
+          node .github/diag/pw.cjs; pkill -f bin/serve.mjs || true; sleep 1
+      - name: After (fix branch)
         run: |
-          curl -sS -o /tmp/live.html -D - https://marginalia.liambwin02.workers.dev/ | head -15
-          grep -c "behind the key like the rest" /tmp/live.html || true
-          curl -sS -D - "https://marginalia.liambwin02.workers.dev/api/fetch?url=x" | head -5
+          git show origin/claude/read-linked-pdfs:mockup/asterisk.html > mockup/asterisk.html
+          (MARGINALIA_STATE=/tmp/s2.json node bin/serve.mjs > /tmp/srv2.log 2>&1 &) ; sleep 2
+          node .github/diag/pw.cjs; pkill -f bin/serve.mjs || true
