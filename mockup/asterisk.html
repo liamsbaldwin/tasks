@@ -2768,7 +2768,7 @@ function viewSource(){
     : "Not identified."}</p>
     ${r.doi || r.arxiv || r.jstor || r.pasted ? `<p class="pasted">${
       sourceLink(r) ? `<a href="${esc(sourceLink(r))}" target="_blank" rel="noopener">${esc(
-        doiDisproven(r) ? r.url : r.doi ? "DOI " + r.doi : r.arxiv ? "arXiv " + r.arxiv
+        pastedUrl(r) ? r.pasted : doiDisproven(r) ? r.url : r.doi ? "DOI " + r.doi : r.arxiv ? "arXiv " + r.arxiv
         : r.jstor ? "JSTOR " + r.jstor : r.pasted)}</a>`
       : esc(r.pasted)}</p>` : ""}` : ""}
   <div class="rich">${tools()}<div class="prose" contenteditable="true" data-edit="reading.note" data-rich="1"
@@ -4252,8 +4252,12 @@ async function loadPdfjs(){
    the registry turns out not to know. That DOI is a dead link; the page that was pasted
    still works, and is where the real citation is. */
 const doiDisproven = r => r.confidence === "failed" && !!r.doi && !!r.url;
+// The link that was pasted is the one to go back to: it is where the copy that was
+// being read lives (a PDF on someone's page), which the DOI's publisher page often is not.
+const pastedUrl = r => typeof r.pasted === "string" && /^https?:\/\//i.test(r.pasted) ? r.pasted : null;
 const sourceLink = r =>
-    doiDisproven(r) ? r.url
+    pastedUrl(r) ? r.pasted
+  : doiDisproven(r) ? r.url
   : r.doi   ? "https://doi.org/" + r.doi
   : r.arxiv ? "https://arxiv.org/abs/" + r.arxiv
   : r.jstor ? "https://www.jstor.org/stable/" + r.jstor
