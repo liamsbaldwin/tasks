@@ -2113,18 +2113,41 @@ function prune(p, now = Date.now()) {
 }
 
 /**
- * Words written each day, from the edit history the Worker keeps (/api/events). Only
- * what a save added counts: a cut is editing, and a day of it should not read as less
- * than nothing. The day is the writer's own (`local`), or the device's when the server
- * was not told a time zone.
+ * Words written each day, from the edit history the Worker keeps (/api/events).
+ *
+ * Each piece of writing counts only the words that take it past the most it held earlier
+ * that day. So a cut is editing, not less than nothing; and text that leaves and comes
+ * back (a cut then a paste, an undo, a draft that blanks and is restored by a sync) is
+ * not counted a second time. Rewriting still counts: replace a paragraph and the new
+ * words take the piece back past its high point.
+ *
+ * Two kinds of event are not writing at all: a credit, which is a date, and a new
+ * source, whose words were its looked-up title, authors and link. (The Worker now counts
+ * only a source's notes, but the history from before that still holds those.)
+ *
+ * The day is the writer's own (`local`), or the device's when the server was not told a
+ * time zone.
  */
 function wordsByDay(events, dayOf = ms => new Date(ms).toISOString().slice(0, 10)) {
-  const out = {};
-  for (const e of events || []) {
-    if (!e || !(e.delta > 0) || !Number.isFinite(e.at)) continue;
+  const out = {}, peak = new Map();
+  const list = (events || []).filter(e => e && Number.isFinite(e.at) && Number.isFinite(e.delta));
+  list.sort((x, y) => x.at - y.at);
+  list.forEach(e => {
+    const kind = e.kind || (typeof e.key === "string" ? e.key.split(":")[0] : "");
+    if (kind === "credit" || (kind === "reading" && e.action === "create")) return;
     const d = typeof e.local === "string" && e.local.length >= 10 ? e.local.slice(0, 10) : dayOf(e.at);
-    out[d] = (out[d] || 0) + e.delta;
-  }
+    const after = Number.isFinite(e.words) ? e.words : null;
+    let added;
+    if (after === null || typeof e.key !== "string") {
+      added = e.delta;                                    // nothing to track it by
+    } else {
+      const id = d + "|" + e.key, before = after - e.delta;
+      const high = peak.has(id) ? peak.get(id) : before;
+      added = after - high;
+      peak.set(id, Math.max(high, after));
+    }
+    if (added > 0) out[d] = (out[d] || 0) + added;
+  });
   return out;
 }
 
@@ -2151,7 +2174,7 @@ function backfillFromLog(wrote, log, firstDay, perKind = { reading: 500, essay: 
  * replaces whatever the history and the credit log made of that day; other days are
  * left alone.
  */
-const WORD_OVERRIDES = { "2026-10-28": 338 };
+const WORD_OVERRIDES = { "2026-10-28": 338, "2026-10-30": 0 };
 
 function applyOverrides(wrote, overrides = WORD_OVERRIDES) {
   return { ...wrote, ...overrides };

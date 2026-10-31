@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { diff, words, localTime, device } from "../worker/src/history.js";
+import { diff, words, written, localTime, device } from "../worker/src/history.js";
 
 const base = () => ({
   ideas: [{ id: "a", title: "First thought" }], readings: [], drafts: { a: "<p>Hello there world</p>" },
@@ -71,4 +71,21 @@ test("a note on the Notes page is part of the history", () => {
                  mtimes: { ...base().mtimes, "tangent:t1": 400 } };
   assert.deepEqual(diff(prev, next),
     [{ at: 400, key: "tangent:t1", kind: "tangent", action: "create", words: 4, delta: 4 }]);
+});
+
+test("a source's looked-up details are not writing; its notes are", () => {
+  const src = { id: "n1", kind: "paper", title: "Learning from Schelling's Strategy of Conflict",
+    authors: ["Roger B. Myerson"], year: 2009, venue: "Journal of Economic Literature",
+    doi: "10.1257/jel.47.4.1109", url: "https://home.uchicago.edu/~rmyerson/stratofc2010.pdf",
+    status: "queued", note: "" };
+  assert.equal(written("reading", src), 0);
+  assert.equal(written("reading", { ...src, note: "<p>Focal points matter here</p>" }), 4);
+  assert.equal(written("idea", { id: "a", title: "Two words", stage: "drafting", dek: "", deck: "One more" }), 4);
+  assert.equal(written("credit", "2026-10-30"), 0);
+
+  const next = base();
+  next.readings.push(src);
+  next.mtimes["reading:n1"] = 300;
+  assert.deepEqual(diff(base(), next).map(e => [e.key, e.action, e.words, e.delta]),
+    [["reading:n1", "create", 0, 0]]);
 });
