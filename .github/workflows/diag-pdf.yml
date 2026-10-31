@@ -1,0 +1,30 @@
+name: Diag PDF fetch
+on:
+  push:
+    branches: [claude/diag-pdf-fetch]
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Direct fetches
+        run: |
+          U=https://home.uchicago.edu/~rmyerson/stratofc2010.pdf
+          for UA in "Marginalia/1.0 (personal reading notebook)" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"; do
+            echo "=== UA: $UA"
+            curl -sS -D - -o /tmp/out -A "$UA" -H "accept: */*" --compressed "$U" | head -30
+            echo "bytes: $(wc -c < /tmp/out)"; head -c 8 /tmp/out | od -c | head -1
+          done
+      - name: Through the worker in workerd
+        run: |
+          npm ci
+          cd worker && mkdir -p public && echo hi > public/index.html
+          echo 'SYNC_TOKEN=t' > .dev.vars
+          npx --yes wrangler@4 dev --port 8787 --local > /tmp/wr.log 2>&1 &
+          for i in $(seq 1 60); do curl -s localhost:8787/api/ping -H "authorization: Bearer t" && break; sleep 2; done
+          echo
+          curl -sS -D - -o /tmp/p -H "authorization: Bearer t" -H "accept: */*" "localhost:8787/api/fetch?url=https%3A%2F%2Fhome.uchicago.edu%2F~rmyerson%2Fstratofc2010.pdf" | head -20
+          echo "bytes: $(wc -c < /tmp/p)"; head -c 200 /tmp/p | od -c | head -3
+          cat /tmp/wr.log | tail -30
