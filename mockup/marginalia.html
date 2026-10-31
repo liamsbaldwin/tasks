@@ -2214,8 +2214,11 @@ async function appFetch(url, onStep){
       // With a server behind the page, lookups go through it. Not for secrecy — so that
       // they work at all: Crossref, arXiv, Open Library and every publisher's PDF are
       // blocked by CORS when a browser asks them directly, and the phone is no
-      // different. Same origin, and the question simply gets answered.
-      return await fetch(SYNC.on ? "/api/fetch?url=" + encodeURIComponent(url) : url);
+      // different. Same origin, and the question simply gets answered. The proxy is
+      // behind the key like the rest of /api, so it has to be shown it too.
+      if(!SYNC.on) return await fetch(url);
+      const headers = SYNC.token ? { authorization: "Bearer " + SYNC.token } : {};
+      return await fetch("/api/fetch?url=" + encodeURIComponent(url), { headers });
     }
     catch{
       liveFailed = true;
