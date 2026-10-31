@@ -4267,6 +4267,14 @@ async function addSource(input, fileName, realFile, ideaId){
     const lib = await loadPdfjs();
     if(lib) deps.getDocument = lib.getDocument;
     else onStep("this page could not start its PDF reader");
+  }else{
+    // A pasted link to a PDF is downloaded by the resolver and needs the same reader.
+    // Started only when the bytes turn out to be a PDF, so a DOI never loads pdf.js.
+    deps.readPdf = async bytes => {
+      const lib = await loadPdfjs();
+      if(!lib) throw new Error("this page could not start its PDF reader");
+      return readPdf(bytes, {getDocument: lib.getDocument});
+    };
   }
 
   let meta;
