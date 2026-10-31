@@ -2,7 +2,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..600;1,8..60,400..900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..600;1,8..60,400..500&display=swap">
 
 <style>
 /* Layout: one centred column of type that never moves, and a blue menu that slides in
@@ -156,12 +156,6 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 /* The draft is the page you write on, so its title and subtitle stand a size up. */
 .drafthead .pagetitle{font-size:clamp(44px, 7vw, 64px); line-height:1.02}
 .drafthead .pagedeck{font-size:clamp(25px, 3.4vw, 31px); line-height:1.2; margin-top:12px}
-/* Each idea's title wears one of a few faces, picked from its id so it keeps the same one
-   every time you open it. tf1, Source Serif 4 Black Italic at its display size, is the
-   closest free match to Asterisk's heavy headline italic. */
-.pagetitle.tf1{font-family:"Source Serif 4", var(--display); font-weight:900; font-style:italic; font-variation-settings:"opsz" 60; letter-spacing:-.012em}
-.pagetitle.tf2{font-weight:800; font-style:italic; letter-spacing:-.022em}
-.pagetitle.tf3{font-weight:300; letter-spacing:-.02em}
 .byline{
   font-family:var(--display); font-style:italic; color:var(--blue);
   font-size:clamp(22px, 3.4vw, 32px); line-height:1.1; margin-top:2px;
@@ -1576,8 +1570,6 @@ function guessKindFromName(name) {
 /* <<< end generated >>> */
 
 const $ = s => document.querySelector(s);
-const TITLE_FACES = 4;
-const titleFace = id => { let h = 0; for(const c of String(id)) h = (h * 31 + c.charCodeAt(0)) | 0; return "tf" + (Math.abs(h) % TITLE_FACES); };
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
 const STAGES = {reading:"Reading", drafting:"Drafting", editing:"Editing", published:"Published"};
@@ -2614,7 +2606,7 @@ function viewIdea(){
   const rs = byIdea(i.id);
   return `<button class="back" data-view="contents">&larr; Contents</button>
   <div class="pagehead ideahead">
-    <h1 class="pagetitle ${titleFace(i.id)}" contenteditable="true" data-edit="idea.title" data-ph="Title">${esc(i.title)}</h1>
+    <h1 class="pagetitle" contenteditable="true" data-edit="idea.title" data-ph="Title">${esc(i.title)}</h1>
     <p class="pagedeck ideadek" contenteditable="true" data-edit="idea.dek" data-ph="Description">${esc(i.dek || "")}</p>
   </div>
   <button class="peek" data-godraft="${i.id}">
@@ -2832,7 +2824,7 @@ function viewDraft(){
     <p class="empty">Nothing to write on yet. The + starts an idea.</p>`;
   openIdea = i.id;
   return `<div class="pagehead drafthead">
-    <h1 class="pagetitle ${titleFace(i.id)}" contenteditable="true" data-edit="idea.title" data-ph="Title">${esc(i.title)}</h1>
+    <h1 class="pagetitle" contenteditable="true" data-edit="idea.title" data-ph="Title">${esc(i.title)}</h1>
     <p class="pagedeck" contenteditable="true" data-edit="idea.deck"
        data-ph="Subtitle">${esc(i.deck || "")}</p>
   </div>
