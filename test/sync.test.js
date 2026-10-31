@@ -511,7 +511,43 @@ test("days before the history began are filled in from the credit log", async ()
 test("a day set by hand replaces what the history made of it, and only that day", async () => {
   const { applyOverrides, WORD_OVERRIDES } = await import("../src/sync.js");
   assert.equal(WORD_OVERRIDES["2026-10-28"], 338);
+  assert.equal(WORD_OVERRIDES["2026-10-30"], 0);
   assert.deepEqual(applyOverrides({ "2026-10-27": 500, "2026-10-28": 2000, "2026-10-29": 100 }),
-                   { "2026-10-27": 500, "2026-10-28": 338, "2026-10-29": 100 });
+                   { "2026-10-27": 500, "2026-10-28": 338, "2026-10-29": 100, "2026-10-30": 0 });
   assert.deepEqual(applyOverrides({ "2026-10-29": 100 }, {}), { "2026-10-29": 100 });
+});
+
+test("text that leaves and comes back is not counted twice", async () => {
+  const { wordsByDay } = await import("../src/sync.js");
+  const ev = (h, key, words, delta, local = `2026-10-30T${h}:00`) =>
+    ({ at: Date.UTC(2026, 9, 30, Number(h)), local, key, kind: key.split(":")[0], words, delta });
+  assert.deepEqual(wordsByDay([
+    ev("10", "draft:a", 1000, 0),       // opened and re-saved, no change
+    ev("11", "draft:a", 800, -200),     // a paragraph cut…
+    ev("12", "draft:a", 1000, 200),     // …and pasted back
+    ev("13", "draft:a", 0, -1000),      // blanked by a bad save…
+    ev("14", "draft:a", 1000, 1000),    // …and restored by a sync
+  ]), {});
+  assert.deepEqual(wordsByDay([
+    ev("10", "draft:a", 1000, 0),
+    ev("11", "draft:a", 700, -300),     // a paragraph deleted…
+    ev("12", "draft:a", 1150, 450),     // …and a longer one written in its place
+    ev("12", "note:a", 40, 40),
+  ]), { "2026-10-30": 190 });
+  // the high point is per day: tomorrow's writing is counted from where today's ended
+  assert.deepEqual(wordsByDay([
+    ev("10", "draft:a", 500, 500),
+    ev("11", "draft:a", 300, -200),
+    ev("12", "draft:a", 600, 300, "2026-10-31T08:00"),
+  ]), { "2026-10-30": 500, "2026-10-31": 300 });
+});
+
+test("adding a source or earning a credit is not writing", async () => {
+  const { wordsByDay } = await import("../src/sync.js");
+  const at = Date.UTC(2026, 9, 31, 3), local = "2026-10-30T23:00";
+  assert.deepEqual(wordsByDay([
+    { at, local, key: "reading:n1", kind: "reading", action: "create", words: 42, delta: 42 },
+    { at: at + 1, local, key: "credit:reading:n0", kind: "credit", action: "create", words: 3, delta: 3 },
+    { at: at + 2, local, key: "reading:n0", kind: "reading", action: "edit", words: 60, delta: 25 },
+  ]), { "2026-10-30": 25 });
 });

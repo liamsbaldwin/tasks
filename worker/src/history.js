@@ -59,6 +59,21 @@ export function words(v) {
 const num = (obj, key) => (obj && Number.isFinite(obj[key]) ? obj[key] : 0);
 
 /**
+ * The words in a record that someone typed, which is what Progress counts. A source's
+ * title, authors, venue, DOI and link are looked up, not written, so a source counts
+ * only its notes; an idea counts its title and its two lines, not its stage; a credit is
+ * a date. Everything else (drafts, footnotes, Notes-page notes, the calendar, the
+ * Roadmap) is the writing itself.
+ */
+export function written(kind, v) {
+  if (v === undefined || v === null) return 0;
+  if (kind === "reading") return words(v && v.note);
+  if (kind === "idea") return words(v && [v.title, v.dek, v.deck].filter(x => typeof x === "string"));
+  if (kind === "credit") return 0;
+  return words(v);
+}
+
+/**
  * The events between two payloads, oldest first. `prev` is what the server held, `next`
  * what it is about to store.
  */
@@ -71,12 +86,12 @@ export function diff(prev, next) {
   for (const key of new Set([...a.keys(), ...b.keys(), ...Object.keys(bt)])) {
     const kind = key.split(":")[0];
     if (!KINDS.has(kind)) continue;
-    const before = a.has(key) ? words(a.get(key)) : 0;
+    const before = a.has(key) ? written(kind, a.get(key)) : 0;
 
     if (b.has(key)) {
       const when = num(bm, key);
       if (!when || when <= num(am, key)) continue;            // untouched, or already counted
-      const after = words(b.get(key));
+      const after = written(kind, b.get(key));
       out.push({ at: when, key, kind, action: a.has(key) ? "edit" : "create",
                  words: after, delta: after - before });
     } else {

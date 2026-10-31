@@ -33,7 +33,8 @@ Live at <https://marginalia.liambwin02.workers.dev>.
   bar. Without it the page still works, local-only, and the corner says **No key**.
 - **Edit history.** Every accepted sync also appends one row per changed record to the
   `events` table: when it was written (device clock, local time of day and time zone),
-  what it was, created/edited/deleted, word count and words added or removed, and which
+  what it was, created/edited/deleted, word count and words added or removed (only typed
+  words: a source counts its notes, not its looked-up title and link), and which
   browser. Counts only — never copies of the text — so it stays small (≈30 MB a year at
   most). Read it with `GET /api/events?since=<ms>`. See
   [`worker/src/history.js`](worker/src/history.js).
