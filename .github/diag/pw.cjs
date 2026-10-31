@@ -4,6 +4,8 @@ const { chromium } = require("playwright");
   const p = await b.newPage();
   p.on("console", m => { if (m.type() === "error") console.log("console:", m.text()); });
   await p.goto("http://localhost:4321/");
+  await p.waitForTimeout(1500);
+  await p.evaluate(() => { view = "sources"; render(); });
   await p.waitForSelector("#capture", { state: "attached", timeout: 20000 });
   await p.evaluate(() => {
     const el = document.getElementById("capture");
