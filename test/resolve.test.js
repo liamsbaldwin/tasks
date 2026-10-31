@@ -45,6 +45,15 @@ test("rejects PDF metadata that is really a build artefact", () => {
   assert.equal(R.isJunkTitle("On the Measure of Intelligence"), false);
 });
 
+test("takes the markup out of a title and keeps the words", () => {
+  assert.equal(R.cleanTitle("Learning from Schelling's <i>Strategy of Conflict</i>"),
+               "Learning from Schelling's Strategy of Conflict");
+  assert.equal(R.cleanTitle("Learning from Schelling's <italic>Strategy of Conflict</italic>"),
+               "Learning from Schelling's Strategy of Conflict");
+  assert.equal(R.cleanTitle("CO<sub>2</sub> &amp; climate"), "CO2 & climate");
+  assert.equal(R.cleanTitle("When p < 0.05 and q > 1"), "When p < 0.05 and q > 1");
+});
+
 test("strips affiliation markers out of a byline", () => {
   const names = R.parseAuthorLine("Luís M. A. Bettencourt*†, José Lobo‡, Dirk Helbing§, and Geoffrey B. West*†¶");
   assert.deepEqual(names, ["Luís M. A. Bettencourt", "José Lobo", "Dirk Helbing", "Geoffrey B. West"]);
