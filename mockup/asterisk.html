@@ -3012,7 +3012,13 @@ function tools(saved = true){
   </div>`;
 }
 
-function render(){
+/*
+ * A render rebuilds the page, so by default it starts the new page at the top. Removing
+ * something from a list is not a new page: pass { keepScroll: true } and you stay where
+ * you were, looking at the rows around the one that went.
+ */
+function render({ keepScroll = false } = {}){
+  const y = window.scrollY;
   renderMenu();
   const page = $("#page");
   const noteOpen = view === "notes" && !!data.tangents[openNote];
@@ -3034,8 +3040,8 @@ function render(){
   if(view === "progress") loadWrote();
   document.querySelectorAll('#view [data-edit="roadmap"], #view [data-edit="reading.note"]').forEach(belowFootnotes);
   if(view === "notes" && !noteOpen) document.querySelectorAll(".tangent").forEach(noteFootnotes);
-  if(capture && (view === "sources" && !openSource || view === "idea")) $("#capture")?.focus();
-  window.scrollTo(0, 0);
+  if(capture && (view === "sources" && !openSource || view === "idea")) $("#capture")?.focus({ preventScroll: keepScroll });
+  window.scrollTo(0, keepScroll ? y : 0);
 }
 
 /* ---------- footnotes ---------- */
@@ -4563,7 +4569,7 @@ document.addEventListener("click", e => {
   if(del){
     if(armed(del)) return;
     const i = data.readings.findIndex(r => r.id === del.dataset.del);
-    if(i > -1){ data.readings.splice(i, 1); save(); render(); }
+    if(i > -1){ data.readings.splice(i, 1); save(); render({ keepScroll: true }); }
     return;
   }
   const delIdea = e.target.closest("[data-delidea]");
@@ -4604,7 +4610,7 @@ document.addEventListener("click", e => {
     if(armed(unfile, "Remove")) return;
     const r = data.readings.find(x => x.id === unfile.dataset.unfile);
     if(r) r.ideas = r.ideas.filter(x => x !== openIdea);
-    save(); return render();
+    save(); return render({ keepScroll: true });
   }
   const backIdea = e.target.closest("[data-backidea]");
   if(backIdea){
