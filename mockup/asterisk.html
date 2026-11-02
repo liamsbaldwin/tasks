@@ -270,14 +270,6 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 .capture__hint:empty{display:none}      /* nothing to say when the lookups work */
 .drop{outline:2px dashed var(--blue); outline-offset:10px}
 .steps{font-size:14px; color:var(--faint); margin-top:7px; display:flex; flex-direction:column; gap:1px}
-.warn{
-  border-left:2px solid #B3402F; padding:2px 0 2px 14px; margin:14px 0 0;
-  font-size:15px; color:var(--ink-2);
-}
-.warn a{color:var(--blue)}
-.pasted{margin-top:8px; font-size:14px; color:var(--faint); word-break:break-all}
-.pasted a{color:var(--faint); text-decoration-color:var(--rule)}
-.pasted a:hover{color:var(--blue)}
 
 /* ============ progress ============ */
 .figs{display:flex; gap:0; border:1px solid var(--rule); border-radius:3px; overflow:hidden; flex:none}
@@ -2654,8 +2646,7 @@ function srcRow(r, deletable, unfileFrom){
         <span class="src__t">${esc(r.title || r.doi || r.pasted || "Untitled")}${sourceLink(r)
           ? `<span class="srcgo" data-href="${esc(sourceLink(r))}" role="link" aria-label="Open the source">↗︎</span>` : ""}</span>
         <span class="src__b">${r.authors.length ? r.authors.map(esc).join(" & ") : "na"} · ${esc(r.venue || "")}</span>
-        <span class="row__m"><b>${r.needsReview ? "Needs checking"
-          : r.status === "read" ? "Read" : r.status === "reading" ? "Reading" : "Queued"}</b>
+        <span class="row__m"><b>${r.status === "read" ? "Read" : r.status === "reading" ? "Reading" : "Queued"}</b>
           <span>${KIND[r.kind] || "Source"}</span><span>${r.year || ""}</span></span>
       </button>
     </div>`;
@@ -2778,14 +2769,6 @@ function viewSource(){
     <p class="pagedeck" contenteditable="true" data-edit="reading.venueline"
        data-ph="Journal, year">${esc([r.venue, r.year].filter(Boolean).join(", "))}</p>
   </div>
-  ${r.needsReview ? `${r.offline ? `<p class="warn">Not looked up.</p>`
-    : doiDisproven(r) ? `<p class="warn">This looked like DOI ${esc(r.doi)}, but the registry has no record of it.</p>`
-    : ""}
-    ${r.doi || r.arxiv || r.jstor || r.pasted ? `<p class="pasted">${
-      sourceLink(r) ? `<a href="${esc(sourceLink(r))}" target="_blank" rel="noopener">${esc(
-        pastedUrl(r) ? r.pasted : doiDisproven(r) ? r.url : r.doi ? "DOI " + r.doi : r.arxiv ? "arXiv " + r.arxiv
-        : r.jstor ? "JSTOR " + r.jstor : r.pasted)}</a>`
-      : esc(r.pasted)}</p>` : ""}` : ""}
   <div class="rich">${tools()}<div class="prose" contenteditable="true" data-edit="reading.note" data-rich="1"
     data-ph="Notes">${r.note}</div></div>
   <div class="fnlist"></div>
