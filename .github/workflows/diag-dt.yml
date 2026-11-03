@@ -10,4 +10,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - run: npm ci
-      - run: curl -sS -o dt.pdf https://opportunityinsights.org/wp-content/uploads/2026/09/DigitalTwins_FullPaper.pdf && node .github/diag/meta.mjs dt.pdf; curl -sSI https://opportunityinsights.org/wp-content/uploads/2026/09/DigitalTwins_FullPaper.pdf -H "Origin: https://marginalia.liambwin02.workers.dev" | grep -i access-control || echo "NO CORS"
+      - run: |
+          curl -sS -o dt.pdf https://opportunityinsights.org/wp-content/uploads/2026/09/DigitalTwins_FullPaper.pdf
+          node .github/diag/meta.mjs dt.pdf
+          curl -sSI https://opportunityinsights.org/wp-content/uploads/2026/09/DigitalTwins_FullPaper.pdf -H "Origin: https://marginalia.liambwin02.workers.dev" | grep -i access-control || echo "NO CORS"
