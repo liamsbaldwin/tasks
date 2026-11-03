@@ -9,11 +9,5 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
-      - name: Fetch from Cloudflare's edge (remote preview, nothing deployed)
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: |
-          cd .github/diag/cfw
-          (npx -y wrangler@4 dev --remote --port 8799 > /tmp/dev.log 2>&1 &)
-          for i in $(seq 1 60); do curl -s localhost:8799 -o /tmp/out.json && break; sleep 2; done
-          cat /tmp/out.json || true; echo; tail -20 /tmp/dev.log
+      - run: npm ci
+      - run: curl -sS -o dt.pdf https://opportunityinsights.org/wp-content/uploads/2026/09/DigitalTwins_FullPaper.pdf && node .github/diag/meta.mjs dt.pdf; curl -sSI https://opportunityinsights.org/wp-content/uploads/2026/09/DigitalTwins_FullPaper.pdf -H "Origin: https://marginalia.liambwin02.workers.dev" | grep -i access-control || echo "NO CORS"
