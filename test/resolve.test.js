@@ -72,6 +72,33 @@ test("tells a byline apart from a subtitle or an affiliation", () => {
   assert.equal(R.looksLikeAuthorLine("Abstract"), false);
 });
 
+test("drops the affiliation after each name in a 'name, workplace' author list", () => {
+  // The Digital Twins paper's own metadata, verbatim: "Meta" and the Census Bureau are
+  // workplaces that name no university, and once came out as authors.
+  const embedded = "Raj Chetty, Harvard University and Opportunity Insights , Jamie Fogel, Harvard University and Opportunity Insights , Lawrence F. Katz, Harvard University and Opportunity Insights , Kadeem Noray, Harvard Business School, Sonya Porter, U.S. Census Bureau , James Reisinger, Meta";
+  assert.deepEqual(R.parseAuthorLine(embedded),
+    ["Raj Chetty", "Jamie Fogel", "Lawrence F. Katz", "Kadeem Noray", "Sonya Porter", "James Reisinger"]);
+  // a plain list of four people is not mistaken for pairs
+  assert.deepEqual(R.parseAuthorLine("Ann Lee, Bo Chen, Cy Diaz, Dee Ford"),
+    ["Ann Lee", "Bo Chen", "Cy Diaz", "Dee Ford"]);
+});
+
+test("a PDF link behind a bot check says so, and asks for the file instead", async () => {
+  const wall = new Response("{}", { status: 403, headers: { "x-marginalia-blocked": "challenge" } });
+  let calls = 0;
+  const fetch = async () => { calls++; return wall.clone(); };
+  const m = await R.resolveSource("https://www.example.org/uploads/Paper.pdf", { fetch, getDocument });
+  assert.equal(m.confidence, "failed");
+  assert.equal(m.blocked, "example.org");
+  assert.match(m.provenance.join(" "), /example\.org only lets a person in a browser download/);
+  assert.equal(calls, 1, "no second try at the plain page, which meets the same wall");
+});
+
+test("Cloudflare's own challenge header is recognised without the proxy", () => {
+  assert.equal(R.isBotWall(new Response("", { status: 403, headers: { "cf-mitigated": "challenge" } })), true);
+  assert.equal(R.isBotWall(new Response("", { status: 403 })), false);
+});
+
 /* ---------------------------------------------------------------- real PDFs */
 
 test("PDF with a DOI in the footer resolves through Crossref", async () => {

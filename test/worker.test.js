@@ -170,6 +170,17 @@ test("the proxy refuses anything that is not http(s)", async () => {
   assert.equal((await call(env, "/api/fetch")).status, 400);
 });
 
+test("the proxy names a site's bot check instead of passing the challenge page on", async () => {
+  const real = globalThis.fetch;
+  globalThis.fetch = async () => new Response("<title>Just a moment...</title>",
+    { status: 403, headers: { "cf-mitigated": "challenge", "content-type": "text/html" } });
+  try {
+    const res = await call(envWith(), "/api/fetch?url=" + encodeURIComponent("https://example.org/a.pdf"));
+    assert.equal(res.status, 403);
+    assert.equal(res.headers.get("x-marginalia-blocked"), "challenge");
+  } finally { globalThis.fetch = real; }
+});
+
 test("the proxy needs the key like everything else", async () => {
   const res = await call(envWith(), "/api/fetch?url=https://example.com/", {}, null);
   assert.equal(res.status, 401);
