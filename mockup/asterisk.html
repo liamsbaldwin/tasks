@@ -179,6 +179,15 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 /* On a source's own page it shows with the pointer over the title, or the title open for editing. */
 .srcgo--page{display:inline-block; margin-left:12px; font-size:.42em; vertical-align:.35em; text-decoration:none}
 .pagetitle:hover .srcgo--page, .pagetitle:focus-within .srcgo--page{opacity:1}
+/* Where a source with nowhere to go (a dropped file) would show its ↗: a quiet offer to
+   give it a link. Same size and grey, seen on hover; always there where nothing hovers. */
+.addlink{margin-left:12px; font:400 .3em/1 var(--text); letter-spacing:.02em; color:var(--faint);
+  vertical-align:.5em; opacity:0; transition:opacity .12s ease; cursor:pointer}
+.addlink:hover, .addlink:focus-visible{color:var(--blue)}
+.pagetitle:hover .addlink, .pagetitle:focus-within .addlink{opacity:1}
+@media (hover:none){ .addlink{opacity:.8} .linkin{font-size:16px} }   /* under 16px, iOS zooms the page in */
+.linkin{margin-left:12px; width:min(60%, 22em); font:400 .3em/1.4 var(--text); vertical-align:.5em;
+  color:var(--ink); background:transparent; border:0; border-bottom:1px solid var(--rule); outline:0; padding:2px 0}
 .pagetitle__t{outline:none}
 .src__b{display:block; color:var(--ink-2); font-size:15.5px; margin-top:2px; padding-right:28px}
 .listfoot{margin-top:18px; font-size:14.5px; color:var(--faint); font-variant-numeric:tabular-nums}
@@ -2688,7 +2697,7 @@ function srcRow(r, deletable, unfileFrom){
       <button style="display:block;width:100%;text-align:left" data-src="${r.id}">
         <span class="src__t">${esc(r.title || r.doi || r.pasted || "Untitled")}${sourceLink(r)
           ? `<span class="srcgo" data-href="${esc(sourceLink(r))}" role="link" aria-label="Open the source">↗︎</span>` : ""}</span>
-        <span class="src__b">${r.authors.length ? r.authors.map(esc).join(" & ") : "na"} · ${esc(r.venue || "")}</span>
+        <span class="src__b">${[r.authors.length ? r.authors.map(esc).join(", ") : "na", esc(venueOf(r))].filter(Boolean).join(" · ")}</span>
         <span class="row__m"><b>${r.status === "read" ? "Read" : r.status === "reading" ? "Reading" : "Queued"}</b>
           <span>${KIND[r.kind] || "Source"}</span><span>${r.year || ""}</span></span>
       </button>
@@ -2807,10 +2816,11 @@ function viewSource(){
                  : `<button class="back" data-view="sources">&larr; Sources</button>`}
   <div class="pagehead">
     <h1 class="pagetitle"><span class="pagetitle__t" contenteditable="true" data-edit="reading.title" data-ph="Title">${esc(r.title || "")}</span>${
-      sourceLink(r) ? `<a class="srcgo srcgo--page" href="${esc(sourceLink(r))}" target="_blank" rel="noopener" aria-label="Open the source">↗︎</a>` : ""}</h1>
+      sourceLink(r) ? `<a class="srcgo srcgo--page" href="${esc(sourceLink(r))}" target="_blank" rel="noopener" aria-label="Open the source">↗︎</a>`
+                    : `<button class="addlink" data-addlink>add link</button>`}</h1>
     <p class="byline" contenteditable="true" data-edit="reading.authorline" data-ph="Author">${esc(r.authors.join(", "))}</p>
     <p class="pagedeck" contenteditable="true" data-edit="reading.venueline"
-       data-ph="Journal, year">${esc([r.venue, r.year].filter(Boolean).join(", "))}</p>
+       data-ph="Journal, year">${esc([venueOf(r), r.year].filter(Boolean).join(", "))}</p>
   </div>
   <div class="rich">${tools()}<div class="prose" contenteditable="true" data-edit="reading.note" data-rich="1"
     data-ph="Notes">${r.note}</div></div>
@@ -4302,6 +4312,8 @@ const doiDisproven = r => r.confidence === "failed" && !!r.doi && !!r.url;
 // The link that was pasted is the one to go back to: it is where the copy that was
 // being read lives (a PDF on someone's page), which the DOI's publisher page often is not.
 const pastedUrl = r => typeof r.pasted === "string" && /^https?:\/\//i.test(r.pasted) ? r.pasted : null;
+// Dropped files were once filed under the venue "Local file"; that says nothing, so it shows as blank.
+function venueOf(r){ return r.venue === "Local file" ? "" : (r.venue || ""); }
 const sourceLink = r =>
     pastedUrl(r) ? r.pasted
   : doiDisproven(r) ? r.url
@@ -4350,7 +4362,7 @@ async function addSource(input, fileName, realFile, ideaId){
     title: meta.title || (fileName ? fileName.replace(/\.pdf$/i, "") : null),
     authors: meta.authors || [],
     year: meta.year || null,
-    venue: meta.venue || (fileName ? "Local file" : ""),
+    venue: meta.venue || "",
     doi: meta.doi || ids.doi || null,
     arxiv: ids.arxiv || null,
     jstor: ids.jstor || null,
@@ -4404,6 +4416,35 @@ async function fillSource(id, file){
   render();
 }
 
+/* "add link": the button becomes a one-line box; Enter or leaving it keeps what was
+   typed, Escape or an empty box changes nothing. */
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-addlink]");
+  if(!b) return;
+  const box = document.createElement("input");
+  box.className = "linkin"; box.type = "url"; box.placeholder = "Paste a link";
+  box.setAttribute("aria-label", "Link to the source");
+  b.replaceWith(box);
+  box.focus();
+  let done = false;
+  const finish = keep => {
+    if(done) return; done = true;
+    const r = data.readings.find(x => x.id === openSource);
+    let v = box.value.trim();
+    if(keep && r && v){
+      if(!/^https?:\/\//i.test(v)) v = "https://" + v;
+      r.url = v;
+      save();
+    }
+    render();
+  };
+  box.addEventListener("keydown", k => {
+    if(k.key === "Enter"){ k.preventDefault(); finish(true); }
+    if(k.key === "Escape"){ k.preventDefault(); finish(false); }
+  });
+  box.addEventListener("blur", () => finish(true));
+});
+
 document.addEventListener("keydown", e => {
   if(e.target.id !== "capture" || e.key !== "Enter") return;
   const v = e.target.value.trim();
@@ -4424,7 +4465,7 @@ document.addEventListener("input", e => {
   const hits = data.readings.filter(r => !r.ideas.includes(openIdea)
     && [r.title, ...(r.authors || []), r.venue].join(" ").toLowerCase().includes(q)).slice(0, 5);
   box.innerHTML = hits.map(r => `<button class="pick__s" data-attach="${r.id}">${esc(r.title || "Untitled")}<span>${
-    esc((r.authors || []).slice(0, 2).join(" & "))}</span></button>`).join("");
+    esc((r.authors || []).slice(0, 2).join(", "))}</span></button>`).join("");
 });
 
 ["dragenter","dragover"].forEach(ev => document.addEventListener(ev, e => {
