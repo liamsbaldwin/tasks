@@ -1,0 +1,15 @@
+name: Diag Digital Twins fetch
+on:
+  push:
+    branches: [claude/diag-digital-twins]
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          U=https://opportunityinsights.org/wp-content/uploads/2026/09/DigitalTwins_FullPaper.pdf
+          for UA in "Marginalia/1.0 (personal reading notebook)" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36" ""; do
+            echo "=== UA: [$UA]"
+            curl -sS -L -A "$UA" -o out.bin -D - -w "\nFINAL %{http_code} %{size_download} %{time_total}s %{url_effective}\n" "$U" | grep -iE "^(HTTP|server|content-type|content-length|location|cf-|x-|FINAL)" || true
+            head -c 300 out.bin | strings | head -5; echo
+          done
