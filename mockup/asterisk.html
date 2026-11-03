@@ -573,8 +573,6 @@ h1[contenteditable].is-empty::before,.pagetitle__t.is-empty::before,.pagedeck[co
 .pick__s span{font-style:normal; font-size:14px; color:var(--faint); margin-left:8px}
 .pick__s:hover, .pick__s:focus-visible{color:var(--blue)}
 .empty{color:var(--faint); font-style:italic}
-.blockedhint{margin:0 0 1.2em}
-.blockedhint a, .pickpdf{color:inherit; text-decoration:underline; text-underline-offset:2px; cursor:pointer}
 
 @media (max-width:620px){
   .heat__grid{--lab:0px; --gap:1.5px}
@@ -2814,10 +2812,6 @@ function viewSource(){
     <p class="pagedeck" contenteditable="true" data-edit="reading.venueline"
        data-ph="Journal, year">${esc([r.venue, r.year].filter(Boolean).join(", "))}</p>
   </div>
-  ${r.blocked && !r.title ? `<p class="empty blockedhint" id="blockedhint">${esc(r.blocked)} doesn't let Marginalia
-    download the file. ${sourceLink(r) ? `<a href="${esc(sourceLink(r))}" target="_blank" rel="noopener">Open it</a>` : "Open it"},
-    save the PDF, then <label class="pickpdf">choose it<input type="file" id="pickpdf"
-    accept="application/pdf,.pdf" hidden></label> or drop it here to fill this in.</p>` : ""}
   <div class="rich">${tools()}<div class="prose" contenteditable="true" data-edit="reading.note" data-rich="1"
     data-ph="Notes">${r.note}</div></div>
   <div class="fnlist"></div>
@@ -4390,17 +4384,12 @@ async function addSource(input, fileName, realFile, ideaId){
 async function fillSource(id, file){
   const r = data.readings.find(x => x.id === id);
   if(!r) return;
-  const hint = $("#blockedhint");
-  if(hint) hint.textContent = `Reading ${file.name}…`;
   const lib = await loadPdfjs();
   let meta = null;
   try{
     meta = await resolveSource({file}, {fetch: url => appFetch(url), getDocument: lib?.getDocument});
   }catch{ meta = null; }
-  if(!meta?.title){
-    if(hint) hint.textContent = `Couldn't find a title in ${file.name}. Type it in above.`;
-    return;
-  }
+  if(!meta?.title) return;
   const typed = !!(r.title && r.title.trim());
   if(!typed) r.title = meta.title;
   if(!r.authors?.length) r.authors = meta.authors || [];
@@ -4414,12 +4403,6 @@ async function fillSource(id, file){
   save();
   render();
 }
-
-document.addEventListener("change", e => {
-  if(e.target.id !== "pickpdf" || !openSource) return;
-  const f = e.target.files?.[0];
-  if(f) fillSource(openSource, f);
-});
 
 document.addEventListener("keydown", e => {
   if(e.target.id !== "capture" || e.key !== "Enter") return;
