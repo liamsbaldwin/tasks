@@ -102,6 +102,13 @@ async function proxy(request, url) {
     signal: AbortSignal.timeout(PROXY_TIMEOUT_MS),
   });
 
+  // A Cloudflare bot check in front of the file. It is a page for a person to click
+  // through, so passing it on as if it were the file only confuses the reader; say what
+  // it is. Sites behind Cloudflare often challenge every request from a Worker.
+  if (upstream.headers.get("cf-mitigated") === "challenge") {
+    return json({ error: "blocked by the site's bot check" }, 403, { "x-marginalia-blocked": "challenge" });
+  }
+
   const length = Number(upstream.headers.get("content-length") || 0);
   if (length > MAX_PROXY_BYTES) return json({ error: "too large" }, 413);
 

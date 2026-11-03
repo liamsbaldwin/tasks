@@ -573,6 +573,8 @@ h1[contenteditable].is-empty::before,.pagetitle__t.is-empty::before,.pagedeck[co
 .pick__s span{font-style:normal; font-size:14px; color:var(--faint); margin-left:8px}
 .pick__s:hover, .pick__s:focus-visible{color:var(--blue)}
 .empty{color:var(--faint); font-style:italic}
+.blockedhint{margin:0 0 1.2em}
+.blockedhint a, .pickpdf{color:inherit; text-decoration:underline; text-underline-offset:2px; cursor:pointer}
 
 @media (max-width:620px){
   .heat__grid{--lab:0px; --gap:1.5px}
@@ -785,7 +787,7 @@ const PROSE_WORDS = /\b(the|of|a|an|to|in|for|on|with|how|why|what|that|from|hav
 const JUNK_LINE = /^(downloaded from|this content downloaded|all use subject to|©|copyright|all rights reserved|page \d+|\d+$)|about\.jstor\.org\/terms|is a not-for-profit service/i;
 
 const PUBLISHER_RE = /\b(press|publish\w*|books|verlag|editions|éditions|imprint|&\s*co\b)/i;
-const AFFIL_WORDS = /\b(universit|institut|department|laborator|college|school|academ|centre|center|inc\.|llc|gmbh|hospital|foundation|press|dept)\w*/i;
+const AFFIL_WORDS = /\b(universit|institut|department|laborator|college|school|academ|centre|center|inc\.|llc|gmbh|hospital|foundation|press|dept|bureau)\w*/i;
 
 /**
  * Title pages letter-space their capitals: "J A M E S   C .   S C O T T".
@@ -825,6 +827,12 @@ function parseAuthorLine(line) {
   let s = deSpaceCapitals(String(line || "").trim());
   if (!s) return [];
 
+  // "Raj Chetty, Harvard University, Sonya Porter, U.S. Census Bureau, James Reisinger, Meta":
+  // a name, then where they work. Some of those places name no university ("Meta"), so
+  // the word list alone would keep them as people; the alternation gives them away.
+  const pairs = nameAffiliationPairs(s);
+  if (pairs) return pairs.flatMap(parseAuthorLine).slice(0, 24);
+
   s = s
     .replace(/^\s*(?:by|authors?|written by)\s*[:.]?\s*/i, "")
     .replace(/[*†‡§¶]/g, "")
@@ -843,6 +851,22 @@ function parseAuthorLine(line) {
       !n.includes("@")
     )
     .slice(0, 24);
+}
+
+/**
+ * Comma-separated segments that alternate person, affiliation, person, affiliation.
+ * Only when most of the second halves plainly are institutions and none of the first
+ * halves are: "Smith, John, Doe, Jane" has no institution in it and is left alone.
+ */
+function nameAffiliationPairs(s) {
+  if (/;/.test(s)) return null;
+  const segs = s.split(/\s*,\s*/).filter(Boolean);
+  if (segs.length < 4 || segs.length % 2) return null;
+  const names = segs.filter((_, i) => i % 2 === 0);
+  const places = segs.filter((_, i) => i % 2 === 1);
+  if (names.some(n => AFFIL_WORDS.test(n))) return null;
+  if (places.filter(p => AFFIL_WORDS.test(p)).length * 2 < places.length) return null;
+  return names;
 }
 
 /* ------------------------------------------------------------------ PDF reading */
@@ -1047,6 +1071,19 @@ function isCoverPage(page) {
 }
 
 /* ------------------------------------------------------------------ registries */
+
+/**
+ * A bot check (Cloudflare's "Just a moment…") rather than the file. The proxy marks
+ * one it recognises; without the proxy the challenge still carries Cloudflare's header.
+ * Nothing a script does gets past it, so the answer is to say so, not to retry.
+ */
+function isBotWall(res) {
+  const h = res?.headers;
+  if (!h?.get) return false;
+  return h.get("x-marginalia-blocked") === "challenge" || h.get("cf-mitigated") === "challenge";
+}
+
+const hostOf = u => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return "That site"; } };
 
 class LookupError extends Error {
   constructor(msg, code) { super(msg); this.code = code; }
@@ -1365,13 +1402,14 @@ async function resolveSource(input, deps = {}) {
   }
 
   /* --- step 2: get PDF bytes, either from the drop or from the link --- */
-  let bytes = null, fetchProblem = null;
+  let bytes = null, fetchProblem = null, blockedBy = null;
   if (isFile) {
     bytes = new Uint8Array(await input.file.arrayBuffer());
     note(`Read ${input.file.name}`);
   } else if (/^https?:/i.test(text) && /\.pdf($|[?#])/i.test(text)) {
     try {
       const res = await fetchImpl(text);
+      if (isBotWall(res)) throw new LookupError(`${res.status}`, "blocked");
       if (!res.ok) throw new LookupError(`${res.status}`, "http");
       const ct = res.headers?.get?.("content-type") || "";
       const buf = new Uint8Array(await res.arrayBuffer());
@@ -1392,12 +1430,19 @@ async function resolveSource(input, deps = {}) {
         }
       }
     } catch (e) {
-      fetchProblem = e.code === "http"
+      if (e.code === "blocked") blockedBy = hostOf(text);
+      fetchProblem = e.code === "blocked"
+        ? `${hostOf(text)} only lets a person in a browser download its files, so the link can't be read from here. Open it, save the PDF, and drop it on this source.`
+        : e.code === "http"
         ? `That link returned an error (${e.message}).`
         : "The browser could not fetch that file (the site blocks it, or there is no network). Drag the PDF in instead.";
       note(fetchProblem);
     }
   }
+
+  // Nothing later can work without the file, and the plain-page step would only meet
+  // the same wall: stop with the record that says what to do instead.
+  if (blockedBy) return fail({ blocked: blockedBy });
 
   /* --- step 3: read the PDF --- */
   if (bytes && (deps.getDocument || deps.readPdf)) {
@@ -2769,6 +2814,10 @@ function viewSource(){
     <p class="pagedeck" contenteditable="true" data-edit="reading.venueline"
        data-ph="Journal, year">${esc([r.venue, r.year].filter(Boolean).join(", "))}</p>
   </div>
+  ${r.blocked && !r.title ? `<p class="empty blockedhint" id="blockedhint">${esc(r.blocked)} doesn't let Marginalia
+    download the file. ${sourceLink(r) ? `<a href="${esc(sourceLink(r))}" target="_blank" rel="noopener">Open it</a>` : "Open it"},
+    save the PDF, then <label class="pickpdf">choose it<input type="file" id="pickpdf"
+    accept="application/pdf,.pdf" hidden></label> or drop it here to fill this in.</p>` : ""}
   <div class="rich">${tools()}<div class="prose" contenteditable="true" data-edit="reading.note" data-rich="1"
     data-ph="Notes">${r.note}</div></div>
   <div class="fnlist"></div>
@@ -4318,6 +4367,7 @@ async function addSource(input, fileName, realFile, ideaId){
     note: "",
     needsReview: !!meta.needsReview || !meta.title,
     confidence: meta.confidence || null,
+    blocked: meta.blocked || null,
     url: meta.url || (typeof input === "string" && /^https?:/i.test(input) ? input : null),
   };
   data.readings.unshift(r);
@@ -4332,6 +4382,44 @@ async function addSource(input, fileName, realFile, ideaId){
     openSource = r.id; view = "sources"; render();
   }
 }
+
+/* A PDF dropped on a source that is already open reads into that source, rather than
+   making a second one. It is how a link whose site turns Marginalia away gets its
+   title: the person downloads the file, and the record keeps the link they pasted.
+   Only blanks and the lookup's own fields are filled: a title or note typed by hand stays. */
+async function fillSource(id, file){
+  const r = data.readings.find(x => x.id === id);
+  if(!r) return;
+  const hint = $("#blockedhint");
+  if(hint) hint.textContent = `Reading ${file.name}…`;
+  const lib = await loadPdfjs();
+  let meta = null;
+  try{
+    meta = await resolveSource({file}, {fetch: url => appFetch(url), getDocument: lib?.getDocument});
+  }catch{ meta = null; }
+  if(!meta?.title){
+    if(hint) hint.textContent = `Couldn't find a title in ${file.name}. Type it in above.`;
+    return;
+  }
+  const typed = !!(r.title && r.title.trim());
+  if(!typed) r.title = meta.title;
+  if(!r.authors?.length) r.authors = meta.authors || [];
+  if(!r.year) r.year = meta.year || null;
+  if(!r.venue) r.venue = meta.venue || "";
+  if(!r.doi) r.doi = meta.doi || null;
+  if(meta.kind) r.kind = meta.kind;
+  r.confidence = meta.confidence || null;
+  r.needsReview = !!meta.needsReview;
+  r.blocked = null;
+  save();
+  render();
+}
+
+document.addEventListener("change", e => {
+  if(e.target.id !== "pickpdf" || !openSource) return;
+  const f = e.target.files?.[0];
+  if(f) fillSource(openSource, f);
+});
 
 document.addEventListener("keydown", e => {
   if(e.target.id !== "capture" || e.key !== "Enter") return;
@@ -4357,6 +4445,7 @@ document.addEventListener("input", e => {
 });
 
 ["dragenter","dragover"].forEach(ev => document.addEventListener(ev, e => {
+  if(view === "sources" && openSource){ e.preventDefault(); return; }   // fills the open one in
   if(!(view === "sources" && !openSource) && view !== "idea") return;
   e.preventDefault();
   $("#capturebox")?.classList.add("drop");
@@ -4367,6 +4456,11 @@ document.addEventListener("input", e => {
 }));
 document.addEventListener("drop", e => {
   const files = [...(e.dataTransfer?.files || [])].filter(f => /pdf$/i.test(f.type) || /\.pdf$/i.test(f.name));
+  if(files.length && view === "sources" && openSource){
+    e.preventDefault();
+    fillSource(openSource, files[0]);
+    return;
+  }
   if(!files.length || !(view === "sources" && !openSource) && view !== "idea") return;
   e.preventDefault();
   capture = true;

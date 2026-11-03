@@ -71,6 +71,9 @@ async function proxy(req, res, target) {
       redirect: "follow",
       signal: AbortSignal.timeout(20_000),
     });
+    if (upstream.headers.get("cf-mitigated") === "challenge") {   // as the Worker does
+      return send(res, 403, { error: "blocked by the site's bot check" }, { "x-marginalia-blocked": "challenge" });
+    }
     const headers = { "cache-control": "public, max-age=86400" };
     for (const h of ["content-type", "content-disposition"]) {
       const v = upstream.headers.get(h);

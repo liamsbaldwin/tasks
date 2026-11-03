@@ -133,7 +133,7 @@ const PROSE_WORDS = /\b(the|of|a|an|to|in|for|on|with|how|why|what|that|from|hav
 const JUNK_LINE = /^(downloaded from|this content downloaded|all use subject to|©|copyright|all rights reserved|page \d+|\d+$)|about\.jstor\.org\/terms|is a not-for-profit service/i;
 
 const PUBLISHER_RE = /\b(press|publish\w*|books|verlag|editions|éditions|imprint|&\s*co\b)/i;
-const AFFIL_WORDS = /\b(universit|institut|department|laborator|college|school|academ|centre|center|inc\.|llc|gmbh|hospital|foundation|press|dept)\w*/i;
+const AFFIL_WORDS = /\b(universit|institut|department|laborator|college|school|academ|centre|center|inc\.|llc|gmbh|hospital|foundation|press|dept|bureau)\w*/i;
 
 /**
  * Title pages letter-space their capitals: "J A M E S   C .   S C O T T".
@@ -173,6 +173,12 @@ export function parseAuthorLine(line) {
   let s = deSpaceCapitals(String(line || "").trim());
   if (!s) return [];
 
+  // "Raj Chetty, Harvard University, Sonya Porter, U.S. Census Bureau, James Reisinger, Meta":
+  // a name, then where they work. Some of those places name no university ("Meta"), so
+  // the word list alone would keep them as people; the alternation gives them away.
+  const pairs = nameAffiliationPairs(s);
+  if (pairs) return pairs.flatMap(parseAuthorLine).slice(0, 24);
+
   s = s
     .replace(/^\s*(?:by|authors?|written by)\s*[:.]?\s*/i, "")
     .replace(/[*†‡§¶]/g, "")
@@ -191,6 +197,22 @@ export function parseAuthorLine(line) {
       !n.includes("@")
     )
     .slice(0, 24);
+}
+
+/**
+ * Comma-separated segments that alternate person, affiliation, person, affiliation.
+ * Only when most of the second halves plainly are institutions and none of the first
+ * halves are: "Smith, John, Doe, Jane" has no institution in it and is left alone.
+ */
+function nameAffiliationPairs(s) {
+  if (/;/.test(s)) return null;
+  const segs = s.split(/\s*,\s*/).filter(Boolean);
+  if (segs.length < 4 || segs.length % 2) return null;
+  const names = segs.filter((_, i) => i % 2 === 0);
+  const places = segs.filter((_, i) => i % 2 === 1);
+  if (names.some(n => AFFIL_WORDS.test(n))) return null;
+  if (places.filter(p => AFFIL_WORDS.test(p)).length * 2 < places.length) return null;
+  return names;
 }
 
 /* ------------------------------------------------------------------ PDF reading */
@@ -395,6 +417,19 @@ export function isCoverPage(page) {
 }
 
 /* ------------------------------------------------------------------ registries */
+
+/**
+ * A bot check (Cloudflare's "Just a moment…") rather than the file. The proxy marks
+ * one it recognises; without the proxy the challenge still carries Cloudflare's header.
+ * Nothing a script does gets past it, so the answer is to say so, not to retry.
+ */
+export function isBotWall(res) {
+  const h = res?.headers;
+  if (!h?.get) return false;
+  return h.get("x-marginalia-blocked") === "challenge" || h.get("cf-mitigated") === "challenge";
+}
+
+const hostOf = u => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return "That site"; } };
 
 class LookupError extends Error {
   constructor(msg, code) { super(msg); this.code = code; }
@@ -713,13 +748,14 @@ export async function resolveSource(input, deps = {}) {
   }
 
   /* --- step 2: get PDF bytes, either from the drop or from the link --- */
-  let bytes = null, fetchProblem = null;
+  let bytes = null, fetchProblem = null, blockedBy = null;
   if (isFile) {
     bytes = new Uint8Array(await input.file.arrayBuffer());
     note(`Read ${input.file.name}`);
   } else if (/^https?:/i.test(text) && /\.pdf($|[?#])/i.test(text)) {
     try {
       const res = await fetchImpl(text);
+      if (isBotWall(res)) throw new LookupError(`${res.status}`, "blocked");
       if (!res.ok) throw new LookupError(`${res.status}`, "http");
       const ct = res.headers?.get?.("content-type") || "";
       const buf = new Uint8Array(await res.arrayBuffer());
@@ -740,12 +776,19 @@ export async function resolveSource(input, deps = {}) {
         }
       }
     } catch (e) {
-      fetchProblem = e.code === "http"
+      if (e.code === "blocked") blockedBy = hostOf(text);
+      fetchProblem = e.code === "blocked"
+        ? `${hostOf(text)} only lets a person in a browser download its files, so the link can't be read from here. Open it, save the PDF, and drop it on this source.`
+        : e.code === "http"
         ? `That link returned an error (${e.message}).`
         : "The browser could not fetch that file (the site blocks it, or there is no network). Drag the PDF in instead.";
       note(fetchProblem);
     }
   }
+
+  // Nothing later can work without the file, and the plain-page step would only meet
+  // the same wall: stop with the record that says what to do instead.
+  if (blockedBy) return fail({ blocked: blockedBy });
 
   /* --- step 3: read the PDF --- */
   if (bytes && (deps.getDocument || deps.readPdf)) {
