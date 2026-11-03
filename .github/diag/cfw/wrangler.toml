@@ -1,0 +1,4 @@
+name = "marginalia-diag"
+main = "index.js"
+compatibility_date = "2025-08-01"
+account_id = "77de38c52999395606023e9915e45400"
