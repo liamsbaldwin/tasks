@@ -2431,12 +2431,35 @@ function setSync(state){
     : "Offline";
   el.title =
       state === "waiting" ? "There are changes from your other device, waiting until you stop typing"
-    : state === "denied"  ? "This browser has no sync key. Open the link that ends in #key=…"
+    : state === "denied"  ? "This browser has no sync key. Click to paste it, or open the link that ends in #key=…"
     : state === "offline" ? "Cannot reach the server — your work is saved here and will go up when it can"
     : "";
   el.classList.add("on");
+  el.style.cursor = state === "denied" ? "pointer" : "";
   clearTimeout(el._t);
   if(state === "synced") el._t = setTimeout(() => el.classList.remove("on"), 1400);
+}
+
+/*
+ * A browser with no key is asked for it once per visit, and "No key" stays a button for
+ * later. The label lives in the editor's toolbar, which is redrawn, so the click is
+ * caught on the document rather than on the element.
+ */
+document.addEventListener("click", e => {
+  if(SYNC.state === "denied" && e.target.closest && e.target.closest("#saved")) askForKey();
+});
+
+function askOnceForKey(){
+  try{ if(sessionStorage.getItem("marginalia.asked")) return; sessionStorage.setItem("marginalia.asked", "1"); }catch{}
+  setTimeout(askForKey, 300);                          // let the page draw first
+}
+
+/** Paste the key (or the whole #key= link), and the page starts again with it. */
+function askForKey(){
+  const key = (prompt("Paste your sync key") || "").trim().replace(/^.*#key=/, "");
+  if(!key) return;
+  try{ localStorage.setItem(TOKEN_KEY, decodeURIComponent(key)); }catch{}
+  location.reload();
 }
 
 /*
@@ -2556,7 +2579,7 @@ async function startSync(){
   let remote;
   try{
     const res = await api("/api/state");
-    if(res.status === 401){ SYNC.on = true; setSync("denied"); return; }
+    if(res.status === 401){ SYNC.on = true; setSync("denied"); askOnceForKey(); return; }
     if(!res.ok) return;                                    // no server here: stay local
     // A static host will happily answer with the page itself; that is not a server.
     if(!/json/i.test(res.headers.get("content-type") || "")) return;

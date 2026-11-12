@@ -136,7 +136,7 @@ other device has not heard about yesterday yet or has already heard about both.
 | **Syncing** | A push is in flight. |
 | **Holding** | Changes arrived from your other device while you were typing. They land the moment you stop. |
 | **Offline** | Can't reach the server. Everything still saves locally and goes up when the connection comes back. |
-| **No key** | This browser hasn't been given the sync key. |
+| **No key** | This browser hasn't been given the sync key. Click it to paste the key. |
 
 Nothing at all in the corner means the page is running from a file or a static host,
 with no server behind it — local-only, exactly as it behaved before.
