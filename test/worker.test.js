@@ -243,3 +243,32 @@ test("a history that cannot be written does not fail the sync", async () => {
   try { assert.equal((await put(env, 1, book("x y", 3000))).status, 200); }
   finally { console.error = quiet; }
 });
+
+/* ==================== the key cookie ==================== */
+
+const cookieFrom = res => (res.headers.get("set-cookie") || "").split(";")[0];
+
+test("reading the notebook with the key hands back a long-lived, script-proof cookie", async () => {
+  const res = await call(envWith(), "/api/state");
+  const c = res.headers.get("set-cookie");
+  assert.match(c, /^marginalia_key=/);
+  assert.match(c, /HttpOnly/);
+  assert.match(c, /Secure/);
+  assert.match(c, /SameSite=Strict/);
+  assert.match(c, /Path=\/api/);
+  assert.ok(Number(/Max-Age=(\d+)/.exec(c)[1]) >= 365 * 24 * 3600);
+});
+
+test("the cookie alone is enough, so a browser that forgot the key stays signed in", async () => {
+  const env = envWith();
+  const cookie = cookieFrom(await call(env, "/api/state"));
+  const res = await call(env, "/api/state", { headers: { cookie: "other=1; " + cookie } }, null);
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get("set-cookie"), /^marginalia_key=/);   // and is renewed
+});
+
+test("a cookie from before the key was changed is refused", async () => {
+  const res = await call(envWith(), "/api/state", { headers: { cookie: "marginalia_key=old-key" } }, null);
+  assert.equal(res.status, 401);
+  assert.equal(res.headers.get("set-cookie"), null);
+});

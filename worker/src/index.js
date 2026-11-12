@@ -35,12 +35,40 @@ function tokenMatches(given, expected) {
   return diff === 0;
 }
 
+/*
+ * A browser proves itself with the key in an Authorization header, or with the cookie
+ * this Worker gave it the last time it did. The page keeps the key in localStorage, but
+ * Safari empties a site's storage after seven days without a visit, and a browser that
+ * has lost the key has lost its way in. A cookie the server sets is not subject to that
+ * rule, so every successful read of the notebook renews one for another 400 days (the
+ * most Chrome allows). HttpOnly keeps it from the page's scripts; SameSite=Strict keeps
+ * any other site from riding on it. Changing SYNC_TOKEN signs every browser out.
+ */
+const COOKIE = "marginalia_key";
+const COOKIE_MAX_AGE = 400 * 24 * 60 * 60;
+
+function bearer(request) {
+  const m = /^Bearer\s+(.+)$/i.exec(request.headers.get("authorization") || "");
+  return m ? m[1] : null;
+}
+
+function cookieKey(request) {
+  for (const part of (request.headers.get("cookie") || "").split(";")) {
+    const i = part.indexOf("=");
+    if (i > 0 && part.slice(0, i).trim() === COOKIE) {
+      try { return decodeURIComponent(part.slice(i + 1).trim()); } catch { return null; }
+    }
+  }
+  return null;
+}
+
 function authorised(request, env) {
   if (!env.SYNC_TOKEN) return false;                 // unconfigured means shut, not open
-  const header = request.headers.get("authorization") || "";
-  const m = /^Bearer\s+(.+)$/i.exec(header);
-  return !!m && tokenMatches(m[1], env.SYNC_TOKEN);
+  return tokenMatches(bearer(request), env.SYNC_TOKEN) || tokenMatches(cookieKey(request), env.SYNC_TOKEN);
 }
+
+const keyCookie = env =>
+  `${COOKIE}=${encodeURIComponent(env.SYNC_TOKEN)}; Max-Age=${COOKIE_MAX_AGE}; Path=/api; HttpOnly; Secure; SameSite=Strict`;
 
 /* ==================== the notebook ==================== */
 
@@ -138,7 +166,7 @@ export default {
 
     try {
       if (url.pathname === "/api/state" && request.method === "GET") {
-        return json(await readState(env));
+        return json(await readState(env), 200, { "set-cookie": keyCookie(env) });
       }
 
       if (url.pathname === "/api/state" && request.method === "PUT") {

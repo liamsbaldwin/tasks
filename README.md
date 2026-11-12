@@ -29,8 +29,11 @@ Live at <https://marginalia.liambwin02.workers.dev>.
   carries its own timestamps, so edits on two devices both survive, deletes stick, and an
   update never lands while you are typing.
 - **The key.** The API answers only requests carrying the secret `SYNC_TOKEN`. A browser
-  is given it once by opening `…/#key=THE-KEY`; it is saved and stripped from the address
-  bar. Without it the page still works, local-only, and the corner says **No key**.
+  is given it once by opening `…/#key=THE-KEY` (or by clicking **No key** and pasting it);
+  it is saved and stripped from the address bar. The server also gives the browser an
+  HttpOnly cookie holding the key, renewed for 400 days on every visit, because Safari
+  empties a site's `localStorage` after seven days away. Without either, the page still
+  works, local-only, and the corner says **No key**.
 - **Edit history.** Every accepted sync also appends one row per changed record to the
   `events` table: when it was written (device clock, local time of day and time zone),
   what it was, created/edited/deleted, word count and words added or removed (only typed
@@ -53,7 +56,7 @@ Live at <https://marginalia.liambwin02.workers.dev>.
 | The running site | Cloudflare Workers (`marginalia`) |
 | Your notebook | Cloudflare D1 `marginalia`, table `state` (one row), plus a copy in each browser |
 | Edit history | Cloudflare D1 `marginalia`, table `events` |
-| The sync key | Cloudflare secret `SYNC_TOKEN`, and each browser's `localStorage` |
+| The sync key | Cloudflare secret `SYNC_TOKEN`; in each browser, `localStorage` and a 400-day cookie |
 
 ## Deploying
 
