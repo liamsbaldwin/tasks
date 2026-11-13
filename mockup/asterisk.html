@@ -516,8 +516,14 @@ h1[contenteditable].is-empty::before,.pagetitle__t.is-empty::before,.pagedeck[co
    at the foot of the page rather than pinned across the foot of the window, and with
    no rule above it. The page is a column at least a screenful tall and the tally takes
    the slack, so on a short draft it sits at the bottom of the page and on a long one it
-   follows the text down; either way it scrolls, rather than sitting over the writing. */
-.page--draft .page__in{display:flex; flex-direction:column; min-height:100svh; padding-bottom:28px}
+   follows the text down; either way it scrolls, rather than sitting over the writing.
+   A source's foot — where it stands, what it is, what it is filed under — sits the same
+   way: at the bottom of the window under a short note, after the note under a long one.
+   The note keeps the 40px the foot always stood clear of it by; the auto margin takes
+   only the slack. */
+.page--draft .page__in, .page--src .page__in{display:flex; flex-direction:column; min-height:100svh; padding-bottom:28px}
+.page--src .fnlist{margin-bottom:40px}
+.page--src .foot{margin-top:auto}
 .tally{
   margin-top:auto; padding-top:56px; display:flex; gap:16px; align-items:center;
   font-size:14px; color:var(--faint); font-variant-numeric:tabular-nums;
@@ -3082,6 +3088,7 @@ function render({ keepScroll = false } = {}){
   const page = $("#page");
   const noteOpen = view === "notes" && !!data.tangents[openNote];
   page.classList.toggle("page--draft", view === "draft" || noteOpen);
+  page.classList.toggle("page--src", view === "sources" && data.readings.some(x => x.id === openSource));
   page.classList.toggle("page--prog", view === "progress");
   page.classList.toggle("page--road", view === "roadmap");
   $("#view").innerHTML =
