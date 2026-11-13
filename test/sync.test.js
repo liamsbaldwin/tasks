@@ -477,17 +477,17 @@ test("an update held while typing does not undo what was typed meanwhile", () =>
   assert.equal(merge(stamp(before, typed, 200), elsewhere).ideas[0].dek, "from the phone");
 });
 
-test("words written each day count only what saves added, on the writer's day", async () => {
+test("words written each day are the day's net, on the writer's day", async () => {
   const { wordsByDay } = await import("../src/sync.js");
   const day = ms => new Date(ms).toISOString().slice(0, 10);
   assert.deepEqual(wordsByDay([
     { at: Date.UTC(2026, 9, 28, 23), local: "2026-10-28T19:00", delta: 300 },
     { at: Date.UTC(2026, 9, 29, 1),  local: "2026-10-28T21:00", delta: 120 },
-    { at: Date.UTC(2026, 9, 29, 2),  local: "2026-10-28T22:00", delta: -500 },   // a cut
+    { at: Date.UTC(2026, 9, 29, 2),  local: "2026-10-28T22:00", delta: -100 },   // a cut
     { at: Date.UTC(2026, 9, 29, 15), delta: 40 },                                // no time zone
     { at: Date.UTC(2026, 9, 29, 16), delta: 0 },
     null,
-  ], day), { "2026-10-28": 420, "2026-10-29": 40 });
+  ], day), { "2026-10-28": 320, "2026-10-29": 40 });
   assert.deepEqual(wordsByDay(undefined), {});
 });
 
@@ -517,29 +517,38 @@ test("a day set by hand replaces what the history made of it, and only that day"
   assert.deepEqual(applyOverrides({ "2026-10-29": 100 }, {}), { "2026-10-29": 100 });
 });
 
-test("text that leaves and comes back is not counted twice", async () => {
+test("a day counts the words at its last save minus the words at midnight", async () => {
   const { wordsByDay } = await import("../src/sync.js");
-  const ev = (h, key, words, delta, local = `2026-10-30T${h}:00`) =>
-    ({ at: Date.UTC(2026, 9, 30, Number(h)), local, key, kind: key.split(":")[0], words, delta });
+  const ev = (h, key, words, delta, local = `2026-10-30T${h}:00`, action = "edit") =>
+    ({ at: Date.UTC(2026, 9, 30, Number(h)), local, key, kind: key.split(":")[0], action, words, delta });
+  // text that leaves and comes back nets to nothing
   assert.deepEqual(wordsByDay([
     ev("10", "draft:a", 1000, 0),       // opened and re-saved, no change
     ev("11", "draft:a", 800, -200),     // a paragraph cut…
     ev("12", "draft:a", 1000, 200),     // …and pasted back
     ev("13", "draft:a", 0, -1000),      // blanked by a bad save…
     ev("14", "draft:a", 1000, 1000),    // …and restored by a sync
-  ]), {});
+  ]), { "2026-10-30": 0 });
+  // a paragraph swapped for a longer one counts only the difference
   assert.deepEqual(wordsByDay([
     ev("10", "draft:a", 1000, 0),
-    ev("11", "draft:a", 700, -300),     // a paragraph deleted…
-    ev("12", "draft:a", 1150, 450),     // …and a longer one written in its place
-    ev("12", "note:a", 40, 40),
+    ev("11", "draft:a", 700, -300),
+    ev("12", "draft:a", 1150, 450),
+    ev("12", "note:a", 40, 40, undefined, "create"),
   ]), { "2026-10-30": 190 });
-  // the high point is per day: tomorrow's writing is counted from where today's ended
+  // each day starts from where the last one ended, and a day of cutting is less than nothing
   assert.deepEqual(wordsByDay([
-    ev("10", "draft:a", 500, 500),
+    ev("10", "draft:a", 500, 500, undefined, "create"),
     ev("11", "draft:a", 300, -200),
     ev("12", "draft:a", 600, 300, "2026-10-31T08:00"),
-  ]), { "2026-10-30": 500, "2026-10-31": 300 });
+    ev("13", "draft:a", 450, -150, "2026-11-01T09:00"),
+  ]), { "2026-10-30": 300, "2026-10-31": 300, "2026-11-01": -150 });
+  // a deleted piece takes its words with it
+  assert.deepEqual(wordsByDay([
+    ev("10", "note:b", 80, 0),
+    ev("11", "note:b", 0, -80, undefined, "delete"),
+    ev("12", "draft:a", 200, 200, undefined, "create"),
+  ]), { "2026-10-30": 120 });
 });
 
 test("adding a source or earning a credit is not writing", async () => {
