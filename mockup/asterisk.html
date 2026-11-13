@@ -537,6 +537,16 @@ h1[contenteditable].is-empty::before,.pagetitle__t.is-empty::before,.pagedeck[co
 .stagebtn{color:var(--blue); white-space:nowrap}
 .stagebtn:hover{text-decoration:underline; text-underline-offset:3px}
 .foot{margin-top:40px; padding-top:14px; border-top:1px solid var(--rule); display:flex; justify-content:space-between; gap:14px; font-size:14px; color:var(--faint)}
+/* A source's foot carries the draft's count too: where it stands, the bar against the
+   words a reading is counted at, the count, then what it is and where it is filed.
+   On a phone the filing drops to a line of its own rather than squeezing the bar. */
+.foot--count{align-items:center; gap:16px; font-variant-numeric:tabular-nums}
+.foot--count .foot__n{white-space:nowrap}
+.foot--count .foot__m{white-space:nowrap}
+@media (max-width:520px){
+  .foot--count{flex-wrap:wrap; row-gap:8px}
+  .foot--count .foot__m{flex-basis:100%; text-align:right}
+}
 /* What it is and what it is filed under are both controls now, but they stay the grey
    they always were — the line still reads as a line, and only the pointer says
    otherwise. */
@@ -2858,10 +2868,11 @@ function viewSource(){
   <div class="rich">${tools()}<div class="prose" contenteditable="true" data-edit="reading.note" data-rich="1"
     data-ph="Notes">${r.note}</div></div>
   <div class="fnlist"></div>
-  <div class="foot">
+  <div class="foot foot--count">
     <button class="stagebtn" data-rstatus title="Click to move it on">${
       r.status === "read" ? "Read" : r.status === "reading" ? "Reading" : "Queued"}</button>
-    <span><button class="meta" data-kind title="Click to change what it is">${
+    ${countBar(words(r.note), READING_WORDS, "a reading")}
+    <span class="foot__m"><button class="meta" data-kind title="Click to change what it is">${
       KIND[r.kind] || "Source"}</button> &middot;
     ${filedMenu(r)}</span></div>`;
 }
@@ -2906,14 +2917,17 @@ function viewDraft(){
 /* Under the draft rather than across the window, and rendered with the page, so it
    scrolls away with the text instead of sitting over it. */
 function tally(i){
-  const w = words(data.drafts[i.id] || "");
   return `<p class="tally">
     <button class="stagebtn" data-stage title="Click to move it on">${STAGES[i.stage]}</button>
-    <span class="tick" title="Against the ${ESSAY_WORDS.toLocaleString()} words an essay is counted at"
-      ><span id="tickfill" style="width:${Math.min(100, w / ESSAY_WORDS * 100)}%"></span></span>
-    <span><span id="wordnow">${w.toLocaleString()}</span> <span id="wordlabel">${
-      w === 1 ? "word" : "words"}</span></span>
+    ${countBar(words(data.drafts[i.id] || ""), ESSAY_WORDS, "an essay")}
   </p>`;
+}
+/* The bar and the count, shared by the draft's tally and a source's foot. */
+function countBar(w, goal, what){
+  return `<span class="tick" title="Against the ${goal.toLocaleString()} words ${what} is counted at"
+      ><span id="tickfill" style="width:${Math.min(100, w / goal * 100)}%"></span></span>
+    <span class="foot__n"><span id="wordnow">${w.toLocaleString()}</span> <span id="wordlabel">${
+      w === 1 ? "word" : "words"}</span></span>`;
 }
 
 /* Newest first: an id is its creation time in base 36, so it sorts by date — and the first
@@ -3397,13 +3411,16 @@ document.addEventListener("input", e => {
     relayout();
     showCount();
   }
+  if(el.dataset.edit === "reading.note") showCount();
 });
 
-/* The tally under the draft: its words, or with some selected, how many of them. */
+/* The tally under the draft, or the count in a source's foot: its words, or with some
+   selected, how many of them. */
 let countingPart = false;
 function showCount(){
-  const essay = $('[data-edit="draft"]'), n = $("#wordnow");
+  const essay = $('[data-edit="draft"]') || $('[data-edit="reading.note"]'), n = $("#wordnow");
   if(!essay || !n) return;
+  const goal = essay.dataset.edit === "draft" ? ESSAY_WORDS : READING_WORDS;
   const w = words(essay.innerHTML), sel = document.getSelection();
   const r = sel.rangeCount && !sel.isCollapsed ? sel.getRangeAt(0) : null;
   const part = r && essay.contains(r.commonAncestorContainer)
@@ -3412,7 +3429,7 @@ function showCount(){
   n.textContent = countingPart ? `${part.toLocaleString()} of ${w.toLocaleString()}` : w.toLocaleString();
   const f = $("#tickfill"), l = $("#wordlabel");
   if(l) l.textContent = w === 1 ? "word" : "words";
-  if(f) f.style.width = Math.min(100, w / ESSAY_WORDS * 100) + "%";
+  if(f) f.style.width = Math.min(100, w / goal * 100) + "%";
 }
 document.addEventListener("selectionchange", () => {
   const sel = document.getSelection();
