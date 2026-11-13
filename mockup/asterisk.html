@@ -365,6 +365,9 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 .prose ul,.prose ol{margin:0 0 1.05em; padding-left:1.4em}
 .prose li{margin:.18em 0}
 .prose a{color:var(--blue)}
+/* A highlight: a quiet grey wash behind the words, there to be seen, not to shout. */
+.prose mark{background:rgba(40,38,30,.075); color:inherit; padding:.04em 0; border-radius:2px;
+  -webkit-box-decoration-break:clone; box-decoration-break:clone}
 /* Footnotes live in the margin beside the line that raised them, and fold under the
    text when there is no margin to put them in. */
 .fnref{
@@ -498,6 +501,7 @@ h1[contenteditable].is-empty::before,.pagetitle__t.is-empty::before,.pagedeck[co
 .tools i{font-style:italic}
 .tools .q{font-size:21px; position:relative; top:3px}
 .tools .h{font-family:var(--display)}
+.tools .hl{display:block; padding:1px 4px 2px; border-radius:2px; background:rgba(40,38,30,.09); font-size:14px}
 .tools .lk{width:15px; height:15px; display:block; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round}
 /* The link box: one line for the address, under the words it links. */
 .linkbox{
@@ -3067,6 +3071,7 @@ function tools(saved = true){
     <button data-cmd="h2" title="Heading — ⌥⌘2, or type &quot;# &quot;"><span class="h">H</span></button>
     <button data-cmd="bold" title="Bold — ⌘B"><b>B</b></button>
     <button data-cmd="italic" title="Italic — ⌘I"><i>I</i></button>
+    <button data-cmd="highlight" title="Highlight — ⇧⌘U"><span class="hl">a</span></button>
     <button data-cmd="insertUnorderedList" title="Bullets — ⇧⌘8, or type &quot;- &quot;">•</button>
     <button data-cmd="insertOrderedList" title="Numbered — ⇧⌘7, or type &quot;1. &quot;">1.</button>
     <button data-cmd="quote" title="Quote — ⇧⌘9, or type &quot;&gt; &quot;"><span class="q">&ldquo;</span></button>
@@ -4017,6 +4022,7 @@ document.addEventListener("keydown", e => {
 const KEYTOOL = {
   "KeyB":        "bold",
   "KeyI":        "italic",
+  "shift+KeyU":  "highlight",
   "alt+Digit2":  "h2",
   "alt+Digit3":  "h3",
   "alt+KeyF":    "footnote",
@@ -4066,6 +4072,65 @@ function leaveMarker(ref){
   document.getSelection().collapse(after, after.nodeValue.startsWith("\u200b") ? 1 : 0);
 }
 
+/*
+ * Highlight: the selected words go into <mark>, or come out of it if they were all in
+ * one already. Done by hand rather than with hiliteColor, which leaves a span with an
+ * inline colour per browser and cannot be taken off again cleanly. Each run of text is
+ * wrapped on its own, so a selection over two paragraphs, or across bold, stays valid
+ * HTML; footnote markers and rendered maths are left as they are.
+ */
+function toggleHighlight(host){
+  const sel = document.getSelection();
+  if(!host || !sel.rangeCount || sel.isCollapsed) return false;
+  const r = sel.getRangeAt(0);
+  if(!host.contains(r.commonAncestorContainer)) return false;
+  const { startContainer: sc, startOffset: so, endContainer: ec, endOffset: eo } = r;
+  const root = r.commonAncestorContainer.nodeType === 3 ? r.commonAncestorContainer.parentNode : r.commonAncestorContainer;
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let texts = [], t;
+  while((t = w.nextNode())){
+    if(!r.intersectsNode(t)) continue;
+    if(t.parentElement.closest('[contenteditable="false"], .math, .katex')) continue;
+    if(!t.nodeValue.trim() && !t.parentElement.closest("p, li, h2, h3, blockquote, mark")) continue;
+    texts.push(t);
+  }
+  texts = texts.map(t => {
+    if(t === ec && eo < t.nodeValue.length) t.splitText(eo);
+    if(t === sc && so > 0) t = t.splitText(so);
+    return t;
+  }).filter(t => t.nodeValue.length);
+  if(!texts.length) return false;
+  const markOf = t => { const m = t.parentElement.closest("mark"); return m && host.contains(m) ? m : null; };
+  if(texts.every(markOf)){
+    for(const t of texts){
+      const m = markOf(t);
+      if(!m) continue;
+      const cut = (a, b) => { const x = document.createRange(); x.setStart(...a); x.setEnd(...b); return x.extractContents(); };
+      const before = cut([m, 0], [t, 0]), after = cut([t, t.nodeValue.length], [m, m.childNodes.length]);
+      if(before.textContent){ const b = document.createElement("mark"); b.append(before); m.before(b); }
+      if(after.textContent){ const a = document.createElement("mark"); a.append(after); m.after(a); }
+      m.replaceWith(...m.childNodes);
+    }
+  } else {
+    for(const t of texts){
+      if(markOf(t)) continue;
+      const m = document.createElement("mark");
+      t.before(m); m.append(t);
+    }
+  }
+  // Tidy: no empty marks, and marks that now touch become one.
+  host.querySelectorAll("mark").forEach(m => {
+    if(!m.textContent) return m.remove();
+    let n;
+    while((n = m.nextSibling) && n.nodeName === "MARK"){ m.append(...n.childNodes); n.remove(); }
+  });
+  const nr = document.createRange();
+  nr.setStart(texts[0], 0);
+  nr.setEnd(texts[texts.length - 1], texts[texts.length - 1].nodeValue.length);
+  sel.removeAllRanges(); sel.addRange(nr);
+  return true;
+}
+
 /* One place a tool runs, whether it was clicked or typed. */
 function runTool(cmd, host){
   checkpoint(host);
@@ -4075,6 +4140,7 @@ function runTool(cmd, host){
   else if(cmd === "h3")    document.execCommand("formatBlock", false, inside("h3") ? "p" : "h3");
   else if(cmd === "math")  document.execCommand("insertText", false, "$x$");
   else if(cmd === "link"){ openLinkBox(host); return; }
+  else if(cmd === "highlight"){ if(!toggleHighlight(host)) return; }
   else if(cmd === "footnote"){
     const id = "f" + Date.now();
     const box = host?.dataset.edit === "tangent.html" ? host.closest("[data-note]") : null;
