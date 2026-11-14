@@ -528,6 +528,12 @@ h1[contenteditable].is-empty::before,.pagetitle__t.is-empty::before,.pagedeck[co
 .page--draft .page__in, .page--src .page__in{display:flex; flex-direction:column; min-height:100svh; padding-bottom:28px}
 .page--src .fnlist{margin-bottom:40px}
 .page--src .foot{margin-top:auto}
+/* Under the rule, the foot's line sits as far from the bottom of the window as it does
+   from the rule: 18px above the text and 21px below come to the same space either side
+   of the letters, because the line's own leading is shallower over the capitals than
+   under the descenders. */
+.page--src .page__in{padding-bottom:21px}
+.page--src .foot{padding-top:18px}
 .tally{
   margin-top:auto; padding-top:56px; display:flex; gap:16px; align-items:center;
   font-size:14px; color:var(--faint); font-variant-numeric:tabular-nums;
