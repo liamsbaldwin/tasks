@@ -190,6 +190,15 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
   color:var(--ink); background:transparent; border:0; border-bottom:1px solid var(--rule); outline:0; padding:2px 0}
 .pagetitle__t{outline:none}
 .src__b{display:block; color:var(--ink-2); font-size:15.5px; margin-top:2px; padding-right:28px}
+/* The fold that holds the sources already read: a quiet line under the list, with the
+   same plus that opens the tracker's note, a minus while it is open. */
+.readfold{display:flex; align-items:baseline; gap:8px; width:100%; margin-top:18px; padding:0; border:0;
+  font-size:14.5px; color:var(--faint); text-align:left; transition:color .12s ease}
+.readfold__n{font-variant-numeric:tabular-nums}
+.readfold::after{content:"+"; margin-left:auto; font-family:var(--text); font-size:15px; line-height:1; color:#A3A098; transition:color .12s ease}
+.readfold[aria-expanded="true"]::after{content:"\2212"}
+.readfold:hover, .readfold:hover::after, .readfold[aria-expanded="true"]::after{color:var(--blue)}
+.list--read{margin-top:14px}
 .listfoot{margin-top:18px; font-size:14.5px; color:var(--faint); font-variant-numeric:tabular-nums}
 
 .del{
@@ -2710,7 +2719,7 @@ function viewIdea(){
   <div class="headrow srchead"><div class="pane__t">Sources</div>
     <button class="plus plus--small" id="plus" aria-expanded="${capture}" aria-label="Add a source">+</button></div>
   ${captureBox("Paste a link, drop a PDF, or find a source")}
-  ${rs.length ? `<div class="list list--idea">${rs.map(r => srcRow(r, false, i.id)).join("")}</div>
+  ${rs.length ? `${srcLists(rs, r => srcRow(r, false, i.id), "list list--idea")}
   <p class="listfoot">${readN(i.id)} of ${rs.length} read</p>` : ""}`;
 }
 
@@ -2723,8 +2732,18 @@ function viewSources(){
     </div>
   </div>
   ${captureBox("Paste a link or drop a PDF")}
-  <div class="list" id="srclist">${data.readings.map(r => srcRow(r, true)).join("")}</div>
+  ${srcLists(data.readings, r => srcRow(r, true), "list")}
   <p class="listfoot">${read} of ${data.readings.length} read</p>`;
+}
+
+/* Sources still to read, then the ones already read, folded away under "Read" at the
+   bottom of the list. Folded until opened; it stays as you left it while you move about. */
+let readFold = false;
+function srcLists(rs, row, cls){
+  const toRead = rs.filter(r => r.status !== "read"), read = rs.filter(r => r.status === "read");
+  return `${toRead.length ? `<div class="${cls}">${toRead.map(row).join("")}</div>` : ""}
+  ${read.length ? `<button class="readfold" data-readfold aria-expanded="${readFold}">Read<span class="readfold__n">${read.length}</span></button>
+  ${readFold ? `<div class="${cls} list--read">${read.map(row).join("")}</div>` : ""}` : ""}`;
 }
 
 /* The box a source is added through: on Sources, and under an idea's Sources. */
@@ -4760,6 +4779,10 @@ document.addEventListener("click", e => {
       save();
     }
     return;
+  }
+  if(e.target.closest("[data-readfold]")){
+    readFold = !readFold;
+    return render({ keepScroll: true });
   }
   if(e.target.closest("[data-rstatus]")){
     const order = ["queued", "reading", "read"];
