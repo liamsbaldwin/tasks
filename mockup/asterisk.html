@@ -192,9 +192,8 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 .src__b{display:block; color:var(--ink-2); font-size:15.5px; margin-top:2px; padding-right:28px}
 /* The fold that holds the sources already read: a quiet line under the list, with the
    same plus that opens the tracker's note, a minus while it is open. */
-.readfold{display:flex; align-items:baseline; gap:8px; width:100%; margin-top:18px; padding:0; border:0;
-  font-size:14.5px; color:var(--faint); text-align:left; transition:color .12s ease}
-.readfold__n{font-variant-numeric:tabular-nums}
+.readfold{display:flex; align-items:baseline; width:100%; margin-top:18px; padding:0; border:0;
+  font-size:14.5px; color:var(--faint); font-variant-numeric:tabular-nums; text-align:left; transition:color .12s ease}
 .readfold::after{content:"+"; margin-left:auto; font-family:var(--text); font-size:15px; line-height:1; color:#A3A098; transition:color .12s ease}
 .readfold[aria-expanded="true"]::after{content:"\2212"}
 .readfold:hover, .readfold:hover::after, .readfold[aria-expanded="true"]::after{color:var(--blue)}
@@ -2719,12 +2718,10 @@ function viewIdea(){
   <div class="headrow srchead"><div class="pane__t">Sources</div>
     <button class="plus plus--small" id="plus" aria-expanded="${capture}" aria-label="Add a source">+</button></div>
   ${captureBox("Paste a link, drop a PDF, or find a source")}
-  ${rs.length ? `${srcLists(rs, r => srcRow(r, false, i.id), "list list--idea")}
-  <p class="listfoot">${readN(i.id)} of ${rs.length} read</p>` : ""}`;
+  ${rs.length ? srcLists(rs, r => srcRow(r, false, i.id), "list list--idea") : ""}`;
 }
 
 function viewSources(){
-  const read = data.readings.filter(r => r.status === "read").length;
   return `<div class="pagehead">
     <div class="headrow">
       <h1 class="pagetitle">Sources</h1>
@@ -2732,18 +2729,21 @@ function viewSources(){
     </div>
   </div>
   ${captureBox("Paste a link or drop a PDF")}
-  ${srcLists(data.readings, r => srcRow(r, true), "list")}
-  <p class="listfoot">${read} of ${data.readings.length} read</p>`;
+  ${srcLists(data.readings, r => srcRow(r, true), "list")}`;
 }
 
 /* Sources still to read, then the ones already read, folded away under "Read" at the
-   bottom of the list. Folded until opened; it stays as you left it while you move about. */
+   bottom of the list, behind a line that also counts them: "3 of 20 read". Folded until
+   opened; it stays as you left it while you move about. With nothing read yet, the count
+   stands alone as the list's foot. */
 let readFold = false;
 function srcLists(rs, row, cls){
   const toRead = rs.filter(r => r.status !== "read"), read = rs.filter(r => r.status === "read");
+  const count = `${read.length} of ${rs.length} read`;
   return `${toRead.length ? `<div class="${cls}">${toRead.map(row).join("")}</div>` : ""}
-  ${read.length ? `<button class="readfold" data-readfold aria-expanded="${readFold}">Read<span class="readfold__n">${read.length}</span></button>
-  ${readFold ? `<div class="${cls} list--read">${read.map(row).join("")}</div>` : ""}` : ""}`;
+  ${read.length ? `<button class="readfold" data-readfold aria-expanded="${readFold}">${count}</button>
+  ${readFold ? `<div class="${cls} list--read">${read.map(row).join("")}</div>` : ""}`
+    : rs.length ? `<p class="listfoot">${count}</p>` : ""}`;
 }
 
 /* The box a source is added through: on Sources, and under an idea's Sources. */
