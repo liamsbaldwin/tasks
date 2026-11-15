@@ -194,7 +194,8 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
    same plus that opens the tracker's note, a minus while it is open. */
 .readfold{display:flex; align-items:baseline; width:100%; margin-top:18px; padding:0; border:0;
   font-size:14.5px; color:var(--faint); font-variant-numeric:tabular-nums; text-align:left; transition:color .12s ease}
-.readfold::after{content:"+"; margin-left:auto; font-family:var(--text); font-size:15px; line-height:1; color:#A3A098; transition:color .12s ease}
+/* Centred in the ×s' column, the line every + on the page centres on. */
+.readfold::after{content:"+"; margin-left:auto; width:var(--mark); text-align:center; font-family:var(--text); font-size:15px; line-height:1; color:#A3A098; transition:color .12s ease}
 .readfold[aria-expanded="true"]::after{content:"\2212"}
 .readfold:hover, .readfold:hover::after, .readfold[aria-expanded="true"]::after{color:var(--blue)}
 .list--read{margin-top:14px}
