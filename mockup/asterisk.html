@@ -199,6 +199,20 @@ button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor
 .readfold[aria-expanded="true"]::after{content:"\2212"}
 .readfold:hover, .readfold:hover::after, .readfold[aria-expanded="true"]::after{color:var(--blue)}
 .list--read{margin-top:14px}
+/* Contents' "For later": ideas set aside, folded under the same quiet line. Ideas are
+   dragged into it and back out (pressed and held on a touch screen). */
+.readfold__n{margin-left:10px}
+.list--later{margin-top:14px}
+.list--ideas .row{-webkit-user-select:none; user-select:none; -webkit-touch-callout:none}
+.list--ideas .row.is-lifted{opacity:.3}
+.dragghost{position:fixed; z-index:60; pointer-events:none; margin:0; padding:10px 14px; max-width:min(80vw, 30em);
+  background:var(--paper, #fff); box-shadow:0 6px 24px rgba(0,0,0,.14); border-radius:4px;
+  font-family:var(--display); font-size:21px; line-height:1.2; color:var(--blue); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+html.is-dragging, html.is-dragging *{cursor:grabbing !important}
+html.is-dragging .list--now:empty{min-height:64px}
+html.is-dragging [data-dropzone]{outline:1px dashed transparent; outline-offset:6px; transition:outline-color .12s ease}
+html.is-dragging [data-dropzone].is-target{outline-color:var(--blue)}
+html.is-dragging .readfold.is-target, html.is-dragging .readfold.is-target::after{color:var(--blue)}
 .listfoot{margin-top:18px; font-size:14.5px; color:var(--faint); font-variant-numeric:tabular-nums}
 
 .del{
@@ -2682,8 +2696,8 @@ function viewContents(){
     <button class="plus" id="newidea" aria-label="Start an idea">+</button>
   </div></div>
   ${data.ideas.length ? "" : `<p class="empty">No ideas yet. The + starts one.</p>`}
-  <div class="list">${data.ideas.map(i => `
-    <div class="row">
+  ${ideaLists(i => `
+    <div class="row" data-dragidea="${i.id}">
       <button class="del" data-delidea="${i.id}" aria-label="Delete ${esc(ideaName(i))}">×</button>
       <button class="row__go" data-idea="${i.id}">
       <span class="row__t">${esc(ideaName(i))}</span>
@@ -2691,9 +2705,27 @@ function viewContents(){
       <span class="row__m"><b>${STAGES[i.stage]}</b><span>${readN(i.id)}/${byIdea(i.id).length} read</span>
         <span>${words(data.drafts[i.id] || "").toLocaleString()} words</span></span>
       </button>
-    </div>`).join("")}</div>
-  <p class="listfoot">${data.ideas.length} ${data.ideas.length === 1 ? "idea" : "ideas"}</p>`;
+    </div>`)}`;
 }
+
+/* Contents: the ideas in play, then the ones set aside for later, folded under a quiet
+   "For later" line at the bottom like the Read sources. An idea is dragged down into the
+   fold (or onto its line while it is shut) and back up out of it; the choice is kept on
+   the idea, so it holds on every device. */
+let laterFold = false;
+function ideaLists(row){
+  const now = data.ideas.filter(i => !i.later), later = data.ideas.filter(i => i.later);
+  if(!data.ideas.length) return "";
+  return `<div class="list list--ideas list--now" data-dropzone="now">${now.map(row).join("")}</div>
+  <div data-dropzone="later">
+    <button class="readfold" data-laterfold aria-expanded="${laterFold}">For later${later.length ? `<span class="readfold__n">${later.length}</span>` : ""}</button>
+    ${!laterFold ? "" : later.length ? `<div class="list list--ideas list--later">${later.map(row).join("")}</div>`
+      : `<p class="listfoot">Drag an idea here to set it aside.</p>`}
+  </div>`;
+}
+
+/* A source set aside with its ideas: every idea it is filed under is for later. */
+const forLater = r => r.ideas.length > 0 && r.ideas.every(id => data.ideas.find(i => i.id === id)?.later);
 
 /* An idea: what it is, the way into its draft, and what it is being read against. */
 function viewIdea(){
@@ -2730,21 +2762,27 @@ function viewSources(){
     </div>
   </div>
   ${captureBox("Paste a link or drop a PDF")}
-  ${srcLists(data.readings, r => srcRow(r, true), "list")}`;
+  ${srcLists(data.readings, r => srcRow(r, true), "list", true)}`;
 }
 
 /* Sources still to read, then the ones already read, folded away under "Read" at the
    bottom of the list, behind a line that also counts them: "3 of 20 read". Folded until
    opened; it stays as you left it while you move about. With nothing read yet, the count
-   stands alone as the list's foot. */
-let readFold = false;
-function srcLists(rs, row, cls){
-  const toRead = rs.filter(r => r.status !== "read"), read = rs.filter(r => r.status === "read");
+   stands alone as the list's foot. On the Sources page (withLater), sources whose ideas
+   are all set aside for later fold under a "For later" line below Read; one that is both
+   read and for later stays under Read. */
+let readFold = false, laterSrcFold = false;
+function srcLists(rs, row, cls, withLater = false){
+  const read = rs.filter(r => r.status === "read");
+  const later = withLater ? rs.filter(r => r.status !== "read" && forLater(r)) : [];
+  const toRead = rs.filter(r => r.status !== "read" && !later.includes(r));
   const count = `${read.length} of ${rs.length} read`;
   return `${toRead.length ? `<div class="${cls}">${toRead.map(row).join("")}</div>` : ""}
   ${read.length ? `<button class="readfold" data-readfold aria-expanded="${readFold}">${count}</button>
   ${readFold ? `<div class="${cls} list--read">${read.map(row).join("")}</div>` : ""}`
-    : rs.length ? `<p class="listfoot">${count}</p>` : ""}`;
+    : rs.length ? `<p class="listfoot">${count}</p>` : ""}
+  ${later.length ? `<button class="readfold" data-laterfold="src" aria-expanded="${laterSrcFold}">For later<span class="readfold__n">${later.length}</span></button>
+  ${laterSrcFold ? `<div class="${cls} list--read">${later.map(row).join("")}</div>` : ""}` : ""}`;
 }
 
 /* The box a source is added through: on Sources, and under an idea's Sources. */
@@ -4633,6 +4671,98 @@ document.addEventListener("drop", e => {
   files.forEach(f => addSource(null, f.name, f, home));
 });
 
+/* ---------- dragging ideas in and out of "For later" ---------- */
+/* With a mouse, an idea lifts once it has moved a few pixels; on a touch screen, after
+   it is pressed and held, so a swipe still scrolls. Let go over the "For later" fold
+   (open or shut) to set it aside, or over the list above to bring it back. A drag never
+   counts as a click on the idea. */
+let ideaDrag = null;
+function dropzoneAt(x, y){
+  return document.elementFromPoint(x, y)?.closest("[data-dropzone]")?.dataset.dropzone || null;
+}
+function liftIdea(d){
+  d.on = true;
+  d.row.classList.add("is-lifted");
+  document.documentElement.classList.add("is-dragging");
+  const g = document.createElement("div");
+  g.className = "dragghost";
+  g.textContent = d.row.querySelector(".row__t")?.textContent || "";
+  document.body.append(g);
+  d.ghost = g;
+  if(d.touch) navigator.vibrate?.(10);
+  moveIdea(d.x, d.y);
+}
+function moveIdea(x, y){
+  const d = ideaDrag;
+  d.x = x; d.y = y;
+  if(!d.on) return;
+  d.ghost.style.left = (x + 12) + "px";
+  d.ghost.style.top = (y - 18) + "px";
+  const z = dropzoneAt(x, y);
+  document.querySelectorAll("[data-dropzone]").forEach(el => {
+    const on = el.dataset.dropzone === z;
+    el.classList.toggle("is-target", on);
+    el.querySelector(".readfold")?.classList.toggle("is-target", on);
+  });
+  // Held near the window's edge, the page scrolls along, so a long list can be crossed.
+  const edge = 70, step = y > innerHeight - edge ? 10 : y < edge ? -10 : 0;
+  if(step && !d.scroll) d.scroll = setInterval(() => { scrollBy(0, d.step); moveIdea(d.x, d.y); }, 16);
+  if(!step && d.scroll){ clearInterval(d.scroll); d.scroll = null; }
+  d.step = step;
+}
+function endIdeaDrag(drop){
+  const d = ideaDrag;
+  ideaDrag = null;
+  clearTimeout(d.hold); clearInterval(d.scroll);
+  if(!d.on) return;
+  d.ghost.remove();
+  d.row.classList.remove("is-lifted");
+  document.documentElement.classList.remove("is-dragging");
+  document.querySelectorAll(".is-target").forEach(el => el.classList.remove("is-target"));
+  swallowClick = true;
+  setTimeout(() => { swallowClick = false; });     // the click, if any, comes before this
+  const z = drop ? dropzoneAt(d.x, d.y) : null, i = data.ideas.find(x => x.id === d.id);
+  if(!i || !z || !!i.later === (z === "later")) return;
+  if(z === "later") i.later = true; else delete i.later;
+  save();
+  render({ keepScroll: true });
+}
+let swallowClick = false;
+document.addEventListener("click", e => {
+  if(swallowClick){ swallowClick = false; e.preventDefault(); e.stopPropagation(); }
+}, true);
+document.addEventListener("pointerdown", e => {
+  if(view !== "contents" || e.button > 0 || ideaDrag) return;
+  const row = e.target.closest("[data-dragidea]");
+  if(!row || e.target.closest(".del")) return;
+  const touch = e.pointerType !== "mouse";
+  ideaDrag = { id: row.dataset.dragidea, row, touch, on: false, x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY };
+  if(touch) ideaDrag.hold = setTimeout(() => ideaDrag && liftIdea(ideaDrag), 380);
+});
+document.addEventListener("pointermove", e => {
+  const d = ideaDrag;
+  if(!d) return;
+  const far = Math.hypot(e.clientX - d.x0, e.clientY - d.y0) > 6;
+  if(!d.on){
+    if(d.touch){ if(far){ clearTimeout(d.hold); ideaDrag = null; } return; }   // a swipe: let it scroll
+    d.x = e.clientX; d.y = e.clientY;
+    if(far) liftIdea(d);
+    return;
+  }
+  moveIdea(e.clientX, e.clientY);
+});
+document.addEventListener("pointerup", () => ideaDrag && endIdeaDrag(true));
+document.addEventListener("pointercancel", () => { if(ideaDrag && !ideaDrag.on) endIdeaDrag(false); });
+// Once an idea is lifted on a touch screen, the finger moves it rather than the page.
+document.addEventListener("touchmove", e => {
+  if(!ideaDrag?.on) return;
+  e.preventDefault();
+  const t = e.touches[0];
+  if(t) moveIdea(t.clientX, t.clientY);
+}, { passive: false });
+document.addEventListener("touchend", () => { if(ideaDrag?.on) endIdeaDrag(true); });
+document.addEventListener("contextmenu", e => { if(ideaDrag?.on || ideaDrag?.touch) e.preventDefault(); });
+
 /* ---------- navigation ---------- */
 const toggle = $("#toggle");
 function setMenu(open){
@@ -4783,6 +4913,11 @@ document.addEventListener("click", e => {
   }
   if(e.target.closest("[data-readfold]")){
     readFold = !readFold;
+    return render({ keepScroll: true });
+  }
+  const lf = e.target.closest("[data-laterfold]");
+  if(lf){
+    if(lf.dataset.laterfold === "src") laterSrcFold = !laterSrcFold; else laterFold = !laterFold;
     return render({ keepScroll: true });
   }
   if(e.target.closest("[data-rstatus]")){
