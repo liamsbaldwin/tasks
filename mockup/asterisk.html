@@ -510,6 +510,17 @@ html.is-dragging .readfold.is-target, html.is-dragging .readfold.is-target::afte
   .margin--inline,.page--road .rmpane{border-top:0}
 }
 [contenteditable]{outline:none}
+/* Italic type, an italic caret. A browser's own caret only ever stands upright, so while
+   the caret is in italics it goes clear and a drawn one, leaning at the font's own angle,
+   takes its place. */
+.caret-tilt{caret-color:transparent}
+#tiltcaret{
+  position:fixed; left:0; top:0; width:1px; z-index:20; pointer-events:none; display:none;
+  transform-origin:0 78%; animation:caretblink 1.06s steps(1) infinite;
+}
+#tiltcaret.on{display:block}
+@media (pointer:coarse){ #tiltcaret{width:2px} }
+@keyframes caretblink{ 0%{opacity:1} 50%{opacity:0} }
 [contenteditable].is-empty::before{content:attr(data-ph); color:var(--faint); font-style:italic}
 h1[contenteditable].is-empty::before,.pagetitle__t.is-empty::before,.pagedeck[contenteditable].is-empty::before,.tangent__h.is-empty::before{color:rgba(45,144,207,.42); font-style:normal}
 
@@ -5060,6 +5071,73 @@ window.addEventListener("popstate", () => {
   }
   render();
 });
+/* ---------- the italic caret ---------- */
+/*
+ * The caret leans when what is typed next would lean: inside <em>, in a field set in
+ * italics, or after ⌘I with nothing yet typed. queryCommandState knows all three; the
+ * computed style is the fallback for a browser that has dropped it. The angle is each
+ * font's own italic angle, from its post table: Newsreader 17°, Source Serif 12°.
+ */
+const tilt = { el: null, host: null, at: "" };
+function tiltBox(range){
+  const rs = range.getClientRects();
+  const b = rs[rs.length - 1];
+  if(b && b.height) return { x: b.left, y: b.top, h: b.height };
+  // An empty line has no text to measure: stand on the <br> holding it open, or the line.
+  const n = range.startContainer;
+  let el = n.nodeType === 1 ? (n.childNodes[range.startOffset] || n) : n.parentElement;
+  if(el.nodeType !== 1) el = el.parentElement;
+  const r = el.getBoundingClientRect(), cs = getComputedStyle(el);
+  if(!r.height) return null;
+  if(el.tagName === "BR") return { x: r.left, y: r.top, h: r.height };   // sized like the text would be
+  const fs = parseFloat(cs.fontSize), lh = parseFloat(cs.lineHeight) || fs * 1.62;
+  const h = Math.min(r.height, fs * 1.4);
+  return { x: r.left + (parseFloat(cs.paddingLeft) || 0),
+           y: r.top + (parseFloat(cs.paddingTop) || 0) + Math.max(0, (Math.min(lh, r.height) - h) / 2), h };
+}
+function placeTilt(){
+  const sel = document.getSelection();
+  const a = document.activeElement;
+  const host = a?.isContentEditable ? a.closest("[contenteditable]") : null;
+  let show = null;
+  if(host && sel.rangeCount && sel.isCollapsed && host.contains(sel.anchorNode) && !document.hidden){
+    const n = sel.anchorNode, el = n.nodeType === 1 ? n : n.parentElement;
+    const cs = getComputedStyle(el);
+    let italic;
+    try{ italic = document.queryCommandState("italic"); }catch{ italic = cs.fontStyle !== "normal"; }
+    if(italic){
+      const box = tiltBox(sel.getRangeAt(0));
+      if(box) show = { ...box, deg: /Newsreader/i.test(cs.fontFamily) ? 17 : 12, color: cs.color };
+    }
+  }
+  if(tilt.host && tilt.host !== host) tilt.host.classList.remove("caret-tilt");
+  tilt.host = show ? host : null;
+  host?.classList.toggle("caret-tilt", !!show);
+  if(!show){ tilt.el?.classList.remove("on"); tilt.at = ""; return; }
+  if(!tilt.el){ tilt.el = document.createElement("div"); tilt.el.id = "tiltcaret"; document.body.append(tilt.el); }
+  const c = tilt.el;
+  c.style.height = show.h + "px";
+  c.style.background = show.color;
+  c.style.transform = `translate(${show.x}px, ${show.y}px) skewX(-${show.deg}deg)`;
+  c.classList.add("on");
+  // Moving restarts the blink, so a caret being typed at stays lit, as the real one does.
+  const at = `${show.x},${show.y}`;
+  if(at !== tilt.at){ c.style.animation = "none"; void c.offsetWidth; c.style.animation = ""; tilt.at = at; }
+}
+let tiltQueued = false;
+function queueTilt(){
+  if(tiltQueued) return;
+  tiltQueued = true;
+  requestAnimationFrame(() => { tiltQueued = false; placeTilt(); });
+}
+// ⌘I with nothing selected changes no selection, so key and pointer ups count too; and
+// the toolbar easing open on focus moves the text down after the caret was placed.
+for(const ev of ["selectionchange", "input", "keyup", "pointerup", "focusin", "focusout", "transitionend", "resize", "visibilitychange"])
+  (ev === "resize" ? window : document).addEventListener(ev, queueTilt);
+document.addEventListener("scroll", queueTilt, { capture: true, passive: true });
+window.visualViewport?.addEventListener("resize", queueTilt);
+window.visualViewport?.addEventListener("scroll", queueTilt);
+
 routeFromHash();
 
 render();
